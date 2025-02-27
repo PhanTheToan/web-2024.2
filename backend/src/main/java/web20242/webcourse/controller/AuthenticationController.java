@@ -25,7 +25,6 @@ public class AuthenticationController {
         return ResponseEntity.ok(authenticationService.authenticate(request));
     }
 
-    @Transactional
     @PostMapping("/signup")
     public ResponseEntity<?> signup(@RequestBody User user) {
         try {
@@ -36,8 +35,44 @@ public class AuthenticationController {
             );
             return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
-            // Trả về response lỗi đẹp khi username trùng
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body("Error: " + e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error: " + e.getMessage());
+        }
+    }
+    @PostMapping("/teacher/signup")
+    public ResponseEntity<?> signupTeacher(@RequestBody User user) {
+        try {
+            user.setRole(ERole.ROLE_TEACHER); // Gán ROLE_USER
+            User createdUser = userService.createUser(user);
+            AuthenticationResponse response = authenticationService.authenticate(
+                    new AuthenticationRequest(createdUser.getUsername(), user.getPassword())
+            );
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body("Error: " + e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error: " + e.getMessage());
+        }
+    }
+    @PostMapping("/admin/signup")
+    public ResponseEntity<?> signupAdmin(@RequestBody User user) {
+        try {
+            user.setRole(ERole.ROLE_ADMIN); // Gán ROLE_USER
+            User createdUser = userService.createUser(user);
+            AuthenticationResponse response = authenticationService.authenticate(
+                    new AuthenticationRequest(createdUser.getUsername(), user.getPassword())
+            );
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body("Error: " + e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Error: " + e.getMessage());
         }
     }

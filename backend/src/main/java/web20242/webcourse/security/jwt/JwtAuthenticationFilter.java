@@ -1,6 +1,7 @@
 package web20242.webcourse.security.jwt;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.annotation.Order;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -18,6 +19,7 @@ import java.io.IOException;
 
 @Component
 @RequiredArgsConstructor
+@Order(5) // Đặt thứ tự trước UsernamePasswordAuthenticationFilter
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
@@ -26,16 +28,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
-        // Lấy URL của request để kiểm tra endpoint không cần token
+        // Cho phép tất cả các endpoint trong /api/auth không cần token hoặc credentials
         String requestURI = request.getRequestURI();
-
-        // Cho phép các endpoint trong /api/auth không cần token
         if (requestURI.startsWith("/api/auth")) {
             filterChain.doFilter(request, response);
             return;
         }
 
+        // Chỉ kiểm tra token cho các endpoint khác
         final String authHeader = request.getHeader("Authorization");
+
         final String jwt;
         final String username;
 

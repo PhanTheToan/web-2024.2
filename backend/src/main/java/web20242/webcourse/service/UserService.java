@@ -45,8 +45,10 @@ public class UserService implements UserDetailsService {
         if (userRepository.findByUsername(user.getUsername()).isPresent()) {
             throw new IllegalArgumentException("Username đã tồn tại!");
         }
+        if (user.getPassword() == null || user.getPassword().isEmpty()) {
+            throw new IllegalArgumentException("Password is required!");
+        }
         user.setPassword(passwordEncoder.encode(user.getPassword()));
-        user.setRole(ERole.ROLE_USER); // Đảm bảo gán ROLE_USER
         return userRepository.save(user);
     }
 }

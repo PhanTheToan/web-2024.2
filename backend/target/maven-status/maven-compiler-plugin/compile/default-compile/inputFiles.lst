@@ -1,4 +1,5 @@
 /home/phanthetoan1/PTT-Workspaces/2024.2/Web/web-2024.2/backend/src/main/java/web20242/webcourse/WebcourseApplication.java
+/home/phanthetoan1/PTT-Workspaces/2024.2/Web/web-2024.2/backend/src/main/java/web20242/webcourse/configuration/AuthBypassFilter.java
 /home/phanthetoan1/PTT-Workspaces/2024.2/Web/web-2024.2/backend/src/main/java/web20242/webcourse/configuration/PasswordConfig.java
 /home/phanthetoan1/PTT-Workspaces/2024.2/Web/web-2024.2/backend/src/main/java/web20242/webcourse/configuration/SecurityConfig.java
 /home/phanthetoan1/PTT-Workspaces/2024.2/Web/web-2024.2/backend/src/main/java/web20242/webcourse/controller/AuthenticationController.java
@@ -23,6 +24,7 @@
 /home/phanthetoan1/PTT-Workspaces/2024.2/Web/web-2024.2/backend/src/main/java/web20242/webcourse/repository/UserRepository.java
 /home/phanthetoan1/PTT-Workspaces/2024.2/Web/web-2024.2/backend/src/main/java/web20242/webcourse/security/dto/AuthenticationRequest.java
 /home/phanthetoan1/PTT-Workspaces/2024.2/Web/web-2024.2/backend/src/main/java/web20242/webcourse/security/dto/AuthenticationResponse.java
+/home/phanthetoan1/PTT-Workspaces/2024.2/Web/web-2024.2/backend/src/main/java/web20242/webcourse/security/jwt/AuthEntryPointJwt.java
 /home/phanthetoan1/PTT-Workspaces/2024.2/Web/web-2024.2/backend/src/main/java/web20242/webcourse/security/jwt/JwtAuthenticationFilter.java
 /home/phanthetoan1/PTT-Workspaces/2024.2/Web/web-2024.2/backend/src/main/java/web20242/webcourse/security/service/AuthenticationService.java
 /home/phanthetoan1/PTT-Workspaces/2024.2/Web/web-2024.2/backend/src/main/java/web20242/webcourse/security/service/JwtService.java
