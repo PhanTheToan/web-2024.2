@@ -3,6 +3,7 @@ package web20242.webcourse.security.service;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.stereotype.Service;
@@ -26,8 +27,10 @@ public class AuthenticationService {
             UserDetails userDetails = userDetailsService.loadUserByUsername(request.getUsername());
             String jwtToken = jwtService.generateToken(userDetails);
             return new AuthenticationResponse(jwtToken);
+        } catch (AuthenticationException e) {
+            throw new IllegalArgumentException("Đăng nhập thất bại: Sai username hoặc password");
         } catch (Exception e) {
-            throw new RuntimeException("Authentication failed: " + e.getMessage(), e);
+            throw new RuntimeException("Lỗi server khi xác thực: " + e.getMessage(), e);
         }
     }
 }

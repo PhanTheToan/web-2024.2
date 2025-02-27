@@ -1,3 +1,4 @@
+web20242/webcourse/security/dto/ApiResponse.class
 web20242/webcourse/security/service/AuthenticationService.class
 web20242/webcourse/model/Review$ReviewBuilder.class
 web20242/webcourse/security/jwt/AuthEntryPointJwt.class
@@ -24,7 +25,6 @@ web20242/webcourse/security/dto/AuthenticationResponse.class
 web20242/webcourse/model/Quiz.class
 web20242/webcourse/configuration/PasswordConfig.class
 web20242/webcourse/model/Course.class
-web20242/webcourse/configuration/AuthBypassFilter.class
 web2024/webcourse/model/Question.class
 web20242/webcourse/security/dto/AuthenticationRequest.class
 web20242/webcourse/repository/ImageRepository.class
