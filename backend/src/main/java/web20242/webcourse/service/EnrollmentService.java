@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import web20242.webcourse.model.Course;
 import web20242.webcourse.model.Enrollment;
 import web20242.webcourse.model.User;
+import web20242.webcourse.model.constant.EStatus;
 import web20242.webcourse.repository.CourseRepository;
 import web20242.webcourse.repository.EnrollmentRepository;
 import web20242.webcourse.repository.UserRepository;
@@ -25,7 +26,7 @@ public class EnrollmentService {
     @Autowired
     private CourseRepository courseRepository;
 
-    public Enrollment createEnrollment(String userIdHex, String courseIdHex, Double progress, String status, Double score, LocalDateTime completedAt) {
+    public Enrollment createEnrollment(String userIdHex, String courseIdHex, Double progress, EStatus status, Double score, LocalDateTime completedAt) {
         // Chuyển userIdHex và courseIdHex thành ObjectId
         ObjectId userId = new ObjectId(userIdHex);
         ObjectId courseId = new ObjectId(courseIdHex);

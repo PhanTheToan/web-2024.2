@@ -1,6 +1,7 @@
 package web20242.webcourse.controller;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
@@ -9,6 +10,7 @@ import web20242.webcourse.security.dto.AuthenticationResponse;
 import web20242.webcourse.security.service.AuthenticationService;
 import web20242.webcourse.service.UserService;
 import web20242.webcourse.model.User;
+import web20242.webcourse.model.constant.ERole;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -25,12 +27,19 @@ public class AuthenticationController {
 
     @Transactional
     @PostMapping("/signup")
-    public ResponseEntity<AuthenticationResponse> signup(@RequestBody User user) {
-        User createdUser = userService.createUser(user); // Tạo user mới
-        AuthenticationResponse response = authenticationService.authenticate(
-                new AuthenticationRequest(createdUser.getUsername(), user.getPassword())
-        ); // Tự động đăng nhập sau khi signup
-        return ResponseEntity.ok(response);
+    public ResponseEntity<?> signup(@RequestBody User user) {
+        try {
+            user.setRole(ERole.ROLE_USER); // Gán ROLE_USER
+            User createdUser = userService.createUser(user);
+            AuthenticationResponse response = authenticationService.authenticate(
+                    new AuthenticationRequest(createdUser.getUsername(), user.getPassword())
+            );
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            // Trả về response lỗi đẹp khi username trùng
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body("Error: " + e.getMessage());
+        }
     }
 
     @PostMapping("/signout")

@@ -8,6 +8,7 @@ import org.bson.types.ObjectId;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
+import web20242.webcourse.model.constant.ECategory;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -31,7 +32,7 @@ public class Course {
     private ObjectId teacherId; // ID của user có role là "TEACHER"
 
     @Field(name = "categories")
-    private List<String> categories; // Danh mục khóa học
+    private List<ECategory> categories; // Danh mục khóa học
 
     @Field(name = "thumbnail")
     private String thumbnail; // URL ảnh

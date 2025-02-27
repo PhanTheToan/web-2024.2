@@ -9,6 +9,7 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
 import org.springframework.data.mongodb.core.mapping.FieldType;
+import web20242.webcourse.model.constant.EStatus;
 
 import java.time.LocalDateTime;
 
@@ -31,7 +32,7 @@ public class Enrollment {
     private Double progress; // Tiến độ hoàn thành (%), dùng Double thay cho Number
 
     @Field(name = "status")
-    private String status; // "In Progress", "Completed"
+    private EStatus status; // "In Progress", "Completed"
 
     @Field(name = "score")
     private Double score; // Điểm số nếu có bài quiz, dùng Double thay cho Number

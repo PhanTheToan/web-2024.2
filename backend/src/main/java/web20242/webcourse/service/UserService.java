@@ -1,23 +1,34 @@
 package web20242.webcourse.service;
 
-import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.authority.SimpleGrantedAuthority; // Import đúng
+import lombok.Setter;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import web20242.webcourse.model.User;
+import web20242.webcourse.model.constant.ERole;
 import web20242.webcourse.repository.UserRepository;
 
 import java.util.Collections;
 
 @Service
-@RequiredArgsConstructor
+@Setter
 public class UserService implements UserDetailsService {
 
     private final UserRepository userRepository;
-    private final PasswordEncoder passwordEncoder;
+    private PasswordEncoder passwordEncoder;
+
+    public UserService(UserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
+
+    @Autowired
+    public void setPasswordEncoder(PasswordEncoder passwordEncoder) {
+        this.passwordEncoder = passwordEncoder;
+    }
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
@@ -26,7 +37,7 @@ public class UserService implements UserDetailsService {
         return new org.springframework.security.core.userdetails.User(
                 user.getUsername(),
                 user.getPassword(),
-                Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + user.getRole()))
+                Collections.singletonList(new SimpleGrantedAuthority(user.getRole().name()))
         );
     }
 
@@ -34,7 +45,8 @@ public class UserService implements UserDetailsService {
         if (userRepository.findByUsername(user.getUsername()).isPresent()) {
             throw new IllegalArgumentException("Username đã tồn tại!");
         }
-        user.setPassword(passwordEncoder.encode(user.getPassword())); // Mã hóa mật khẩu
+        user.setPassword(passwordEncoder.encode(user.getPassword()));
+        user.setRole(ERole.ROLE_USER); // Đảm bảo gán ROLE_USER
         return userRepository.save(user);
     }
 }

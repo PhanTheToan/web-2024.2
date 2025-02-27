@@ -1,5 +1,6 @@
 package web20242.webcourse.model;
 
+import com.fasterxml.jackson.databind.annotation.EnumNaming;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -10,6 +11,7 @@ import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
 import org.springframework.data.mongodb.core.mapping.FieldType;
 import org.springframework.format.annotation.DateTimeFormat;
+import web20242.webcourse.model.constant.ERole;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -31,7 +33,7 @@ public class User {
     private String password;
 
     @Field(name = "role")
-    private String role; // "ADMIN", "TEACHER", "USER"
+    private ERole role; // "ADMIN", "TEACHER", "USER"
 
     @Field(name = "first_name")
     private String firstName;
