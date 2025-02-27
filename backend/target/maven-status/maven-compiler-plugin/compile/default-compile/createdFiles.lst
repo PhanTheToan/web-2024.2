@@ -1,0 +1,3 @@
+web20242/webcourse/config/SecurityConfig.class
+web20242/webcourse/security/jwt/JwtAuthenticationFilter.class
+web20242/webcourse/WebcourseApplication.class
