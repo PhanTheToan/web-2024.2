@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { Sider } from "./components/sider/Sider";
-import { Search } from "./components/search/Search";
 import { Footer } from "./components/footer/Footer";
+import { Suspense } from "react";
+import { Header } from "./components/header/Header";
 
 export const metadata: Metadata = {
   title: "Learning System",
@@ -16,15 +16,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="vi">
-      <body>
+      <body className="">
         <div className="container mx-auto">
-          <div className="">
-            <div className="">
-              <Sider />
-            </div>
-            <div className="">
-              <Search />
-              <main className="">
+          <div className="flex items-start">
+            <div className="flex-1 ml-[20px]">
+              <Suspense>
+                <Header />
+              </Suspense>
+              <main className="mt-[30px] mb-[150px]">
                 {children}
               </main>
             </div>
