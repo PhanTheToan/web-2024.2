@@ -14,7 +14,7 @@ export const Header = () => {
                         </Link>
 
                         <Link href="#" className="font-[700] sm:text-[32px] text-[25px] text-primary md:flex-none flex-1">
-                            EduPress
+                            <img src="https://edupress.thimpress.com/wp-content/uploads/2024/01/logo-png.png" />
                         </Link>
 
                         <nav className="md:block hidden">

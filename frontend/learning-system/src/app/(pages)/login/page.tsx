@@ -1,14 +1,20 @@
 import type { Metadata } from "next";
+import { FormLogin } from "./FormLogin";
 
 export const metadata: Metadata = {
-  title: "Trang đăng nhập",
-  description: "Trang đăng nhập"
+  title: "Đăng nhập",
+  description: "",
 };
 
 export default function LoginPage() {
   return (
     <>
-      <h1 className="text-[38px] font-[700]">Trang đăng nhập</h1>
+      <div className="mt-[60px] w-[500px] mx-auto">
+        <div className={"font-[700] text-[24px] text-[#333333] mb-[20px] text-center"}>
+        Đăng Nhập Tài Khoản
+        </div>
+        <FormLogin />
+      </div>
     </>
-  )
+  );
 }
