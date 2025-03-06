@@ -20,22 +20,22 @@ export const Header = () => {
                         <nav className="md:block hidden">
                             <ul className="flex gap-[24px]">
                                 <li className="">
-                                    <Link href="#" className="font-[400] text-[16px] text-black">
+                                    <Link href="#" className="font-[600] text-[16px] text-[#333333]">
                                         Trang chủ
                                     </Link>
                                 </li>
                                 <li className="">
-                                    <Link href="#" className="font-[400] text-[16px] text-black">
+                                    <Link href="#" className="font-[600] text-[16px] text-[#333333]">
                                         Các khóa học
                                     </Link>
                                 </li>
                                 <li className="">
-                                    <Link href="#" className="font-[400] text-[16px] text-black">
+                                    <Link href="#" className="font-[600] text-[16px] text-[#333333]">
                                         Blog
                                     </Link>
                                 </li>
                                 <li className="">
-                                    <Link href="#" className="font-[400] text-[16px] text-black">
+                                    <Link href="#" className="font-[600] text-[16px] text-[#333333]">
                                         Liên Hệ
                                     </Link>
                                 </li>

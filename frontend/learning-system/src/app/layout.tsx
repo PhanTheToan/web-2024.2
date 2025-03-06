@@ -17,9 +17,9 @@ export default function RootLayout({
   return (
     <html lang="vi">
       <body className="">
-        <div className="container mx-auto">
-          <div className="flex items-start">
-            <div className="flex-1 ml-[20px]">
+        <div className="">
+          <div className="">
+            <div className="flex-1">
               <Suspense>
                 <Header />
               </Suspense>

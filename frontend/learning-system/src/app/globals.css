@@ -6,4 +6,10 @@
 
 * {
   font-family: "Be Vietnam Pro", serif;
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
 }
