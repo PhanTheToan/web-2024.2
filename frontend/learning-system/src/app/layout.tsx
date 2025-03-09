@@ -23,7 +23,7 @@ export default function RootLayout({
               <Suspense>
                 <Header />
               </Suspense>
-              <main className="mt-[30px] mb-[150px]">
+              <main className="mt-[10px] mb-[150px]">
                 {children}
               </main>
             </div>

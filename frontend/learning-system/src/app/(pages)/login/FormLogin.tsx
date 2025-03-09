@@ -3,19 +3,18 @@
 import { useRouter } from "next/navigation";
 
 export const FormLogin = () => {
-
   return (
     <>
       <form className="">
         <div className="mb-[15px]">
-          <label 
-            className="block mb-[5px] font-[600] text-[14px] " 
+          <label
+            className="block mb-[5px] font-[600] text-[14px]"
             htmlFor="email"
           >
             <span className="text-[#333333]">Email</span>
             <span className="text-[#FF782D] ml-[5px]">*</span>
           </label>
-          <input 
+          <input
             type="email"
             name="email"
             id="email"
@@ -25,14 +24,14 @@ export const FormLogin = () => {
           />
         </div>
         <div className="mb-[15px]">
-          <label 
-            className="block mb-[5px] font-[600] text-[14px]" 
+          <label
+            className="block mb-[5px] font-[600] text-[14px]"
             htmlFor="password"
           >
             <span className="text-[#333333]">Mật Khẩu</span>
             <span className="text-[#FF782D] ml-[5px]">*</span>
           </label>
-          <input 
+          <input
             type="password"
             name="password"
             id="password"
@@ -40,6 +39,17 @@ export const FormLogin = () => {
             required={true}
           />
         </div>
+
+        {/* Dòng "Quên mật khẩu?" thêm vào đây */}
+        <div className="mb-[15px] text-right">
+          <a
+            href="/forgot-password"
+            className="text-[#f53636] text-[14px] hover:underline"
+          >
+            Quên mật khẩu?
+          </a>
+        </div>
+
         <button
           type="submit"
           className="h-[50px] w-full bg-[#FF782D] text-white rounded-[6px] font-[600] text-[16px]"
