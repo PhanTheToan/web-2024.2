@@ -17,7 +17,7 @@ export default function RootLayout({
   return (
     <html lang="vi">
       <body>
-        <div className="container mx-auto">
+        <div className="">
           <div className="">
             <div className="">
               <Sider />
