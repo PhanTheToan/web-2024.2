@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, {useState} from "react";
 import SidebarSection from "./SidebarSection";
 import CategoryList from "./CategoryList";
 import InstructorList from "./InstructorList";

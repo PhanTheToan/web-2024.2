@@ -1,4 +1,4 @@
-// Common types for the EduPress course listing
+
 
 export interface CourseData {
     id: string;

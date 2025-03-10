@@ -20,15 +20,25 @@ const filterOptions = [
 interface CourseListingHeaderProps {
   onViewChange: (view: "grid" | "list") => void;
   toggleSidebar: () => void; // Bắt buộc prop toggleSidebar
+  initialViewMode?: "grid" | "list";
+  isMobile?: boolean;
 }
 
 const CourseListingHeader: React.FC<CourseListingHeaderProps> = ({
   onViewChange,
   toggleSidebar,
+  initialViewMode = "grid",
+  isMobile = false
+
 }) => {
   const [filter, setFilter] = useState("Newly published");
   const [isDropdownOpen, setDropdownOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [viewMode, setViewMode] = useState<"grid" | "list">(initialViewMode);
+
+  // Update local state when initialViewMode changes
+  React.useEffect(() => {
+    setViewMode(initialViewMode);
+  }, [initialViewMode]);
 
   const handleViewChange = (view: "grid" | "list") => {
     setViewMode(view);
@@ -89,7 +99,7 @@ const CourseListingHeader: React.FC<CourseListingHeaderProps> = ({
               </ul>
             )}
           </div>
-
+            {!isMobile &&(
           <div className="hidden sm:flex border border-gray-300 rounded-full overflow-hidden">
             <button
               onClick={() => handleViewChange("grid")}
@@ -120,6 +130,7 @@ const CourseListingHeader: React.FC<CourseListingHeaderProps> = ({
               />
             </button>
           </div>
+            )}
           {/* Button toggle sidebar chỉ hiển thị trên mobile */}
           <button
             onClick={toggleSidebar}
