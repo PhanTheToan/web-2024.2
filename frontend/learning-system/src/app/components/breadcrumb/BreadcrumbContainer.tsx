@@ -24,7 +24,7 @@ const BreadcrumbContainer = () => {
         {pathSegments.map((segment, index) => {
           const href = "/" + pathSegments.slice(0, index + 1).join("/");
           const isLast = index === pathSegments.length - 1;
-          const isCourse = segment.toLowerCase() === "courses"; // Kiểm tra nếu là "courses"
+          // const isCourse = segment.toLowerCase() === "courses"; // Kiểm tra nếu là "courses"
 
           return (
             <React.Fragment key={href}>
@@ -40,7 +40,7 @@ const BreadcrumbContainer = () => {
                 ) : (
                   <Link
                     href={href}
-                    className={`capitalize hover:underline ${isCourse ? "underline" : ""}`} // Thêm gạch chân nếu là "courses"
+                    className={`capitalize hover:underline }`} 
                   >
                     {formatSegment(segment)}
                   </Link>
