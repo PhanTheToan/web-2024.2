@@ -15,7 +15,6 @@ import web20242.webcourse.repository.UserRepository;
 import java.util.Collections;
 
 @Service
-@Setter
 public class UserService implements UserDetailsService {
 
     private final UserRepository userRepository;
