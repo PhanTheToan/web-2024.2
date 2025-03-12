@@ -116,7 +116,7 @@ public class AuthenticationController {
     @PostMapping("/teacher/signup")
     public ResponseEntity<?> signupTeacher(@RequestBody User user) {
         try {
-            user.setRole(ERole.ROLE_USER);
+            user.setRole(ERole.ROLE_TEACHER);
             User createdUser = userService.createUser(user);
             String token = jwtService.generateToken(userDetailsService.loadUserByUsername(createdUser.getUsername()));
             AuthenticationResponse authResponse = new AuthenticationResponse(token);
@@ -145,7 +145,7 @@ public class AuthenticationController {
     @PostMapping("/admin/signup")
     public ResponseEntity<?> signupAdmin(@RequestBody User user) {
         try {
-            user.setRole(ERole.ROLE_USER);
+            user.setRole(ERole.ROLE_ADMIN);
             User createdUser = userService.createUser(user);
             String token = jwtService.generateToken(userDetailsService.loadUserByUsername(createdUser.getUsername()));
             AuthenticationResponse authResponse = new AuthenticationResponse(token);
