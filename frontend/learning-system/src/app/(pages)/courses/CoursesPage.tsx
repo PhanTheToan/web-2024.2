@@ -8,13 +8,14 @@ import Pagination from "@/app/components/pagination/Pagination";
 import Sidebar from "@/app/components/sidebar/Sidebar";
 // import CourseCard_grid from "@/app/components/coursecard/CourseCard_grid";
 import {
-  CourseData,
+  Course,
   CategoryItem,
   InstructorItem,
   PriceItem,
   ReviewItem,
   FilterState,
 } from "@/app/types";
+import { mockCourses } from "@/data/mockCourses";
 
 const CoursesPage: React.FC = () => {
   const [isMobile, setIsMobile] = useState<boolean>(false);
@@ -44,106 +45,6 @@ const CoursesPage: React.FC = () => {
   //     isCurrent: true,
   //   },
   // ];
-
-  // Mock data for courses
-  const courses: CourseData[] = [
-    {
-      id: "1",
-      thumbnail:
-        "https://cdn.builder.io/api/v1/image/assets/TEMP/fda21530622fe38291ec0a2264501ea0e551e50a",
-      category: "Photography",
-      author: "Determined-Poitras",
-      title: "Create an LMS Website with LearnPress",
-      duration: "2Weeks",
-      students: 156,
-      level: "All levels",
-      lessons: 20,
-      originalPrice: "$29.0",
-      currentPrice: "$19.0",
-      isFree: true,
-      description: "",
-    },
-    {
-      id: "2",
-      thumbnail:
-        "https://cdn.builder.io/api/v1/image/assets/TEMP/822e08a85e97d69368fc5fcff168768da4190aa8",
-      category: "Photography",
-      author: "Determined-Poitras",
-      title: "Create an LMS Website with LearnPress",
-      duration: "2Weeks",
-      students: 156,
-      level: "All levels",
-      lessons: 20,
-      originalPrice: "$29.0",
-      currentPrice: "$19.0",
-      isFree: true,
-      description: "",
-    },
-    {
-      id: "3",
-      thumbnail:
-        "https://cdn.builder.io/api/v1/image/assets/TEMP/75e9a6d3527f8358017a1b97d39266a7b07ff0af",
-      category: "Photography",
-      author: "Determined-Poitras",
-      title: "Create an LMS Website with LearnPress",
-      duration: "2Weeks",
-      students: 156,
-      level: "All levels",
-      lessons: 20,
-      originalPrice: "$29.0",
-      currentPrice: "$19.0",
-      isFree: true,
-      description: "",
-    },
-    {
-      id: "4",
-      thumbnail:
-        "https://cdn.builder.io/api/v1/image/assets/TEMP/8c4cabfdb4bf421c057f3950a06ff3ea087e2efe",
-      category: "Photography",
-      author: "Determined-Poitras",
-      title: "Create an LMS Website with LearnPress",
-      duration: "2Weeks",
-      students: 156,
-      level: "All levels",
-      lessons: 20,
-      originalPrice: "$29.0",
-      currentPrice: "$19.0",
-      isFree: false,
-      description: "",
-    },
-    {
-      id: "5",
-      thumbnail:
-        "https://cdn.builder.io/api/v1/image/assets/TEMP/3cd1ae15aa658b019b48ecd36cdc50e49bd20aed",
-      category: "Photography",
-      author: "Determined-Poitras",
-      title: "Create an LMS Website with LearnPress",
-      duration: "2Weeks",
-      students: 156,
-      level: "All levels",
-      lessons: 20,
-      originalPrice: "$29.0",
-      currentPrice: "$19.0",
-      isFree: true,
-      description: "",
-    },
-    {
-      id: "6",
-      thumbnail:
-        "https://cdn.builder.io/api/v1/image/assets/TEMP/118e455f3dc8876acb9744895f84ef1a1fb26c08",
-      category: "Photography",
-      author: "Determined-Poitras",
-      title: "Create an LMS Website with LearnPress",
-      duration: "2Weeks",
-      students: 156,
-      level: "All levels",
-      lessons: 20,
-      originalPrice: "$29.0",
-      currentPrice: "$19.0",
-      isFree: false,
-      description: "",
-    },
-  ];
 
   // Mock data for sidebar
   const categories: CategoryItem[] = [
@@ -201,9 +102,9 @@ const CoursesPage: React.FC = () => {
   // };
 
   const itemsPerPage = 9;
-  const totalPages = Math.ceil(courses.length / itemsPerPage);
+  const totalPages = Math.ceil(mockCourses.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const displayedCourses = courses.slice(
+  const displayedCourses = mockCourses.slice(
     startIndex,
     startIndex + itemsPerPage,
   );
@@ -247,45 +148,30 @@ const CoursesPage: React.FC = () => {
               className={`grid gap-6 ${(viewMode === "grid"|| isMobile) ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-3" : "grid-cols-1"}`}
             >
               {displayedCourses.map((course) => (
-                <CourseCard key={course.id} course={course} viewMode={viewMode} />
+                <CourseCard key={course._id} course={course} variant={viewMode} />
               ))}
             </div>
 
-            <div className="mt-8 flex justify-center">
-              <div className="flex gap-2">
-                {Array.from({ length: totalPages }, (_, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setCurrentPage(i + 1)}
-                    className={`px-4 py-2 rounded-lg ${currentPage === i + 1 ? "bg-primary-600 text-white" : "bg-white text-gray-700 hover:bg-gray-50"}`}
-                  >
-                    {i + 1}
-                  </button>
-                ))}
-              </div>
+            <div className="mt-8">
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={handlePageChange}
+              />
             </div>
           </div>
 
-          <aside className="w-full md:w-80">
-            <Sidebar
-              categories={categories}
-              instructors={instructors}
-              prices={prices}
-              reviews={reviews}
-              onFiltersChange={handleFiltersChange}
-              initialFilters={filters}
-              isCollapsed={isSidebarCollapsed} // Truyền trạng thái
-              toggleSidebar={toggleSidebar} // Truyền hàm toggle
-            />
-          </aside>
+          <Sidebar
+            categories={categories}
+            instructors={instructors}
+            prices={prices}
+            reviews={reviews}
+            onFiltersChange={handleFiltersChange}
+            isCollapsed={isSidebarCollapsed}
+            onToggleCollapse={toggleSidebar}
+          />
         </div>
       </main>
-
-      <Pagination
-        currentPage={currentPage}
-        totalPages={Math.ceil(courses.length / itemsPerPage)}
-        onPageChange={handlePageChange}
-      />
     </div>
   );
 };

@@ -15,7 +15,7 @@ const BreadcrumbContainer = () => {
   const pathSegments = pathname.split("/").filter(Boolean);
 
   return (
-    <nav className="flex items-center p-2.5 w-full bg-neutral-100 h-[60px]" aria-label="Breadcrumb">
+    <nav className="flex items-center p-2.5 w-full bg-white h-[40px] border-t-2 border-grey" aria-label="Breadcrumb">
       <ol className="flex gap-2 items-center w-full max-w-[1290px] px-5">
         <li className="text-base leading-6 text-neutral-600">
           <Link href="/" className="hover:underline">Homepage</Link>

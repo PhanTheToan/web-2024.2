@@ -1,4 +1,4 @@
-import React, {useState} from "react";
+import React from "react";
 import SidebarSection from "./SidebarSection";
 import CategoryList from "./CategoryList";
 import InstructorList from "./InstructorList";
@@ -11,6 +11,7 @@ import {
   ReviewItem,
   FilterState,
 } from "@/app/types";
+import { X } from 'lucide-react';
 
 interface SidebarProps {
   categories: CategoryItem[];
@@ -19,8 +20,8 @@ interface SidebarProps {
   reviews: ReviewItem[];
   onFiltersChange: (filters: FilterState) => void;
   initialFilters?: FilterState;
-  isCollapsed: boolean; // Nhận trạng thái từ parent
-  toggleSidebar: () => void;
+  isCollapsed: boolean;
+  onToggleCollapse: () => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -34,10 +35,9 @@ const Sidebar: React.FC<SidebarProps> = ({
     instructors: [],
     prices: [],
     reviews: [],
-    
   },
   isCollapsed,
-  toggleSidebar
+  onToggleCollapse
 }) => {
   const [filters, setFilters] = React.useState<FilterState>(initialFilters);
 
@@ -65,41 +65,31 @@ const Sidebar: React.FC<SidebarProps> = ({
     onFiltersChange(newFilters);
   };
 
-  // const [isCollapsed, setIsCollapsed] = useState(false);
-
-  // const toggleSidebar = () => {
-  //   setIsCollapsed(!isCollapsed);
-  // };
-
   return (
     <>
-      {/* Mobile toggle button - Always visible on mobile */}
-      
-
-      {/* Sidebar overlay for mobile */}
       <div
-        className={`fixed inset-0 bg-white bg-opacity-50 z-40 transition-opacity duration-300 md:hidden ${
+        className={`fixed inset-0 bg-black/60 backdrop-blur-sm z-40 transition-opacity duration-300 md:hidden ${
           isCollapsed ? "opacity-100 visible" : "opacity-0 invisible"
         }`}
-        onClick={toggleSidebar}
+        onClick={onToggleCollapse}
       ></div>
 
-<aside 
-        className={`w-[270px] md:relative md:block fixed top-0 left-0 z-40 h-full bg-white overflow-y-auto transition-transform duration-300 ease-in-out ${
-          isCollapsed ? 'translate-x-0' : '-translate-x-full'
-        } md:translate-x-0 p-4 md:p-0`}
+      <aside 
+        className={`w-[300px] md:relative md:block fixed top-0 right-0 z-50 h-full bg-white overflow-y-auto transition-transform duration-300 ease-in-out ${
+          isCollapsed ? 'translate-x-0' : 'translate-x-full'
+        } md:translate-x-0 p-6 md:p-6 shadow-lg border-l border-gray-200`}
       >
-        <div className="flex justify-between items-center mb-6 md:hidden">
-          <h2 className="text-xl font-bold">Filters</h2>
+        <div className="flex justify-between items-center mb-8 md:hidden">
+          <h2 className="text-xl font-bold text-gray-900">Filters</h2>
           <button 
-            onClick={toggleSidebar}
-            className="p-2 text-gray-500 hover:text-gray-700"
+            onClick={onToggleCollapse}
+            className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
           >
-            ✕
+            <X size={20} />
           </button>
         </div>
 
-        
+        <div className="space-y-8">
           <SidebarSection title="Course category">
             <CategoryList
               categories={categories}
@@ -131,7 +121,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               selectedReviews={filters.reviews}
             />
           </SidebarSection>
-       
+        </div>
       </aside>
     </>
   );

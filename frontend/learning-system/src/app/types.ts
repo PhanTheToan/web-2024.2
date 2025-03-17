@@ -47,3 +47,42 @@ export interface CourseData {
     reviews: number[];
   }
   
+  export interface Lesson {
+    title: string;
+    description: string;
+  }
+
+  export interface User {
+    _id: string;
+    username: string;
+    password: string;
+    role: 'ADMIN' | 'TEACHER' | 'USER';
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone?: string;
+    dateOfBirth?: Date;
+    gender?: 'Male' | 'Female' | 'Other';
+    profileImage?: string;
+    coursesEnrolled: string[];
+    createdAt: Date;
+    updatedAt: Date;
+  }
+  
+  export interface Course {
+    _id: string;
+    title: string;
+    description: string;
+    teacherId: User;
+    categories: string[];
+    thumbnail?: string;
+    price: number;
+    studentsEnrolled: User[];
+    lessons: Lesson[];
+    quizzes: string[];
+    duration: string;
+    rating: number;
+    requirements: string[];
+    createdAt: Date;
+    updatedAt: Date;
+  }
