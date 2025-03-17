@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { FaBars, FaSearch} from "react-icons/fa";
 import { FaRegCircleUser } from "react-icons/fa6";
-import { MdOutlineCastForEducation } from "react-icons/md";
+import { IoIosLogIn } from "react-icons/io";
 
 export const Header = () => {
     return (
@@ -54,7 +54,7 @@ export const Header = () => {
                                 <FaSearch />
                             </Link>
                             <Link href="#" className="sm:text-[22px] text-[20px] text-primary">
-                                <MdOutlineCastForEducation />
+                                <IoIosLogIn />
                             </Link>
                             <Link href="#" className="sm:text-[22px] text-[20px] text-primary">
                                 <FaRegCircleUser />

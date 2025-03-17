@@ -3,6 +3,8 @@ import "./globals.css";
 import { Footer } from "./components/footer/Footer";
 import { Suspense } from "react";
 import { Header } from "./components/header/Header";
+import { usePathname } from "next/navigation";
+import { Sider } from "./components/sider/Sider";
 
 export const metadata: Metadata = {
   title: "Learning System",
@@ -14,6 +16,8 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+const pathname = usePathname();
+
   return (
     <html lang="vi">
       <body className="">
@@ -34,3 +38,4 @@ export default function RootLayout({
     </html>
   );
 }
+
