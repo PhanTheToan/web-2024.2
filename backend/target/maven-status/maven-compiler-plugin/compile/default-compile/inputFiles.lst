@@ -7,6 +7,7 @@
 /home/phanthetoan1/PTT-Workspaces/2024.2/Web/web-2024.2/backend/src/main/java/web20242/webcourse/model/Enrollment.java
 /home/phanthetoan1/PTT-Workspaces/2024.2/Web/web-2024.2/backend/src/main/java/web20242/webcourse/model/Image.java
 /home/phanthetoan1/PTT-Workspaces/2024.2/Web/web-2024.2/backend/src/main/java/web20242/webcourse/model/Lesson.java
+/home/phanthetoan1/PTT-Workspaces/2024.2/Web/web-2024.2/backend/src/main/java/web20242/webcourse/model/OtpData.java
 /home/phanthetoan1/PTT-Workspaces/2024.2/Web/web-2024.2/backend/src/main/java/web20242/webcourse/model/Question.java
 /home/phanthetoan1/PTT-Workspaces/2024.2/Web/web-2024.2/backend/src/main/java/web20242/webcourse/model/Quiz.java
 /home/phanthetoan1/PTT-Workspaces/2024.2/Web/web-2024.2/backend/src/main/java/web20242/webcourse/model/Review.java
