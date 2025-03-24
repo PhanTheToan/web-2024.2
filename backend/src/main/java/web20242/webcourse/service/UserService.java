@@ -13,6 +13,7 @@ import web20242.webcourse.model.constant.ERole;
 import web20242.webcourse.repository.UserRepository;
 
 import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -66,5 +67,8 @@ public class UserService implements UserDetailsService {
     }
     public User findByEmail(String email) {
         return userRepository.findByEmail(email).orElse(null);
+    }
+    public List<User> findAllUsers() {
+        return userRepository.findAll();
     }
 }

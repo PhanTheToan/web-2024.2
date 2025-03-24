@@ -3,6 +3,7 @@
 /home/phanthetoan1/PTT-Workspaces/2024.2/Web/web-2024.2/backend/src/main/java/web20242/webcourse/configuration/SecurityConfig.java
 /home/phanthetoan1/PTT-Workspaces/2024.2/Web/web-2024.2/backend/src/main/java/web20242/webcourse/controller/AuthenticationController.java
 /home/phanthetoan1/PTT-Workspaces/2024.2/Web/web-2024.2/backend/src/main/java/web20242/webcourse/controller/EnrollmentController.java
+/home/phanthetoan1/PTT-Workspaces/2024.2/Web/web-2024.2/backend/src/main/java/web20242/webcourse/controller/UserController.java
 /home/phanthetoan1/PTT-Workspaces/2024.2/Web/web-2024.2/backend/src/main/java/web20242/webcourse/model/Course.java
 /home/phanthetoan1/PTT-Workspaces/2024.2/Web/web-2024.2/backend/src/main/java/web20242/webcourse/model/Enrollment.java
 /home/phanthetoan1/PTT-Workspaces/2024.2/Web/web-2024.2/backend/src/main/java/web20242/webcourse/model/Image.java
