@@ -13,6 +13,7 @@ import web20242.webcourse.model.constant.ERole;
 import web20242.webcourse.repository.UserRepository;
 
 import java.util.Collections;
+import java.util.Optional;
 
 @Service
 public class UserService implements UserDetailsService {
@@ -39,7 +40,10 @@ public class UserService implements UserDetailsService {
                 Collections.singletonList(new SimpleGrantedAuthority(user.getRole().name()))
         );
     }
-
+    public User updateUser(User user) {
+        user.setPassword(passwordEncoder.encode(user.getPassword()));
+        return userRepository.save(user);
+    }
     public User createUser(User user) {
         if (userRepository.findByUsername(user.getUsername()).isPresent()) {
             throw new IllegalArgumentException("Username đã tồn tại!");
@@ -56,5 +60,11 @@ public class UserService implements UserDetailsService {
     }
     public boolean existsByUsername(String username){
         return userRepository.findByUsername(username).isPresent();
+    }
+    public User findByUsername(String username){
+        return userRepository.findByUsername(username).orElse(null);
+    }
+    public User findByEmail(String email) {
+        return userRepository.findByEmail(email).orElse(null);
     }
 }

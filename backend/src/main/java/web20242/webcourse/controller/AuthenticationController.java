@@ -1,6 +1,9 @@
 package web20242.webcourse.controller;
 
 
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -40,10 +43,67 @@ public class AuthenticationController {
 
     private final Map<String, OtpData> otpStorage = new HashMap<>();
 
+    // Check token
+    @GetMapping("/check")
+    public ResponseEntity<?> checkAuthentication(HttpServletRequest request) {
+        try {
+            String token = getJwtFromCookies(request);
+            if (token == null || !jwtService.validateToken(token)) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(new ApiResponse<>(HttpStatus.UNAUTHORIZED.value(), "Authentication failed!", null));
+            }
+
+            String username = jwtService.extractUsername(token);
+            User user = userService.findByUsername(username);
+            if (user == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(new ApiResponse<>(HttpStatus.NOT_FOUND.value(), "User not found!", null));
+            }
+
+            Map<String, Object> userInfo = new HashMap<>();
+            userInfo.put("id", user.getId().toString());
+            userInfo.put("username", user.getUsername());
+            userInfo.put("email", user.getEmail());
+            userInfo.put("role", user.getRole().name());
+            userInfo.put("firstName", user.getFirstName());
+            userInfo.put("lastName", user.getLastName());
+            userInfo.put("phone", user.getPhone());
+            userInfo.put("dateOfBirth", user.getDateOfBirth());
+            userInfo.put("gender", user.getGender());
+            userInfo.put("profileImage", user.getProfileImage());
+            userInfo.put("coursesEnrolled", user.getCoursesEnrolled());
+            userInfo.put("createdAt", user.getCreatedAt());
+            userInfo.put("updatedAt", user.getUpdatedAt());
+
+            return ResponseEntity.ok(new ApiResponse<>(HttpStatus.OK.value(), "User authenticated", userInfo));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(HttpStatus.INTERNAL_SERVER_ERROR.value(), "Error: " + e.getMessage(), null));
+        }
+    }
+
+    private String getJwtFromCookies(HttpServletRequest request) {
+        Cookie[] cookies = request.getCookies();
+        if (cookies != null) {
+            for (Cookie cookie : cookies) {
+                if ("jwtToken".equals(cookie.getName())) {
+                    return cookie.getValue();
+                }
+            }
+        }
+        return null;
+    }
+
     // Login
     @PostMapping("/login")
-    public ResponseEntity<AuthenticationResponse> login(@RequestBody AuthenticationRequest request) {
-        return ResponseEntity.ok(authenticationService.authenticate(request));
+    public ResponseEntity<AuthenticationResponse> login(@RequestBody AuthenticationRequest request, HttpServletResponse response) {
+        AuthenticationResponse authResponse = authenticationService.authenticate(request);
+        Cookie cookie = new Cookie("jwtToken", authResponse.getToken());
+        cookie.setHttpOnly(true);
+        cookie.setPath("/");
+        cookie.setMaxAge(24 * 60 * 60);
+        response.addCookie(cookie);
+        return ResponseEntity.ok(authResponse);
     }
     @PostMapping("/login-with-token")
     public ResponseEntity<ApiResponse<UserDetails>> loginWithToken(@RequestHeader("Authorization") String authHeader) {
@@ -179,6 +239,61 @@ public class AuthenticationController {
             AuthenticationResponse authResponse = new AuthenticationResponse(token);
 
             return ResponseEntity.ok(new ApiResponse<>(HttpStatus.OK.value(), "Đăng ký thành công", authResponse));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(HttpStatus.INTERNAL_SERVER_ERROR.value(), "Lỗi server: " + e.getMessage(), null));
+        }
+    }
+    @PostMapping("/forgot-password")
+    public ResponseEntity<ApiResponse<String>> forgotPassword(@RequestBody Map<String, String> request) {
+        try {
+            String email = request.get("email");
+            String username = request.get("username");
+
+            User user = userService.findByEmail(email);
+            if (user == null || !user.getUsername().equals(username)) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(new ApiResponse<>(HttpStatus.BAD_REQUEST.value(), "Email hoặc username không tồn tại", null));
+            }
+
+            String otp = generateOTP();
+            otpStorage.put(email, new OtpData(otp, user));
+
+            sendOtpEmail(email, otp);
+
+            return ResponseEntity.ok(new ApiResponse<>(HttpStatus.OK.value(), "OTP đã được gửi đến email", null));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(HttpStatus.INTERNAL_SERVER_ERROR.value(), "Lỗi server: " + e.getMessage(), null));
+        }
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<ApiResponse<String>> resetPassword(@RequestBody Map<String, String> request) {
+        try {
+            String email = request.get("email");
+            String otp = request.get("otp");
+            String password = request.get("password");
+
+            OtpData otpData = otpStorage.get(email);
+            if (otpData == null || otpData.isExpired()) {
+                otpStorage.remove(email);
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(new ApiResponse<>(HttpStatus.BAD_REQUEST.value(), "OTP không tồn tại hoặc đã hết hạn", null));
+            }
+            if (!otpData.getOtp().equals(otp)) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(new ApiResponse<>(HttpStatus.BAD_REQUEST.value(), "OTP không hợp lệ", null));
+            }
+
+            User user = otpData.getUser();
+            user.setPassword(password);
+            user.setUpdatedAt(LocalDateTime.now());
+            userService.updateUser(user);
+
+            otpStorage.remove(email);
+
+            return ResponseEntity.ok(new ApiResponse<>(HttpStatus.OK.value(), "Đặt lại mật khẩu thành công", null));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ApiResponse<>(HttpStatus.INTERNAL_SERVER_ERROR.value(), "Lỗi server: " + e.getMessage(), null));

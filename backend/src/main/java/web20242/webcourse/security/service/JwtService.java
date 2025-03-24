@@ -1,8 +1,6 @@
 package web20242.webcourse.security.service;
 
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.*;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import lombok.RequiredArgsConstructor;
@@ -53,6 +51,25 @@ public class JwtService {
                 .setExpiration(new Date(System.currentTimeMillis() + jwtExpiration))
                 .signWith(getSignInKey(), SignatureAlgorithm.HS256)
                 .compact();
+    }
+    public boolean validateToken(String token) {
+        try {
+            Jwts.parser()
+                    .setSigningKey(secretKey)
+                    .build()
+                    .parseClaimsJws(token);
+            return !isTokenExpired(token);
+        } catch (SignatureException e) {
+            return false;
+        } catch (MalformedJwtException e) {
+            return false;
+        } catch (ExpiredJwtException e) {
+            return false;
+        } catch (UnsupportedJwtException e) {
+            return false;
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
     }
 
     public boolean isTokenValid(String token, UserDetails userDetails) {
