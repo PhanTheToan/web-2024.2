@@ -96,9 +96,41 @@ public class AuthenticationController {
         }
     }
 
-    // Sign Up
+    private String generateOTP() {
+        return String.format("%06d", new Random().nextInt(999999));
+    }
+    private void sendOtpEmail(String to, String otp) {
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setTo(to);
+        message.setSubject("Xác nhận OTP");
+        message.setText("Mã OTP của bạn là: " + otp + ". Hết hạn sau " + 5 + " phút.");
+        javaMailSender.send(message);
+    }
+
+
+    @PostMapping("/signout")
+    public ResponseEntity<String> signout() {
+        return ResponseEntity.ok("Đăng xuất thành công. Vui lòng xóa token ở client.");
+    }
+    // Đăng ký User
     @PostMapping("/signup")
     public ResponseEntity<ApiResponse<String>> signup(@RequestBody User user) {
+        return handleSignup(user, ERole.ROLE_USER);
+    }
+
+    // Đăng ký Teacher
+    @PostMapping("/teacher/signup")
+    public ResponseEntity<ApiResponse<String>> signupTeacher(@RequestBody User user) {
+        return handleSignup(user, ERole.ROLE_TEACHER);
+    }
+
+    // Đăng ký Admin
+    @PostMapping("/admin/signup")
+    public ResponseEntity<ApiResponse<String>> signupAdmin(@RequestBody User user) {
+        return handleSignup(user, ERole.ROLE_ADMIN);
+    }
+
+    private ResponseEntity<ApiResponse<String>> handleSignup(User user, ERole role) {
         try {
             if (userService.existsByUsername(user.getUsername())) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
@@ -108,15 +140,10 @@ public class AuthenticationController {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                         .body(new ApiResponse<>(HttpStatus.BAD_REQUEST.value(), "Email đã tồn tại", null));
             }
-
-            // Tạo OTP
             String otp = generateOTP();
-            user.setRole(ERole.ROLE_USER); // Mặc định role là USER
+            user.setRole(role); // Đặt role tương ứng
             otpStorage.put(user.getEmail(), new OtpData(otp, user));
-
-            // Gửi email OTP
             sendOtpEmail(user.getEmail(), otp);
-            //System.out.printf(otp);
 
             return ResponseEntity.ok(new ApiResponse<>(HttpStatus.OK.value(), "OTP đã được gửi đến email", null));
         } catch (Exception e) {
@@ -124,7 +151,6 @@ public class AuthenticationController {
                     .body(new ApiResponse<>(HttpStatus.INTERNAL_SERVER_ERROR.value(), "Lỗi server: " + e.getMessage(), null));
         }
     }
-
     @PostMapping("/verify-otp")
     public ResponseEntity<ApiResponse<AuthenticationResponse>> verifyOtp(@RequestBody Map<String, String> request) {
         try {
@@ -158,82 +184,6 @@ public class AuthenticationController {
                     .body(new ApiResponse<>(HttpStatus.INTERNAL_SERVER_ERROR.value(), "Lỗi server: " + e.getMessage(), null));
         }
     }
-    private String generateOTP() {
-        return String.format("%06d", new Random().nextInt(999999));
-    }
-    private void sendOtpEmail(String to, String otp) {
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setTo(to);
-        message.setSubject("Xác nhận OTP");
-        message.setText("Mã OTP của bạn là: " + otp + ". Hết hạn sau " + 5 + " phút.");
-        javaMailSender.send(message);
-    }
-    @PostMapping("/teacher/signup")
-    public ResponseEntity<?> signupTeacher(@RequestBody User user) {
-        try {
-            user.setRole(ERole.ROLE_TEACHER);
-            User createdUser = userService.createUser(user);
-            String token = jwtService.generateToken(userDetailsService.loadUserByUsername(createdUser.getUsername()));
-            AuthenticationResponse authResponse = new AuthenticationResponse(token);
-            ApiResponse<AuthenticationResponse> response = new ApiResponse<>(
-                    HttpStatus.OK.value(),
-                    "Đăng ký thành công",
-                    authResponse
-            );
-            return ResponseEntity.ok(response);
-        } catch (IllegalArgumentException e) {
-            ApiResponse<AuthenticationResponse> errorResponse = new ApiResponse<>(
-                    HttpStatus.BAD_REQUEST.value(),
-                    "Lỗi: " + e.getMessage(),
-                    null
-            );
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
-        } catch (Exception e) {
-            ApiResponse<AuthenticationResponse> errorResponse = new ApiResponse<>(
-                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                    "Lỗi server: " + e.getMessage(),
-                    null
-            );
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
-        }
-    }
-    @PostMapping("/admin/signup")
-    public ResponseEntity<?> signupAdmin(@RequestBody User user) {
-        try {
-            user.setRole(ERole.ROLE_ADMIN);
-            User createdUser = userService.createUser(user);
-            String token = jwtService.generateToken(userDetailsService.loadUserByUsername(createdUser.getUsername()));
-            AuthenticationResponse authResponse = new AuthenticationResponse(token);
-            ApiResponse<AuthenticationResponse> response = new ApiResponse<>(
-                    HttpStatus.OK.value(),
-                    "Đăng ký thành công",
-                    authResponse
-            );
-            return ResponseEntity.ok(response);
-        } catch (IllegalArgumentException e) {
-            ApiResponse<AuthenticationResponse> errorResponse = new ApiResponse<>(
-                    HttpStatus.BAD_REQUEST.value(),
-                    "Lỗi: " + e.getMessage(),
-                    null
-            );
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
-        } catch (Exception e) {
-            ApiResponse<AuthenticationResponse> errorResponse = new ApiResponse<>(
-                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                    "Lỗi server: " + e.getMessage(),
-                    null
-            );
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
-        }
-    }
-
-    @PostMapping("/signout")
-    public ResponseEntity<String> signout() {
-        return ResponseEntity.ok("Đăng xuất thành công. Vui lòng xóa token ở client.");
-    }
-    // Send Email
-    // Forgot Password
-    // Authentication email - OTP khi sign up
 
 
 }
