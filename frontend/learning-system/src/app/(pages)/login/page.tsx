@@ -8,13 +8,11 @@ export const metadata: Metadata = {
 
 export default function LoginPage() {
   return (
-    <>
-      <div className="mt-[60px] w-[500px] mx-auto">
-        <div className={"font-[700] text-[24px] text-[#333333] mb-[20px] text-center"}>
+    <div className="mt-[60px] w-[500px] mx-auto">
+      <div className="font-[700] text-[24px] text-[#333333] mb-[20px] text-center">
         Đăng Nhập Tài Khoản
-        </div>
-        <FormLogin />
       </div>
-    </>
+      <FormLogin />
+    </div>
   );
 }
