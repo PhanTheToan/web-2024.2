@@ -13,6 +13,10 @@ export const mockCourses: Course[] = [
       password: 'hashedpassword',
       role: 'TEACHER',
       email: 'google@certificates.com',
+      phone: '0123456789',
+      dateOfBirth: new Date('1990-01-01'),
+      gender: 'Other',
+      profileImage: 'https://example.com/google-profile.jpg',
       coursesEnrolled: [],
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -21,16 +25,58 @@ export const mockCourses: Course[] = [
     thumbnail: 'https://d3njjcbhbojbot.cloudfront.net/api/utilities/v1/imageproxy/https://images.ctfassets.net/wp1lcwdav1p1/DMFk42PH8L9y9MeQ5xc7I/c55cade640bb097b0e5429b780ff7c98/redesigned-hero-image.png?auto=format%2Ccompress&dpr=2',
     price: 49.99,
     studentsEnrolled: [
-      { _id: 'student1', firstName: 'John', lastName: 'Doe', username: 'johndoe', password: 'hashedpassword', role: 'USER', email: 'john@example.com', coursesEnrolled: [], createdAt: new Date(), updatedAt: new Date() },
-      { _id: 'student2', firstName: 'Jane', lastName: 'Smith', username: 'janesmith', password: 'hashedpassword', role: 'USER', email: 'jane@example.com', coursesEnrolled: [], createdAt: new Date(), updatedAt: new Date() },
+      { 
+        _id: 'student1', 
+        firstName: 'John', 
+        lastName: 'Doe', 
+        username: 'johndoe', 
+        password: 'hashedpassword', 
+        role: 'USER', 
+        email: 'john@example.com',
+        phone: '0123456789',
+        dateOfBirth: new Date('1995-01-01'),
+        gender: 'Male',
+        profileImage: 'https://example.com/john-profile.jpg',
+        coursesEnrolled: ['1'],
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      { 
+        _id: 'student2', 
+        firstName: 'Jane', 
+        lastName: 'Smith', 
+        username: 'janesmith', 
+        password: 'hashedpassword', 
+        role: 'USER', 
+        email: 'jane@example.com',
+        phone: '0123456789',
+        dateOfBirth: new Date('1995-01-01'),
+        gender: 'Female',
+        profileImage: 'https://example.com/jane-profile.jpg',
+        coursesEnrolled: ['1'],
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }
     ],
     lessons: [
-      { title: 'Giới thiệu về Prompt Engineering', description: 'Tìm hiểu cơ bản về prompt engineering và tầm quan trọng của nó' },
-      { title: 'Các kỹ thuật Prompt cơ bản', description: 'Học các kỹ thuật cơ bản để tạo prompt hiệu quả' },
-      { title: 'Prompt nâng cao', description: 'Khám phá các kỹ thuật prompt nâng cao và best practices' },
-      { title: 'Thực hành và dự án', description: 'Áp dụng kiến thức vào các dự án thực tế' }
+      { 
+        title: 'Giới thiệu về Prompt Engineering',
+        description: 'Tìm hiểu cơ bản về prompt engineering và tầm quan trọng của nó'
+      },
+      { 
+        title: 'Các kỹ thuật Prompt cơ bản',
+        description: 'Học các kỹ thuật cơ bản để tạo prompt hiệu quả'
+      },
+      { 
+        title: 'Prompt nâng cao',
+        description: 'Khám phá các kỹ thuật prompt nâng cao và best practices'
+      },
+      { 
+        title: 'Thực hành và dự án',
+        description: 'Áp dụng kiến thức vào các dự án thực tế'
+      }
     ],
-    quizzes: ['quiz1', 'quiz2'],
+    quizzes: ['quiz1'],
     duration: '8 giờ',
     rating: 4.8,
     requirements: [
@@ -53,6 +99,10 @@ export const mockCourses: Course[] = [
       password: 'hashedpassword',
       role: 'TEACHER',
       email: 'alice@teach.com',
+      phone: '0123456789',
+      dateOfBirth: new Date('1990-01-01'),
+      gender: 'Female',
+      profileImage: 'https://example.com/alice-profile.jpg',
       coursesEnrolled: [],
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -62,10 +112,16 @@ export const mockCourses: Course[] = [
     price: 29.99,
     studentsEnrolled: [],
     lessons: [
-      { title: 'HTML cơ bản', description: 'Tìm hiểu về HTML và cấu trúc trang web' },
-      { title: 'CSS cơ bản', description: 'Học cách tạo style cho trang web với CSS' }
+      { 
+        title: 'HTML cơ bản',
+        description: 'Tìm hiểu về HTML và cấu trúc trang web'
+      },
+      { 
+        title: 'CSS cơ bản',
+        description: 'Học cách tạo style cho trang web với CSS'
+      }
     ],
-    quizzes: ['quiz1'],
+    quizzes: ['quiz2'],
     duration: '6 giờ',
     rating: 4.5,
     requirements: [
@@ -88,6 +144,10 @@ export const mockCourses: Course[] = [
       password: 'hashedpassword',
       role: 'TEACHER',
       email: 'bob@teach.com',
+      phone: '0123456789',
+      dateOfBirth: new Date('1990-01-01'),
+      gender: 'Male',
+      profileImage: 'https://example.com/bob-profile.jpg',
       coursesEnrolled: [],
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -96,14 +156,38 @@ export const mockCourses: Course[] = [
     thumbnail: 'https://blogassets.leverageedu.com/blog/wp-content/uploads/2020/05/23151218/BA-Courses.png',
     price: 59.99,
     studentsEnrolled: [
-      { _id: 'student3', firstName: 'Mike', lastName: 'Brown', username: 'mikebrown', password: 'hashedpassword', role: 'USER', email: 'mike@example.com', coursesEnrolled: [], createdAt: new Date(), updatedAt: new Date() },
+      { 
+        _id: 'student3', 
+        firstName: 'Mike', 
+        lastName: 'Brown', 
+        username: 'mikebrown', 
+        password: 'hashedpassword', 
+        role: 'USER', 
+        email: 'mike@example.com',
+        phone: '0123456789',
+        dateOfBirth: new Date('1995-01-01'),
+        gender: 'Male',
+        profileImage: 'https://example.com/mike-profile.jpg',
+        coursesEnrolled: ['3'],
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }
     ],
     lessons: [
-      { title: 'Giới thiệu về Data Science', description: 'Tổng quan về khoa học dữ liệu' },
-      { title: 'Phân tích dữ liệu cơ bản', description: 'Các kỹ thuật phân tích dữ liệu cơ bản' },
-      { title: 'Visualization dữ liệu', description: 'Học cách tạo biểu đồ và trực quan hóa dữ liệu' }
+      { 
+        title: 'Giới thiệu về Data Science',
+        description: 'Tổng quan về khoa học dữ liệu'
+      },
+      { 
+        title: 'Phân tích dữ liệu cơ bản',
+        description: 'Các kỹ thuật phân tích dữ liệu cơ bản'
+      },
+      { 
+        title: 'Visualization dữ liệu',
+        description: 'Học cách tạo biểu đồ và trực quan hóa dữ liệu'
+      }
     ],
-    quizzes: [],
+    quizzes: ['quiz3'],
     duration: '10 giờ',
     rating: 4.7,
     requirements: [
@@ -113,5 +197,5 @@ export const mockCourses: Course[] = [
     ],
     createdAt: new Date(),
     updatedAt: new Date(),
-  },
+  }
 ];
