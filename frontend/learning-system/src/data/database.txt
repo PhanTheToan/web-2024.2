@@ -1,0 +1,86 @@
+1. Collection: users
+{
+_id: ObjectId,
+username: String,
+password: String,
+role: String, // "ROLE_ADMIN", "ROLE_TEACHER", "ROLE_USER"
+firstName: String,
+lastName: String,
+email: String,
+phone: String,
+dateOfBirth: Date,
+gender: String, // "Male", "Female", "Other"
+profileImage: String, // URL ảnh
+coursesEnrolled: [ObjectId], // Danh sách ID khóa học đã đăng ký
+createdAt: Date,
+updatedAt: Date
+}
+
+2. Collection: courses
+{
+_id: ObjectId,
+title: String,
+description: String,
+teacherId: ObjectId, // ID giảng viên
+categories: [String], // Danh mục khóa học
+thumbnail: String, // URL ảnh
+price: Number,
+studentsEnrolled: [ObjectId], // Danh sách ID học viên
+lessons: [ObjectId], // Danh sách bài học
+quizzes: [ObjectId], // Danh sách quiz
+createdAt: Date,
+updatedAt: Date
+}
+## 3. Collection: `lessons`
+{
+_id: ObjectId,
+courseId: ObjectId, // ID khóa học
+title: String,
+content: String,
+videoUrl: String, // URL video
+materials: [String], // Danh sách URL tài liệu
+order: Number, // Thứ tự bài học
+createdAt: Date
+}
+4. Collection: quizzes
+{
+_id: ObjectId,
+courseId: ObjectId, // ID khóa học
+title: String,
+questions: [
+{
+question: String,
+options: [String], // Danh sách đáp án
+correctAnswer: String // Đáp án đúng
+}
+],
+passingScore: Number, // Điểm tối thiểu để qua
+createdAt: Date
+}
+5. Collection: enrollments
+{
+_id: ObjectId,
+userId: ObjectId, // ID người dùng
+courseId: ObjectId, // ID khóa học
+progress: Number, // Tiến độ hoàn thành (%)
+status: String, // "NOTSTARTED", "INPROGESS", "DONE"
+score: Number, // Điểm số nếu có bài quiz
+completedAt: Date
+}
+6. Collection: images
+{
+_id: ObjectId,
+type: String, // "Banner", "Featured"
+imageUrl: String, // URL ảnh
+altText: String, // Mô tả ảnh
+createdAt: Date
+}
+7. Collection: reviews
+{
+_id: ObjectId,
+userId: ObjectId, // ID người dùng
+courseId: ObjectId, // ID khóa học
+rating: Number, // 1 - 5 sao
+comment: String,
+createdAt: Date
+}

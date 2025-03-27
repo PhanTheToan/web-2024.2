@@ -1,7 +1,7 @@
 "use client";
 // import type { Metadata } from "next";
 import BreadcrumbContainer from "@/app/components/breadcrumb/BreadcrumbContainer";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import CourseListingHeader from "@/app/components/courelistingheader/CourseListingHeader";
 import CourseCard from "@/app/components/coursecard/CourseCard";
 import Pagination from "@/app/components/pagination/Pagination";
@@ -15,54 +15,105 @@ import {
   ReviewItem,
   FilterState,
 } from "@/app/types";
-import { mockCourses } from "@/data/mockCourses";
+import { courseService } from "@/services/courseService";
+import { toast } from "react-hot-toast";
+
+const ITEMS_PER_PAGE = 9;
 
 const CoursesPage: React.FC = () => {
   const [isMobile, setIsMobile] = useState<boolean>(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [totalPages, setTotalPages] = useState(1);
+  const [categories, setCategories] = useState<CategoryItem[]>([]);
+  const [instructors, setInstructors] = useState<InstructorItem[]>([]);
+  const [sortBy, setSortBy] = useState<string>("Newly published");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filters, setFilters] = useState<FilterState>({
+    categories: [],
+    instructors: [],
+    prices: [],
+    reviews: [],
+  });
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
-  React.useEffect(() => {
+  // Fetch categories and instructors
+  useEffect(() => {
+    const fetchInitialData = async () => {
+      try {
+        const [categoriesData, instructorsData] = await Promise.all([
+          courseService.getCategories(),
+          courseService.getInstructors(),
+        ]);
+        setCategories(categoriesData);
+        setInstructors(instructorsData);
+      } catch (err) {
+        console.error('Failed to fetch initial data:', err);
+        toast.error('Không thể tải dữ liệu ban đầu');
+      }
+    };
+
+    fetchInitialData();
+  }, []);
+
+  // Fetch courses with filters, sorting, and search
+  useEffect(() => {
+    const fetchCourses = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const response = await courseService.getCourses(
+          currentPage,
+          ITEMS_PER_PAGE,
+          filters,
+          sortBy,
+          searchQuery
+        );
+        setCourses(response.courses);
+        setTotalPages(response.totalPages);
+      } catch (err) {
+        setError('Không thể tải danh sách khóa học');
+        toast.error('Không thể tải danh sách khóa học');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchCourses();
+  }, [currentPage, filters, sortBy, searchQuery]);
+
+  // Mobile detection
+  useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768);
     };
-    
-    // Initial check
     checkMobile();
-    
-    // Event listener for resize
     window.addEventListener('resize', checkMobile);
-    
-    // Cleanup
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
-  // Mock data for breadcrumb
-  // const breadcrumbItems: BreadcrumbItem[] = [
-  //   { label: "Homepage", url: "#" },
-  //   { label: "Course", url: "#" },
-  //   {
-  //     label: "The Ultimate Guide To The BestWordPress LMS Plugin",
-  //     isCurrent: true,
-  //   },
-  // ];
 
-  // Mock data for sidebar
-  const categories: CategoryItem[] = [
-    { name: "Commercial", count: 15, isActive: false },
-    { name: "Office", count: 15, isActive: false },
-    { name: "Shop", count: 15, isActive: true },
-    { name: "Educate", count: 15, isActive: false },
-    { name: "Academy", count: 15, isActive: true },
-    { name: "Single family home", count: 15, isActive: false },
-    { name: "Studio", count: 15, isActive: false },
-    { name: "University", count: 15, isActive: false },
-  ];
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
 
-  const instructors: InstructorItem[] = [
-    { name: "Kenny White", count: 15, isActive: false },
-    { name: "John Doe", count: 15, isActive: false },
-  ];
+  const handleFiltersChange = (newFilters: FilterState) => {
+    setFilters(newFilters);
+    setCurrentPage(1); // Reset to first page when filters change
+  };
 
+  const handleSortChange = (newSort: string) => {
+    setSortBy(newSort);
+    setCurrentPage(1); // Reset to first page when sort changes
+  };
+
+  const toggleSidebar = () => {
+    setIsSidebarCollapsed(!isSidebarCollapsed);
+  };
+
+  // Mock data for prices and reviews (these should come from API in the future)
   const prices: PriceItem[] = [
     { name: "All", count: 15, isActive: true },
     { name: "Free", count: 15, isActive: false },
@@ -75,56 +126,21 @@ const CoursesPage: React.FC = () => {
     { stars: 1, count: 1025, isActive: false },
   ];
 
-  // Handler functions
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page);
-    // In a real app, you would fetch courses for the new page here
-  };
-
-  // const handleCategorySelect = (category: string) => {
-  //   console.log(`Selected category: ${category}`);
-  //   // In a real app, you would filter courses by category here
-  // };
-
-  // const handleInstructorSelect = (instructor: string) => {
-  //   console.log(`Selected instructor: ${instructor}`);
-  //   // In a real app, you would filter courses by instructor here
-  // };
-
-  // const handlePriceSelect = (price: string) => {
-  //   console.log(`Selected price: ${price}`);
-  //   // In a real app, you would filter courses by price here
-  // };
-
-  // const handleReviewSelect = (stars: number) => {
-  //   console.log(`Selected review: ${stars} stars`);
-  //   // In a real app, you would filter courses by review rating here
-  // };
-
-  const itemsPerPage = 9;
-  const totalPages = Math.ceil(mockCourses.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const displayedCourses = mockCourses.slice(
-    startIndex,
-    startIndex + itemsPerPage,
-  );
-
-  const [filters, setFilters] = useState<FilterState>({
-    categories: [],
-    instructors: [],
-    prices: [],
-    reviews: [],
-  });
-
-  const handleFiltersChange = (newFilters: FilterState) => {
-    setFilters(newFilters);
-    console.log("Filters changed:", newFilters);
-  };
-
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const toggleSidebar = () => {
-    setIsSidebarCollapsed(!isSidebarCollapsed);
-  };
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-red-600 mb-4">{error}</h2>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+          >
+            Thử lại
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -141,24 +157,53 @@ const CoursesPage: React.FC = () => {
         <div className="flex flex-col md:flex-row gap-8">
           <div className="flex-1">
             <div className="mb-6">
-              <CourseListingHeader isMobile={isMobile} onViewChange={setViewMode} toggleSidebar={toggleSidebar} initialViewMode={viewMode} />
-            </div>
-
-            <div
-              className={`grid gap-6 ${(viewMode === "grid"|| isMobile) ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-3" : "grid-cols-1"}`}
-            >
-              {displayedCourses.map((course) => (
-                <CourseCard key={course._id} course={course} variant={viewMode} />
-              ))}
-            </div>
-
-            <div className="mt-8">
-              <Pagination
-                currentPage={currentPage}
-                totalPages={totalPages}
-                onPageChange={handlePageChange}
+              <CourseListingHeader
+                isMobile={isMobile}
+                onViewChange={setViewMode}
+                toggleSidebar={toggleSidebar}
+                initialViewMode={viewMode}
+                sortBy={sortBy}
+                onSortChange={handleSortChange}
+                onSearch={setSearchQuery}
               />
             </div>
+
+            {isLoading ? (
+              <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+                {[...Array(6)].map((_, i) => (
+                  <div
+                    key={i}
+                    className="animate-pulse bg-gray-200 rounded-lg h-[400px]"
+                  />
+                ))}
+              </div>
+            ) : (
+              <>
+                <div
+                  className={`grid gap-6 ${
+                    (viewMode === "grid" || isMobile)
+                      ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
+                      : "grid-cols-1"
+                  }`}
+                >
+                  {courses.map((course) => (
+                    <CourseCard
+                      key={course._id}
+                      course={course}
+                      variant={viewMode}
+                    />
+                  ))}
+                </div>
+
+                <div className="mt-8">
+                  <Pagination
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    onPageChange={handlePageChange}
+                  />
+                </div>
+              </>
+            )}
           </div>
 
           <Sidebar
@@ -169,6 +214,7 @@ const CoursesPage: React.FC = () => {
             onFiltersChange={handleFiltersChange}
             isCollapsed={isSidebarCollapsed}
             onToggleCollapse={toggleSidebar}
+            selectedFilters={filters}
           />
         </div>
       </main>

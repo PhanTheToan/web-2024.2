@@ -1,17 +1,7 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import SidebarSection from "./SidebarSection";
 import CategoryList from "./CategoryList";
-import InstructorList from "./InstructorList";
-import PriceList from "./PriceList";
-import ReviewList from "./ReviewList";
-import {
-  CategoryItem,
-  InstructorItem,
-  PriceItem,
-  ReviewItem,
-  FilterState,
-} from "@/app/types";
-import { X } from 'lucide-react';
+import { CategoryItem, InstructorItem, PriceItem, ReviewItem, FilterState } from "@/app/types";
 
 interface SidebarProps {
   categories: CategoryItem[];
@@ -19,9 +9,9 @@ interface SidebarProps {
   prices: PriceItem[];
   reviews: ReviewItem[];
   onFiltersChange: (filters: FilterState) => void;
-  initialFilters?: FilterState;
   isCollapsed: boolean;
   onToggleCollapse: () => void;
+  selectedFilters: FilterState;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -30,100 +20,98 @@ const Sidebar: React.FC<SidebarProps> = ({
   prices,
   reviews,
   onFiltersChange,
-  initialFilters = {
-    categories: [],
-    instructors: [],
-    prices: [],
-    reviews: [],
-  },
   isCollapsed,
-  onToggleCollapse
+  onToggleCollapse,
+  selectedFilters,
 }) => {
-  const [filters, setFilters] = React.useState<FilterState>(initialFilters);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleCategorySelect = (selectedCategories: string[]) => {
-    const newFilters = { ...filters, categories: selectedCategories };
-    setFilters(newFilters);
-    onFiltersChange(newFilters);
+    onFiltersChange({
+      ...selectedFilters,
+      categories: selectedCategories,
+    });
   };
 
   const handleInstructorSelect = (selectedInstructors: string[]) => {
-    const newFilters = { ...filters, instructors: selectedInstructors };
-    setFilters(newFilters);
-    onFiltersChange(newFilters);
+    onFiltersChange({
+      ...selectedFilters,
+      instructors: selectedInstructors,
+    });
   };
 
   const handlePriceSelect = (selectedPrices: string[]) => {
-    const newFilters = { ...filters, prices: selectedPrices };
-    setFilters(newFilters);
-    onFiltersChange(newFilters);
+    onFiltersChange({
+      ...selectedFilters,
+      prices: selectedPrices,
+    });
   };
 
-  const handleReviewSelect = (selectedReviews: number[]) => {
-    const newFilters = { ...filters, reviews: selectedReviews };
-    setFilters(newFilters);
-    onFiltersChange(newFilters);
+  const handleReviewSelect = (selectedReviews: string[]) => {
+    onFiltersChange({
+      ...selectedFilters,
+      reviews: selectedReviews.map(r => parseInt(r.split(' ')[0])),
+    });
   };
+
+  if (!mounted) {
+    return null; // or a loading skeleton
+  }
 
   return (
-    <>
-      <div
-        className={`fixed inset-0 bg-black/60 backdrop-blur-sm z-40 transition-opacity duration-300 md:hidden ${
-          isCollapsed ? "opacity-100 visible" : "opacity-0 invisible"
-        }`}
-        onClick={onToggleCollapse}
-      ></div>
+    <aside
+      className={`w-[300px] bg-white p-6 rounded-lg shadow-md transition-all duration-300 ${
+        isCollapsed ? "w-0 p-0 overflow-hidden" : ""
+      }`}
+    >
+      <SidebarSection title="Categories">
+        <CategoryList
+          categories={categories}
+          onCategorySelect={handleCategorySelect}
+          selectedCategories={selectedFilters.categories}
+        />
+      </SidebarSection>
 
-      <aside 
-        className={`w-[300px] md:relative md:block fixed top-0 right-0 z-50 h-full bg-white overflow-y-auto transition-transform duration-300 ease-in-out ${
-          isCollapsed ? 'translate-x-0' : 'translate-x-full'
-        } md:translate-x-0 p-6 md:p-6 shadow-lg border-l border-gray-200`}
-      >
-        <div className="flex justify-between items-center mb-8 md:hidden">
-          <h2 className="text-xl font-bold text-gray-900">Filters</h2>
-          <button 
-            onClick={onToggleCollapse}
-            className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
-          >
-            <X size={20} />
-          </button>
-        </div>
+      <SidebarSection title="Instructors">
+        <CategoryList
+          categories={instructors.map(instructor => ({
+            name: instructor.name,
+            count: instructor.count,
+            isActive: false
+          }))}
+          onCategorySelect={handleInstructorSelect}
+          selectedCategories={selectedFilters.instructors}
+        />
+      </SidebarSection>
 
-        <div className="space-y-8">
-          <SidebarSection title="Course category">
-            <CategoryList
-              categories={categories}
-              onCategorySelect={handleCategorySelect}
-              selectedCategories={filters.categories}
-            />
-          </SidebarSection>
+      <SidebarSection title="Price">
+        <CategoryList
+          categories={prices.map(price => ({
+            name: price.name,
+            count: price.count,
+            isActive: false
+          }))}
+          onCategorySelect={handlePriceSelect}
+          selectedCategories={selectedFilters.prices}
+        />
+      </SidebarSection>
 
-          <SidebarSection title="Instructors">
-            <InstructorList
-              instructors={instructors}
-              onInstructorSelect={handleInstructorSelect}
-              selectedInstructors={filters.instructors}
-            />
-          </SidebarSection>
-
-          <SidebarSection title="Price">
-            <PriceList
-              prices={prices}
-              onPriceSelect={handlePriceSelect}
-              selectedPrices={filters.prices}
-            />
-          </SidebarSection>
-
-          <SidebarSection title="Review">
-            <ReviewList
-              reviews={reviews}
-              onReviewSelect={handleReviewSelect}
-              selectedReviews={filters.reviews}
-            />
-          </SidebarSection>
-        </div>
-      </aside>
-    </>
+      <SidebarSection title="Rating">
+        <CategoryList
+          categories={reviews.map(review => ({
+            name: `${review.stars} stars`,
+            count: review.count,
+            isActive: false
+          }))}
+          onCategorySelect={handleReviewSelect}
+          selectedCategories={selectedFilters.reviews.map(r => `${r} stars`)}
+        />
+      </SidebarSection>
+    </aside>
   );
 };
 

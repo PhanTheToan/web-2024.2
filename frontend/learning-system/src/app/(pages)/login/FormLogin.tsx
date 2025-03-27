@@ -1,51 +1,25 @@
 "use client";
 import { useState } from "react";
-import ReCAPTCHA from "react-google-recaptcha";
+import * as dotenv from "dotenv";
+dotenv.config();
 
 export const FormLogin = () => {
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [captchaVerified, setCaptchaVerified] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const siteKey = "YOUR_SITE_KEY_HERE"; // Thay bằng Site Key của bạn
-
-  const handleCaptchaChange = () => {
-    setCaptchaVerified(true);
-  };
+  const BASE_URL = process.env.BASE_URL;
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError("");
-    if (!captchaVerified) {
-      setError("Vui lòng xác minh CAPTCHA!");
-      return;
-    }
-
     setLoading(true);
 
-    // 🔹 Giả lập dữ liệu đăng nhập trước khi có API
-    const mockUsers = [
-      { email: "levana@gmail.com", password: "123456" },
-      { email: "nguyenb@gmail.com", password: "password123" },
-    ];
-
-    const user = mockUsers.find(
-      (u) => u.email === email && u.password === password
-    );
-
-    if (user) {
-      alert("Đăng nhập thành công!");
-      setLoading(false);
-      return;
-    }
-
-    // 🔹 Nếu có API, gọi API đăng nhập
     try {
-      const response = await fetch("https://api.example.com/login", {
+      const response = await fetch(`${BASE_URL}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ username, password }),
       });
 
       const data = await response.json();
@@ -53,7 +27,7 @@ export const FormLogin = () => {
       if (response.ok) {
         alert("Đăng nhập thành công!");
       } else {
-        setError(data.message || "Sai email hoặc mật khẩu!");
+        setError(data.message || "Sai username hoặc mật khẩu!");
       }
     } catch (err) {
       setError("Lỗi kết nối, vui lòng thử lại sau!");
@@ -65,17 +39,17 @@ export const FormLogin = () => {
   return (
     <form onSubmit={handleSubmit}>
       <div className="mb-[15px]">
-        <label className="block mb-[5px] font-[600] text-[14px]" htmlFor="email">
-          <span className="text-[#333333]">Email</span>
+        <label className="block mb-[5px] font-[600] text-[14px]" htmlFor="username">
+          <span className="text-[#333333]">Username</span>
           <span className="text-[#FF782D] ml-[5px]">*</span>
         </label>
         <input
-          type="email"
-          name="email"
-          id="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="Ví dụ: levana@gmail.com"
+          type="text"
+          name="username"
+          id="username"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          placeholder="Username"
           className="h-[50px] w-full bg-white rounded-[6px] px-[16px] font-[600] text-[14px] border border-solid border-gray-400"
           required
         />
@@ -91,6 +65,7 @@ export const FormLogin = () => {
           name="password"
           id="password"
           value={password}
+          placeholder="Password"
           onChange={(e) => setPassword(e.target.value)}
           className="h-[50px] w-full bg-white rounded-[6px] px-[16px] font-[600] text-[14px] border border-solid border-gray-400"
           required
@@ -103,17 +78,12 @@ export const FormLogin = () => {
         </a>
       </div>
 
-      {/* Thêm reCAPTCHA */}
-      <div className="mb-[15px] flex justify-center">
-        <ReCAPTCHA sitekey={siteKey} onChange={handleCaptchaChange} />
-      </div>
-
       {error && <p className="text-red-500 text-center">{error}</p>}
 
       <button
         type="submit"
         className="h-[50px] w-full bg-[#FF782D] text-white rounded-[6px] font-[600] text-[16px] disabled:bg-[#FF782D]"
-        disabled={!captchaVerified || loading}
+        disabled={loading}
       >
         {loading ? "Đang đăng nhập..." : "Đăng Nhập"}
       </button>
