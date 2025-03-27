@@ -5,6 +5,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import web20242.webcourse.model.Image;
 import web20242.webcourse.repository.ImageRepository;
@@ -15,6 +16,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.util.Base64;
+import java.util.Optional;
 
 @Service
 public class FileService {
@@ -67,7 +69,26 @@ public class FileService {
 
         return filePublicUrl;
     }
+    public void deleteFile(String imageId) {
+        Optional<Image> imageOptional = imageRepository.findById(new org.bson.types.ObjectId(imageId));
+        if (imageOptional.isEmpty()) {
+            throw new IllegalArgumentException("Image with ID " + imageId + " not found");
+        }
 
+        Image image = imageOptional.get();
+        String imageUrl = image.getImageUrl();
+
+        // Lấy key từ imageUrl (phần sau publicUrl)
+        String key = imageUrl.replace(publicUrl, "");
+
+        DeleteObjectRequest deleteRequest = DeleteObjectRequest.builder()
+                .bucket(bucketName)
+                .key(key)
+                .build();
+        s3Client.deleteObject(deleteRequest);
+
+        imageRepository.delete(image);
+    }
     private String determineContentType(String extension) {
         return switch (extension.toLowerCase()) {
             case ".jpg", ".jpeg" -> "image/jpeg";
