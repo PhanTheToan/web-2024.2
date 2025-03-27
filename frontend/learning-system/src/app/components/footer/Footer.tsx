@@ -5,101 +5,101 @@ export const Footer = () => {
     return (
         <>
             {/* <!-- Footer --> */}
-            <div className="bg-[#F0F0F0] lg:pt-[140px] pt-[185px] lg:mt-[-90px] mt-[-140px] sm:pb-[92px] pb-[30px]">
+            <div className="bg-[#F5F5F5] lg:pt-[80px] pt-[60px] lg:mt-[-90px] mt-[-140px] sm:pb-[92px] pb-[30px] text-[#555555]">
                 <div className="container mx-auto px-[16px]">
                     {/* <!-- Top --> */}
                     <div className="sm:flex justify-between flex-wrap gap-[32px] grid grid-cols-2">
                         <div className="lg:w-[248px] sm:w-full col-span-2">
-                            <Link href="#" className="font-[700] sm:text-[34px] text-[28px] text-black sm:mb-[25px] mb-[20px]">
+                            <Link href="#" className="font-[700] sm:text-[34px] text-[28px] sm:mb-[25px]  text-black mb-[20px] ">
                                 EduPress
                             </Link>
                             <p className="font-[400] text-[14px] text-secondary sm:mb-[35px] mb-[20px]">
                             LearnPress là một Plugin WordPress LMS toàn diện dành cho WordPress.
                             </p>
                             <div className="flex gap-[12px]">
-                                <Link href="#" target="_blank" className="border border-[#00000033] bg-white hover:bg-black rounded-[50%] w-[28px] h-[28px] text-[11px] inline-flex items-center justify-center text-black hover:text-white">
+                                <Link href="#" target="_blank" className="border border-[#00000033] bg-white hover:bg-black rounded-[50%] w-[28px] h-[28px] text-[14px] inline-flex items-center justify-center text-black hover:text-white">
                                     <FaTwitter />
                                 </Link>
-                                <Link href="#" target="_blank" className="border border-[#00000033] bg-white hover:bg-black rounded-[50%] w-[28px] h-[28px] text-[11px] inline-flex items-center justify-center text-black hover:text-white">
+                                <Link href="#" target="_blank" className="border border-[#00000033] bg-white hover:bg-black rounded-[50%] w-[28px] h-[28px] text-[14px] inline-flex items-center justify-center text-black hover:text-white">
                                     <FaFacebookF />
                                 </Link>
-                                <Link href="#" target="_blank" className="border border-[#00000033] bg-white hover:bg-black rounded-[50%] w-[28px] h-[28px] text-[11px] inline-flex items-center justify-center text-black hover:text-white">
+                                <Link href="#" target="_blank" className="border border-[#00000033] bg-white hover:bg-black rounded-[50%] w-[28px] h-[28px] text-[14px] inline-flex items-center justify-center text-black hover:text-white">
                                     <FaInstagram />
                                 </Link>
                             </div>
                         </div>
                         <div className="sm:w-auto">
-                            <h2 className="font-[500] text-[16px] text-black mb-[26px] uppercase">
+                            <h2 className="font-[500] font-bold text-[16px] text-black mb-[26px] uppercase">
                                 CÔNG TY
                             </h2>
                             <div className="flex flex-col gap-[12px]">
-                                <Link href="#" className="font-[400] text-[16px] text-secondary hover:text-black">
+                                <Link href="#" className="font-[400] text-[16px] text-secondary hover:text-[#FF782D]">
                                     Giới Thiệu
                                 </Link>
-                                <Link href="#" className="font-[400] text-[16px] text-secondary hover:text-black">
+                                <Link href="#" className="font-[400] text-[16px] text-secondary hover:text-[#FF782D]">
                                     Sản Phẩm
                                 </Link>
-                                <Link href="#" className="font-[400] text-[16px] text-secondary hover:text-black">
+                                <Link href="#" className="font-[400] text-[16px] text-secondary hover:text-[#FF782D]">
                                     Công Việc
                                 </Link>
-                                <Link href="#" className="font-[400] text-[16px] text-secondary hover:text-black">
+                                <Link href="#" className="font-[400] text-[16px] text-secondary hover:text-[#FF782D]">
                                     Việc Làm
                                 </Link>
                             </div>
                         </div>
                         <div className="sm:w-auto">
-                            <h2 className="font-[500] text-[16px] text-black mb-[26px] uppercase">
+                            <h2 className="font-[500] font-bold text-[16px] text-black mb-[26px] uppercase">
                                 Trợ giúp
                             </h2>
                             <div className="flex flex-col gap-[12px]">
-                                <Link href="#" className="font-[400] text-[16px] text-secondary hover:text-black">
+                                <Link href="#" className="font-[400] text-[16px] text-secondary hover:text-[#FF782D]">
                                     Hỗ Trợ Khách Hàng
                                 </Link>
-                                <Link href="#" className="font-[400] text-[16px] text-secondary hover:text-black">
+                                <Link href="#" className="font-[400] text-[16px] text-secondary hover:text-[#FF782D]">
                                     Thông Tin Đơn Hàng
                                 </Link>
-                                <Link href="#" className="font-[400] text-[16px] text-secondary hover:text-black">
+                                <Link href="#" className="font-[400] text-[16px] text-secondary hover:text-[#FF782D]">
                                     Điều Khoản & Điều Kiện
                                 </Link>
-                                <Link href="#" className="font-[400] text-[16px] text-secondary hover:text-black">
+                                <Link href="#" className="font-[400] text-[16px] text-secondary hover:text-[#FF782D]">
                                     Chính Sách
                                 </Link>
                             </div>
                         </div>
                         <div className="sm:w-auto">
-                            <h2 className="font-[500] text-[16px] text-black mb-[26px] uppercase">
+                            <h2 className="font-[500] text-[16px] font-bold text-black mb-[26px] uppercase">
                                 FAQ
                             </h2>
                             <div className="flex flex-col gap-[12px]">
-                                <Link href="#" className="font-[400] text-[16px] text-secondary hover:text-black">
+                                <Link href="#" className="font-[400] text-[16px] text-secondary hover:text-[#FF782D]">
                                     Tài Khoản
                                 </Link>
-                                <Link href="#" className="font-[400] text-[16px] text-secondary hover:text-black">
+                                <Link href="#" className="font-[400] text-[16px] text-secondary hover:text-[#FF782D]">
                                     Quản Lý Đơn Hàng
                                 </Link>
-                                <Link href="#" className="font-[400] text-[16px] text-secondary hover:text-black">
+                                <Link href="#" className="font-[400] text-[16px] text-secondary hover:text-[#FF782D]">
                                     Đơn Hàng
                                 </Link>
-                                <Link href="#" className="font-[400] text-[16px] text-secondary hover:text-black">
+                                <Link href="#" className="font-[400] text-[16px] text-secondary hover:text-[#FF782D]">
                                     Thanh Toán
                                 </Link>
                             </div>
                         </div>
                         <div className="sm:w-auto">
-                            <h2 className="font-[500] text-[16px] text-black mb-[26px] uppercase">
+                            <h2 className="font-[500] text-[16px] font-bold text-black mb-[26px] uppercase">
                                 Tài nguyên
                             </h2>
                             <div className="flex flex-col gap-[12px]">
-                                <Link href="#" className="font-[400] text-[16px] text-secondary hover:text-black">
+                                <Link href="#" className="font-[400] text-[16px] text-secondary hover:text-[#FF782D]">
                                     Sách Miễn Phí
                                 </Link>
-                                <Link href="#" className="font-[400] text-[16px] text-secondary hover:text-black">
+                                <Link href="#" className="font-[400] text-[16px] text-secondary hover:text-[#FF782D]">
                                     Bài Viết
                                 </Link>
-                                <Link href="#" className="font-[400] text-[16px] text-secondary hover:text-black">
+                                <Link href="#" className="font-[400] text-[16px] text-secondary hover:text-[#FF782D]">
                                     Kiến Thức
                                 </Link>
-                                <Link href="#" className="font-[400] text-[16px] text-secondary hover:text-black">
+                                <Link href="#" className="font-[400] text-[16px] text-secondary hover:text-[#FF782D]">
                                     Youtube
                                 </Link>
                             </div>
