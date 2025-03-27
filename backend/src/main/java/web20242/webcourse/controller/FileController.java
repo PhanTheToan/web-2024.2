@@ -30,10 +30,30 @@ public class FileController {
         return fileService.uploadFile(file, type, altText);
     }
     @PreAuthorize("hasRole('ROLE_ADMIN') || hasRole('ROLE_TEACHER')")
+    @PostMapping("/image/r2")
+    public String uploadFileR2(
+            @RequestParam("image") MultipartFile file
+    ) throws IOException, NoSuchAlgorithmException {
+        return fileService.uploadFileR2(file);
+    }
+    @PreAuthorize("hasRole('ROLE_ADMIN') || hasRole('ROLE_TEACHER')")
     @DeleteMapping("/image/{id}")
     public void deleteFile(@PathVariable("id") String imageId) {
         fileService.deleteFile(imageId);
     }
+    @PreAuthorize("hasRole('ROLE_ADMIN') || hasRole('ROLE_TEACHER')")
+    @DeleteMapping("/image/by-url")
+    public ResponseEntity<String> deleteFileByUrl(@RequestParam("imageUrl") String imageUrl) {
+        fileService.deleteFileByUrl(imageUrl);
+        return ResponseEntity.ok("Image with URL " + imageUrl + " deleted successfully");
+    }
+    @PreAuthorize("hasRole('ROLE_ADMIN') || hasRole('ROLE_TEACHER')")
+    @DeleteMapping("/image/r2")
+    public ResponseEntity<String> deleteFileOnR2(@RequestParam("imageUrl") String imageUrl) {
+        fileService.deleteFileOnR2ByUrl(imageUrl);
+        return ResponseEntity.ok("Image with URL " + imageUrl + " deleted from R2 successfully");
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<String> handleNotFound(IllegalArgumentException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ex.getMessage());

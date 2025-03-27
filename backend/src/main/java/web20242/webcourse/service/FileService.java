@@ -69,6 +69,30 @@ public class FileService {
 
         return filePublicUrl;
     }
+    public String uploadFileR2(MultipartFile file) throws IOException, NoSuchAlgorithmException {
+        String originalFilename = file.getOriginalFilename();
+        if (originalFilename == null) {
+            throw new IllegalArgumentException("File name cannot be null");
+        }
+        String fileNameHash = hashFilename(originalFilename);
+        String extension = originalFilename.contains(".")
+                ? originalFilename.substring(originalFilename.lastIndexOf("."))
+                : "";
+        String fileName = System.currentTimeMillis() + "_"
+                + fileNameHash.replace("/", "")
+                + extension;
+
+
+        PutObjectRequest request = PutObjectRequest.builder()
+                .bucket(bucketName)
+                .key(fileName)
+                .contentType(determineContentType(extension)) // Thêm dòng này
+                .build();
+
+        s3Client.putObject(request, RequestBody.fromInputStream(file.getInputStream(), file.getSize()));
+        String filePublicUrl = publicUrl + fileName;
+        return filePublicUrl;
+    }
     public void deleteFile(String imageId) {
         Optional<Image> imageOptional = imageRepository.findById(new org.bson.types.ObjectId(imageId));
         if (imageOptional.isEmpty()) {
@@ -88,6 +112,39 @@ public class FileService {
         s3Client.deleteObject(deleteRequest);
 
         imageRepository.delete(image);
+    }
+    public void deleteFileByUrl(String imageUrl) {
+        if (!imageUrl.startsWith(publicUrl)) {
+            throw new IllegalArgumentException("Invalid image URL: " + imageUrl);
+        }
+        Optional<Image> imageOptional = imageRepository.findByImageUrl(imageUrl);
+        if (imageOptional.isEmpty()) {
+            throw new IllegalArgumentException("Image with URL " + imageUrl + " not found");
+        }
+
+        Image image = imageOptional.get();
+        String key = imageUrl.replace(publicUrl, "");
+
+        DeleteObjectRequest deleteRequest = DeleteObjectRequest.builder()
+                .bucket(bucketName)
+                .key(key)
+                .build();
+        s3Client.deleteObject(deleteRequest);
+
+        imageRepository.delete(image);
+    }
+    public void deleteFileOnR2ByUrl(String imageUrl) {
+        if (!imageUrl.startsWith(publicUrl)) {
+            throw new IllegalArgumentException("Invalid image URL: " + imageUrl);
+        }
+
+        String key = imageUrl.replace(publicUrl, "");
+
+        DeleteObjectRequest deleteRequest = DeleteObjectRequest.builder()
+                .bucket(bucketName)
+                .key(key)
+                .build();
+        s3Client.deleteObject(deleteRequest);
     }
     private String determineContentType(String extension) {
         return switch (extension.toLowerCase()) {
