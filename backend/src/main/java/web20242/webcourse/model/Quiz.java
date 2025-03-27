@@ -29,7 +29,7 @@ public class Quiz {
     private String title;
 
     @Field(name = "questions")
-    private List<web2024.webcourse.model.Question> questions; // Danh sách câu hỏi
+    private List<Question> questions; // Danh sách câu hỏi
 
     @Field(name = "passing_score")
     private Double passingScore; // Điểm tối thiểu để qua, dùng Double thay cho Number

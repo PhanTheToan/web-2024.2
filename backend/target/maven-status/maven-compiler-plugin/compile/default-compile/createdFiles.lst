@@ -8,7 +8,7 @@ web20242/webcourse/service/EnrollmentService.class
 web2024/webcourse/model/Lesson.class
 web20242/webcourse/repository/LessonRepository.class
 web20242/webcourse/configuration/SecurityConfig.class
-web2024/webcourse/model/Question$QuestionBuilder.class
+web20242/webcourse/service/FileService.class
 web20242/webcourse/model/Enrollment.class
 web20242/webcourse/controller/AuthenticationController.class
 web20242/webcourse/repository/ReviewRepository.class
@@ -21,17 +21,19 @@ web20242/webcourse/service/UserService.class
 web2024/webcourse/model/Lesson$LessonBuilder.class
 web20242/webcourse/repository/CourseRepository.class
 web20242/webcourse/model/Image$ImageBuilder.class
+web20242/webcourse/model/Question.class
 web20242/webcourse/model/constant/ERole.class
 web20242/webcourse/security/dto/AuthenticationResponse.class
 web20242/webcourse/model/Quiz.class
 web20242/webcourse/configuration/PasswordConfig.class
 web20242/webcourse/model/Course.class
-web2024/webcourse/model/Question.class
 web20242/webcourse/security/dto/AuthenticationRequest.class
 web20242/webcourse/repository/ImageRepository.class
 web20242/webcourse/repository/QuestionRepository.class
 web20242/webcourse/model/Image.class
 web20242/webcourse/controller/UserController.class
+web20242/webcourse/controller/FileController.class
+web20242/webcourse/configuration/R2Config.class
 web20242/webcourse/model/OtpData$OtpDataBuilder.class
 web20242/webcourse/model/Enrollment$EnrollmentBuilder.class
 web20242/webcourse/security/jwt/JwtAuthenticationFilter.class
@@ -41,3 +43,4 @@ web20242/webcourse/repository/UserRepository.class
 web20242/webcourse/model/Quiz$QuizBuilder.class
 web20242/webcourse/model/constant/ECategory.class
 web20242/webcourse/model/OtpData.class
+web20242/webcourse/model/Question$QuestionBuilder.class

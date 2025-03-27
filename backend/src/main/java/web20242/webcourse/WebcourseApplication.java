@@ -19,7 +19,11 @@ public class WebcourseApplication {
 		System.setProperty("MAIL_PORT", dotenv.get("MAIL_PORT"));
 		System.setProperty("MAIL_USERNAME", dotenv.get("MAIL_USERNAME"));
 		System.setProperty("MAIL_PASSWORD", dotenv.get("MAIL_PASSWORD"));
-
+		System.setProperty("S3_ACCESS_KEY_ID", dotenv.get("S3_ACCESS_KEY_ID"));
+		System.setProperty("S3_SECRET_ACCESS_KEY", dotenv.get("S3_SECRET_ACCESS_KEY"));
+		System.setProperty("S3_BUCKET_NAME", dotenv.get("S3_BUCKET_NAME"));
+		System.setProperty("S3_API_ENDPOINT", dotenv.get("S3_API_ENDPOINT"));
+		System.setProperty("S3_PUBLIC_URL", dotenv.get("S3_PUBLIC_URL"));
 		SpringApplication.run(WebcourseApplication.class, args);
 
 	}

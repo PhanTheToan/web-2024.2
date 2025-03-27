@@ -1,4 +1,4 @@
-package web2024.webcourse.model;
+package web20242.webcourse.model;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
