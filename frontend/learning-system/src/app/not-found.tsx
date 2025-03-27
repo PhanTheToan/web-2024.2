@@ -18,7 +18,7 @@ export default function NotFoundPage() {
               Homepage
             </Link>
             <span className="text-gray-400">/</span>
-            <span className="text-gray-500">FAQs</span>
+            <span className="text-gray-500">Errors</span>
           </div>
         </div>
       </div>
