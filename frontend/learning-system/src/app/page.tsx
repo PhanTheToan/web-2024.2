@@ -4,27 +4,36 @@ import React, { useEffect, useState } from "react";
 import { StatisticCards } from "./components/statisticcards/StatisticCards";
 import { FaStar } from "react-icons/fa";
 import { FaCheckCircle } from "react-icons/fa";
+import { Button, Grid, Typography, Box } from '@mui/material';
+import Image from 'next/image';
+import { ChevronRight, Star } from "@mui/icons-material";
+import CourseGrid from "./components/courses-grid/page";
+import { Check } from "lucide-react";
 
-const defaultCourses = [
+const defaultCourses: Course[] = [
   {
     id: 1,
     title: "Khóa học ReactJS",
     instructor: "Nguyễn Văn A",
     category: "Web Development",
-    lessons: 12,
+    duration: "2 weeks",
     students: 150,
-    price: 0,
-    imageUrl: "https://via.placeholder.com/300",
+    originalPrice: 29.99,
+    currentPrice: null,
+    isFree: true,
+    imageUrl: "https://edupress.thimpress.com/wp-content/uploads/2024/01/Introduction-learnpress-lms-plugin-1.jpg",
   },
   {
     id: 2,
     title: "Khóa học NodeJS",
     instructor: "Trần Văn B",
     category: "Backend Development",
-    lessons: 10,
+    duration: "3 weeks",
     students: 120,
-    price: 19.99,
-    imageUrl: "https://via.placeholder.com/300",
+    originalPrice: 59.0,
+    currentPrice: 49.0,
+    isFree: false,
+    imageUrl: "https://edupress.thimpress.com/wp-content/uploads/2024/11/course-offline-01.jpg",
   },
 ];
 
@@ -109,81 +118,124 @@ const defaultFeedbacks = [
 ];
 
 export default function Home() {
-  const [courses, setCourses] = useState([]);
+  const [categories, setCategories] = useState(defaultCategories);
+  const [courses, setCourses] = useState(defaultCourses);
+  const [feedbacks, setFeedbacks] = useState(defaultFeedbacks);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Fetch categories
   useEffect(() => {
-    fetch("http://localhost:8080/api/courses")
-      .then((response) => {
-        if (!response.ok) throw new Error("Failed to fetch courses");
-        return response.json();
-      })
-      .then((data) => setCourses(Array.isArray(data) && data.length > 0 ? data : defaultCourses)) // Nếu API rỗng, dùng data giả định
-      .catch((err) => {
-        console.error("Lỗi API:", err);
-        setCourses(defaultCourses); // Khi API lỗi, dùng data giả định
-        setError("Dữ liệu hiển thị là tạm thời.");
-      })
-      .finally(() => setLoading(false));
-  }, []);
-
-  const [categories, setCategories] = useState(defaultCategories);
-
-  useEffect(() => {
-    // Giả lập gọi API sau 2 giây
     setTimeout(() => {
       fetch("https://api.example.com/categories")
         .then((response) => response.json())
-        .then((data) => setCategories(data))
-        .catch((error) => console.error("Lỗi khi lấy danh mục:", error));
+        .then((data) => {
+          if (Array.isArray(data) && data.length > 0) {
+            setCategories(data);
+          } else {
+            setError("Không có dữ liệu danh mục từ API, hiển thị dữ liệu mặc định.");
+          }
+        })
+        .catch((error) => {
+          console.error("Lỗi khi lấy danh mục:", error);
+          setError("Dữ liệu danh mục hiển thị là tạm thời.");
+        });
     }, 2000);
   }, []);
 
-  const [feedbacks, setFeedbacks] = useState(defaultFeedbacks);
-
+  // Fetch courses
   useEffect(() => {
-    // Giả lập gọi API sau 2 giây
+    setTimeout(() => {
+      fetch("http://localhost:8080/api/courses")
+        .then((response) => {
+          if (!response.ok) throw new Error("Failed to fetch courses");
+          return response.json();
+        })
+        .then((data) => {
+          if (Array.isArray(data) && data.length > 0) {
+            setCourses(data);
+          } else {
+            setError("Không có dữ liệu khóa học từ API, hiển thị dữ liệu mặc định.");
+          }
+        })
+        .catch((err) => {
+          console.error("Lỗi API:", err);
+          setError("Dữ liệu khóa học hiển thị là tạm thời.");
+        })
+        .finally(() => setLoading(false));
+    }, 1000);
+  }, []);
+
+  // Fetch feedbacks
+  useEffect(() => {
     setTimeout(() => {
       fetch("https://api.example.com/feedbacks")
         .then((response) => response.json())
-        .then((data) => setFeedbacks(data))
-        .catch((error) => console.error("Lỗi khi lấy feedback:", error));
+        .then((data) => {
+          if (Array.isArray(data) && data.length > 0) {
+            setFeedbacks(data);
+          } else {
+            setError("Không có phản hồi từ API, hiển thị dữ liệu mặc định.");
+          }
+        })
+        .catch((error) => {
+          console.error("Lỗi khi lấy feedback:", error);
+          setError("Dữ liệu phản hồi hiển thị là tạm thời.");
+        });
     }, 2000);
   }, []);
+
   return (
     <>
       {/* Section 1 */}
-      <div className="relative w-full overflow-hidden bg-white pb-[50px] h-fit">
-        <img
-          src="./images/HeroBanner.svg"
-          alt="Hình ảnh chính"
-          className="w-full h-auto object-cover"
-        />
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex flex-col gap-5 w-[90%] max-w-[400px] text-center md:left-[32%] md:text-left">
-          <div className="text-2xl md:text-3xl font-bold">
-            Phát triển kỹ năng với khóa học trực tuyến
-          </div>
-          <div className="text-gray-600 text-sm md:text-base">
-            Chúng tôi lên án mạnh mẽ những hành vi lừa dối và làm mất đi động lực của con người.
-          </div>
-          <button className="bg-[#FF782D] text-white py-2 px-4 rounded-md hover:bg-lime-500 transition w-fit mx-auto md:mx-0">
-            Đăng ký
-          </button>
-        </div>
-      </div>
+      <Box
+        sx={{
+          backgroundImage: 'url(./images/HeroBanner.svg)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+          width: '100%',
+          minHeight: '80vh', // Giữ chiều cao tối thiểu 100% viewport height
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'flex-start',
+          px: { xs: 6, md: 40 }, // Cách lề rộng hơn trên màn hình lớn
+          py: { xs: 10, md: 20 }, // Tăng khoảng cách trên/dưới
+          mb: '90px',
+        }}
+      >
+        {/* Khối nội dung chỉ chiếm 50% chiều rộng */}
+        <Box sx={{ maxWidth: { xs: '90%', md: '50%' }, textAlign: 'left' }}>
+          <Typography variant="h3" fontWeight="bold" sx={{ lineHeight: 1.2 }}>
+            Build Skills With <br /> Online Course
+          </Typography>
+          <Typography variant="body1" color="text.secondary" sx={{ mt: 2 }}>
+            Get started with modern education and skills that help you get ahead and stay ahead.
+            Thousands of courses to help you grow.
+          </Typography>
+          <Button
+            variant="contained"
+            color="warning"
+            sx={{ borderRadius: '50px', px: 4, mt: 3 }}
+          >
+            Get Started
+          </Button>
+        </Box>
+      </Box>
+      {/* End Section 1 */}
 
       {/* Section 2 */}
-      <div className="container mx-auto px-4">
+      <div className="container mx-auto px-4 mb-10">
         {/* Box-head */}
         <div className=" flex items-end justify-between">
           <div>
-            <div className="font-medium text-[16px] text-black mb-1 md:text-[14px]">Khám phá danh mục phổ biến</div>
-            <h2 className="font-bold text-[24px] text-[#333333] capitalize m-0 md:text-[20px]">Danh mục hàng đầu</h2>
+            <h2 className="font-bold text-[24px] text-black  mb-1 capitalize m-0 sx:text-[20px]">Danh mục hàng đầu</h2>
+            <div className="font-medium text-[18px] text-[#555555] sx:text-[14px]">Khám phá </div>
           </div>
-          <button className="inline-flex items-center h-[44px] px-7 text-[#333333] font-medium text-[16px] bg-transparent rounded-full transition border border-[1.5px] border-[#FF782D] hover:bg-[#FF782D] hover:text-white">
+          <button className="inline-flex items-center h-[44px] px-7 text-black font-medium text-[16px] bg-transparent rounded-full transition border border-[1.5px] border-[#FF782D] hover:bg-[#FF782D] hover:text-white">
             Tất cả danh mục
-            <i className="fa-solid fa-angle-right text-[18px] text-[#333333] ml-[11px] transition group-hover:text-white"></i>
+            <i className="fa-solid fa-angle-right text-[18px] text-[#555555] ml-[11px] transition group-hover:text-white"></i>
           </button>
         </div>
 
@@ -206,49 +258,19 @@ export default function Home() {
       {/* Section 3 */}
       <div className="container mx-auto px-4">
         {/* Box-head */}
-        <div className="mb-7 flex items-end justify-between">
+        <div className=" flex items-end justify-between pb-8">
           <div>
-            <div className="font-medium text-[16px] text-black mb-1 md:text-[14px]">Khóa học nổi bật</div>
-            <h2 className="font-bold text-[24px] text-[#33333] capitalize m-0 md:text-[20px]">Khám phá các khóa học phổ biến</h2>
+            <h2 className="font-bold text-[24px] text-black  mb-1 capitalize m-0 sx:text-[20px]">Khóa học nổi bật</h2>
+            <div className="font-medium text-[18px] text-[#555555] sx:text-[14px]">Khám phá </div>
           </div>
-          <button className="inline-flex items-center h-[44px] px-7 text-[#333333] font-medium text-[16px] bg-transparent rounded-full border border-[1.5px] border-[#FF782D] transition hover:bg-[#FF782D] hover:text-white">
+          <button className="inline-flex items-center h-[44px] px-7 text-black font-medium text-[16px] bg-transparent rounded-full transition border border-[1.5px] border-[#FF782D] hover:bg-[#FF782D] hover:text-white">
             Tất cả khóa học
-            <i className="fa-solid fa-angle-right text-[18px] text-[#333333] ml-[11px] transition group-hover:text-white"></i>
+            <i className="fa-solid fa-angle-right text-[18px] text-[#555555] ml-[11px] transition group-hover:text-white"></i>
           </button>
         </div>
 
-        <div className="grid lg:grid-cols-3 md:grid-cols-2 grid-cols-1 gap-6">
-          {/* Courses Section */}
-          {courses.map((course) => (
-            <div key={course.id} className="max-w-sm rounded-[20px] overflow-hidden shadow-lg border border-[#EAEAEA] bg-white">
-              <img src={course.image} alt={course.title} className="mb-4 w-full h-48 object-cover" />
-              <div className="p-5 mt-[-10px]">
-                <h2 className="text-[#333333] text-xl font-bold mb-2">{course.title}</h2>
-                <p className="text-sm text-gray-500 mb-4">
-                  bởi <span className="text-black">{course.instructor}</span> trong <span className="text-[#ff782d]">{course.category}</span>
-                </p>
-                <div className="flex items-center text-sm text-gray-500 mb-4">
-                  <div className="flex items-center mr-4">
-                    <svg className="w-5 h-5 text-[#ff782d] mr-1" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M4 4h16v2H4zM4 11h16v2H4zM4 18h16v2H4z"></path>
-                    </svg>
-                    <span>{course.lessons} Bài học</span>
-                  </div>
-                  <div className="flex items-center">
-                    <svg className="w-5 h-5 text-[#ff782d] mr-1" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"></path>
-                    </svg>
-                    <span>{course.students} Học viên</span>
-                  </div>
-                </div>
-                <p className="text-green-500 font-bold mb-4">{course.price === 0 ? "Miễn phí" : `${course.price.toLocaleString()} VNĐ`}</p>
-                <button className="w-full py-2 bg-[#ff782d] text-white rounded-full hover:bg-[#e66c27] transition duration-300">
-                  Xem chi tiết
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
+        <CourseGrid courses={courses} />
+
       </div>
       {/* End Section 3 */}
 
@@ -257,9 +279,59 @@ export default function Home() {
       {/* End Section 4 */}
 
       {/* Section 5 */}
+      <div className="min-h-screen bg-white">
+        <main className="container mx-auto px-4 py-12 md:py-20">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+            {/* Left side - Illustration */}
+            <div className="relative w-full h-[400px] md:h-[500px]">
+              <Image
+                src="/images/Vector.png"
+                alt="Learning illustration"
+                fill
+                className="object-contain"
+                priority
+              />
+            </div>
+
+            {/* Right side - Content */}
+            <div className="space-y-6">
+              <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-gray-900 leading-tight">
+                Grow Us Your Skill With LearnPress LMS
+              </h1>
+
+              <p className="text-lg text-gray-600">
+                We denounce with righteous indignation and dislike men who are so beguiled and demoralized that cannot
+                trouble.
+              </p>
+
+              <div className="space-y-3 py-2">
+                {["Certification", "Certification", "Certification", "Certification"].map((item, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <div className="flex-shrink-0 h-6 w-6 bg-green-100 rounded-full flex items-center justify-center">
+                      <Check className="h-4 w-4 text-green-600" />
+                    </div>
+                    <span className="text-gray-800">{item}</span>
+                  </div>
+                ))}
+              </div>
+
+              <Button
+                variant="contained"
+                color="warning"
+                sx={{ borderRadius: '50px', px: 4, mt: 3 }}
+              >
+                Explorer Course
+              </Button>
+            </div>
+          </div>
+        </main>
+      </div>
+      {/* End Section 5 */}
+
+      {/* Section 6 */}
       <div className="sm:pb-[80px] pb-[60px] container mx-auto px-4">
         <div className="container mx-auto px-4 mx-auto px-[16px]">
-          <h2 className="font-[700] md:text-[36px] sm:text-[38px] text-[32px] text-[#333333] sm:mb-[54px] mb-[32px] text-center">
+          <h2 className="font-[700] md:text-[36px] sm:text-[38px] text-[32px] text-[#555555] sm:mb-[54px] mb-[32px] text-center">
             CẢM NHẬN CỦA KHÁCH HÀNG
           </h2>
           <div className="grid lg:grid-cols-3 md:grid-cols-2 grid-cols-1 gap-[20px]">
@@ -294,7 +366,7 @@ export default function Home() {
           </div>
         </div>
       </div>
-      {/* End Section 5 */}
+      {/* End Section 6 */}
     </>
   );
 }
