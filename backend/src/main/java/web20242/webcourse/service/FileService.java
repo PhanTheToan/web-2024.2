@@ -133,12 +133,12 @@ public class FileService {
 
         imageRepository.delete(image);
     }
-    public void deleteFileOnR2ByUrl(String imageUrl) {
-        if (!imageUrl.startsWith(publicUrl)) {
-            throw new IllegalArgumentException("Invalid image URL: " + imageUrl);
+    public void deleteFileOnR2ByUrl(String fileUrl) {
+        if (!fileUrl.startsWith(publicUrl)) {
+            throw new IllegalArgumentException("Invalid File URL: " + fileUrl);
         }
 
-        String key = imageUrl.replace(publicUrl, "");
+        String key = fileUrl.replace(publicUrl, "");
 
         DeleteObjectRequest deleteRequest = DeleteObjectRequest.builder()
                 .bucket(bucketName)
@@ -152,6 +152,7 @@ public class FileService {
             case ".png" -> "image/png";
             case ".gif" -> "image/gif";
             case ".webp" -> "image/webp";
+            case ".pdf" -> "application/pdf";
             default -> "application/octet-stream";
         };
     }

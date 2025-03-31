@@ -48,14 +48,30 @@ public class FileController {
         return ResponseEntity.ok("Image with URL " + imageUrl + " deleted successfully");
     }
     @PreAuthorize("hasRole('ROLE_ADMIN') || hasRole('ROLE_TEACHER')")
-    @DeleteMapping("/image/r2")
-    public ResponseEntity<String> deleteFileOnR2(@RequestParam("imageUrl") String imageUrl) {
-        fileService.deleteFileOnR2ByUrl(imageUrl);
-        return ResponseEntity.ok("Image with URL " + imageUrl + " deleted from R2 successfully");
+    @DeleteMapping("/delete")
+    public ResponseEntity<String> deleteFileOnR2(@RequestParam("fileUrl") String fileUrl) {
+        fileService.deleteFileOnR2ByUrl(fileUrl);
+        return ResponseEntity.ok("File with URL " + fileUrl + " deleted from R2 successfully");
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<String> handleNotFound(IllegalArgumentException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ex.getMessage());
     }
+    @PreAuthorize("hasRole('ROLE_ADMIN') || hasRole('ROLE_TEACHER')")
+    @PostMapping("/pdf")
+    public String uploadPdfToR2(
+            @RequestParam("file") MultipartFile file
+    ) throws IOException, NoSuchAlgorithmException {
+        if (!isPdfFile(file)) {
+            throw new IllegalArgumentException("Only PDF files are allowed");
+        }
+        return fileService.uploadFileR2(file);
+    }
+
+    private boolean isPdfFile(MultipartFile file) {
+        String contentType = file.getContentType();
+        return contentType != null && contentType.equals("application/pdf");
+    }
+
 }

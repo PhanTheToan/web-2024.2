@@ -1,6 +1,7 @@
 package web20242.webcourse.service;
 
 import lombok.Setter;
+import org.bson.types.ObjectId;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -67,6 +68,9 @@ public class UserService implements UserDetailsService {
     }
     public User findByEmail(String email) {
         return userRepository.findByEmail(email).orElse(null);
+    }
+    public User findById(String id){
+        return userRepository.findById(new org.bson.types.ObjectId(id)).orElse(null);
     }
     public List<User> findAllUsers() {
         return userRepository.findAll();
