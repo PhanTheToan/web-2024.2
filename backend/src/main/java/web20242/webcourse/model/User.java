@@ -15,6 +15,7 @@ import web20242.webcourse.model.constant.ERole;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Document(collection = "users")
@@ -57,7 +58,7 @@ public class User {
     private String profileImage; // URL ảnh
 
     @Field(name = "courses_enrolled")
-    private List<ObjectId> coursesEnrolled;
+    private ArrayList<ObjectId> coursesEnrolled;
 
     @Field(name = "created_at", targetType = FieldType.TIMESTAMP)
     private LocalDateTime createdAt;

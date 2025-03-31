@@ -11,29 +11,32 @@ import org.springframework.data.mongodb.core.mapping.Field;
 import org.springframework.data.mongodb.core.mapping.FieldType;
 
 import java.time.LocalDateTime;
-import java.util.List;
+import java.util.ArrayList;
 
 @Document(collection = "quizzes")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Quiz {
+public class Quizzes {
     @Id
     private ObjectId id; // _id là ObjectId, MongoDB tự sinh
 
-    @Field(name = "course_id")
+    @Field(name = "courseId")
     private ObjectId courseId; // ID của khóa học trong collection "courses"
 
     @Field(name = "title")
     private String title;
 
     @Field(name = "questions")
-    private List<Question> questions; // Danh sách câu hỏi
+    private ArrayList<Question> questions; // Danh sách câu hỏi
 
-    @Field(name = "passing_score")
+    @Field(name = "passingScore")
     private Double passingScore; // Điểm tối thiểu để qua, dùng Double thay cho Number
 
-    @Field(name = "created_at", targetType = FieldType.TIMESTAMP)
+    @Field(name="timeLimit")
+    private Integer timeLimit; // Thời gian làm bài (phút)
+
+    @Field(name = "createdAt", targetType = FieldType.TIMESTAMP)
     private LocalDateTime createdAt;
 }

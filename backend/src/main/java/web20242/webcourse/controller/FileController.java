@@ -68,6 +68,16 @@ public class FileController {
         }
         return fileService.uploadFileR2(file);
     }
+//    @PreAuthorize("hasRole('ROLE_ADMIN') || hasRole('ROLE_TEACHER')")
+//    @PostMapping("/video")
+//    public String uploadVideoToR2(
+//            @RequestParam("file") MultipartFile file
+//    ) throws IOException, NoSuchAlgorithmException {
+//        if (!isPdfFile(file)) {
+//            throw new IllegalArgumentException("Only PDF files are allowed");
+//        }
+//        return fileService.uploadFileR2(file);
+//    }
 
     private boolean isPdfFile(MultipartFile file) {
         String contentType = file.getContentType();

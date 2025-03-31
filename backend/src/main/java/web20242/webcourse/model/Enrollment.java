@@ -12,6 +12,8 @@ import org.springframework.data.mongodb.core.mapping.FieldType;
 import web20242.webcourse.model.constant.EStatus;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Document(collection = "enrollments")
 @Data
@@ -22,11 +24,14 @@ public class Enrollment {
     @Id
     private ObjectId id; // _id là ObjectId, MongoDB tự sinh
 
-    @Field(name = "user_id")
+    @Field(name = "userId")
     private ObjectId userId; // ID của user trong collection "users"
 
-    @Field(name = "course_id")
+    @Field(name = "courseId")
     private ObjectId courseId; // ID của khóa học trong collection "courses"
+
+    @Field(name= "lessonIdAndQuizId")
+    private ArrayList<ObjectId> lessonAndQuizId; // ID của bài học hoặc bài quiz trong collection "lessons" hoặc "quizzes"
 
     @Field(name = "progress")
     private Double progress; // Tiến độ hoàn thành (%), dùng Double thay cho Number
@@ -34,9 +39,9 @@ public class Enrollment {
     @Field(name = "status")
     private EStatus status; // "In Progress", "Completed"
 
-    @Field(name = "score")
-    private Double score; // Điểm số nếu có bài quiz, dùng Double thay cho Number
+    @Field(name="enrolledAt",targetType = FieldType.TIMESTAMP)
+    private LocalDateTime enrolledAt; // Ngày đăng ký
 
-    @Field(name = "completed_at",targetType = FieldType.TIMESTAMP)
+    @Field(name = "completedAt",targetType = FieldType.TIMESTAMP)
     private LocalDateTime completedAt; // Ngày hoàn thành
 }

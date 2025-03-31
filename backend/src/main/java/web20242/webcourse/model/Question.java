@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Data
@@ -13,6 +14,6 @@ import java.util.List;
 @Builder
 public class Question {
     private String question; // Nội dung câu hỏi
-    private List<String> options; // Danh sách đáp án
+    private ArrayList<String> options; // Danh sách đáp án
     private String correctAnswer; // Đáp án đúng
 }

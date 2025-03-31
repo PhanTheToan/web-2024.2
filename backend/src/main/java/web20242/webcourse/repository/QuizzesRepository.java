@@ -3,7 +3,7 @@ package web20242.webcourse.repository;
 import org.bson.types.ObjectId;
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.stereotype.Repository;
-import web20242.webcourse.model.Quiz;
+import web20242.webcourse.model.Quizzes;
 @Repository
-public interface QuestionRepository extends MongoRepository<Quiz, ObjectId> {
+public interface QuizzesRepository extends MongoRepository<Quizzes, ObjectId> {
 }

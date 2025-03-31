@@ -11,9 +11,10 @@ import org.springframework.data.mongodb.core.mapping.Field;
 import web20242.webcourse.model.constant.ECategory;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
-@Document(collection = "users")
+@Document(collection = "courses")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -28,11 +29,11 @@ public class Course {
     @Field(name = "description")
     private String description;
 
-    @Field(name = "teacher_id")
+    @Field(name = "teacherId")
     private ObjectId teacherId; // ID của user có role là "TEACHER"
 
     @Field(name = "categories")
-    private List<ECategory> categories; // Danh mục khóa học
+    private ArrayList<ECategory> categories; // Danh mục khóa học
 
     @Field(name = "thumbnail")
     private String thumbnail; // URL ảnh
@@ -40,18 +41,18 @@ public class Course {
     @Field(name = "price")
     private Double price; // Dùng Double thay cho Number
 
-    @Field(name = "students_enrolled")
-    private List<ObjectId> studentsEnrolled; // Danh sách ID học viên
+    @Field(name = "studentsEnrolled")
+    private ArrayList<ObjectId> studentsEnrolled; // Danh sách ID học viên
 
     @Field(name = "lessons")
-    private List<ObjectId> lessons; // Danh sách ID bài học
+    private ArrayList<ObjectId> lessons; // Danh sách ID bài học
 
     @Field(name = "quizzes")
-    private List<ObjectId> quizzes; // Danh sách ID quiz
+    private ArrayList<ObjectId> quizzes; // Danh sách ID quiz
 
-    @Field(name = "created_at")
+    @Field(name = "createdAt")
     private LocalDateTime createdAt;
 
-    @Field(name = "updated_at")
+    @Field(name = "updatedAt")
     private LocalDateTime updatedAt;
 }

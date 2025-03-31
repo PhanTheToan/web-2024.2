@@ -22,10 +22,10 @@ public class Review {
     @Id
     private ObjectId id; // _id là ObjectId, MongoDB tự sinh
 
-    @Field(name = "user_id")
+    @Field(name = "userId")
     private ObjectId userId; // ID của user trong collection "users"
 
-    @Field(name = "course_id")
+    @Field(name = "courseId")
     private ObjectId courseId; // ID của khóa học trong collection "courses"
 
     @Field(name = "rating")
@@ -34,6 +34,6 @@ public class Review {
     @Field(name = "comment")
     private String comment;
 
-    @Field(name = "created_at", targetType = FieldType.TIMESTAMP)
+    @Field(name = "createdAt", targetType = FieldType.TIMESTAMP)
     private LocalDateTime createdAt;
 }

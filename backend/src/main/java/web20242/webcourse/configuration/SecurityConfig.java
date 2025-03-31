@@ -43,8 +43,9 @@ public class SecurityConfig {
                 .exceptionHandling(exception -> exception.authenticationEntryPoint(unauthorizedHandler))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) // Không dùng session
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/**").permitAll() // Cho phép tất cả API auth
-                        .anyRequest().authenticated() // Các request khác cần token
+                        .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/api/courses").permitAll()
+                        .anyRequest().authenticated()
                 )
                 .authenticationProvider(authenticationProvider())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);

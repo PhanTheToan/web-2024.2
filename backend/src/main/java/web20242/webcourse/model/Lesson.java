@@ -1,4 +1,4 @@
-package web2024.webcourse.model; // Điều chỉnh package theo dự án của bạn
+package web20242.webcourse.model; // Điều chỉnh package theo dự án của bạn
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -11,6 +11,7 @@ import org.springframework.data.mongodb.core.mapping.Field;
 import org.springframework.data.mongodb.core.mapping.FieldType;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Document(collection = "lessons")
@@ -22,7 +23,7 @@ public class Lesson {
     @Id
     private ObjectId id; // _id là ObjectId, MongoDB tự sinh
 
-    @Field(name = "course_id")
+    @Field(name = "courseId")
     private ObjectId courseId; // ID của khóa học trong collection "courses"
 
     @Field(name = "title")
@@ -31,15 +32,21 @@ public class Lesson {
     @Field(name = "content")
     private String content;
 
-    @Field(name = "video_url")
+    @Field(name = "videoUrl")
     private String videoUrl; // URL video
 
     @Field(name = "materials")
-    private List<String> materials; // Danh sách URL tài liệu
+    private ArrayList<String> materials; // Danh sách URL tài liệu
 
     @Field(name = "order")
     private Integer order; // Thứ tự bài học, dùng Integer thay cho Number
 
-    @Field(name = "created_at", targetType = FieldType.TIMESTAMP)
+    @Field(name="timeLimit")
+    private Integer timeLimit; // Thời gian giới hạn làm bài, tính bằng phút
+
+    @Field(name = "createdAt", targetType = FieldType.TIMESTAMP)
     private LocalDateTime createdAt;
+
+    @Field(name="updatedAt", targetType = FieldType.TIMESTAMP)
+    private LocalDateTime updateAt;
 }
