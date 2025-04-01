@@ -19,8 +19,6 @@ import web20242.webcourse.repository.CourseRepository;
 import web20242.webcourse.repository.EnrollmentRepository;
 import web20242.webcourse.repository.UserRepository;
 
-import javax.swing.text.html.Option;
-import javax.validation.constraints.Null;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
