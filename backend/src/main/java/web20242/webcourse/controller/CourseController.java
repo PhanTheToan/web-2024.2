@@ -34,6 +34,11 @@ public class CourseController {
         return ResponseEntity.ok(courseService.getAllCoursesForLandingPage());
     }
 
+    @PutMapping("/update/timelimit")
+    public ResponseEntity<?> updateTimelimits(){
+        return ResponseEntity.ok(courseService.updateTimeLimit());
+    }
+
     @PostMapping("/filter")
     public ResponseEntity<?> getFilteredCourses(@RequestBody CourseFilterRequest filterRequest) {
         return courseService.getFilteredCourses(filterRequest);

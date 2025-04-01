@@ -22,6 +22,9 @@ public class Review {
     @Id
     private ObjectId id; // _id là ObjectId, MongoDB tự sinh
 
+    @Field(name = "fullName")
+    private String fullName; // Tên đầy đủ của người đánh giá
+
     @Field(name = "userId")
     private ObjectId userId; // ID của user trong collection "users"
 

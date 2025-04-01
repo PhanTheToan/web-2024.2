@@ -26,10 +26,12 @@ web20242/webcourse/model/OtpData.class
 web20242/webcourse/security/dto/ApiResponse.class
 web20242/webcourse/security/service/AuthenticationService.class
 web20242/webcourse/model/Review$ReviewBuilder.class
+web20242/webcourse/service/ReviewService.class
 web20242/webcourse/model/User$UserBuilder.class
 web20242/webcourse/security/service/JwtService.class
 web20242/webcourse/service/EnrollmentService.class
 web20242/webcourse/model/CourseFilterRequest$CourseFilterRequestBuilder.class
+web20242/webcourse/controller/ReviewController.class
 web20242/webcourse/service/CourseService.class
 web20242/webcourse/WebcourseApplication.class
 web20242/webcourse/model/CourseFilterRequest.class

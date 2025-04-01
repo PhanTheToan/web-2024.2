@@ -70,26 +70,8 @@ public class CourseService {
                overview.put("studentsCount", course.getStudentsEnrolled() != null ?
                             course.getStudentsEnrolled().size() : 0);
                overview.put("contentCount",
-                           (course.getLessons() != null ? course.getLessons().size() : 0) +
-                           (course.getQuizzes() != null ? course.getQuizzes().size() : 0));
-               int totalTimeLimit = 0;
-               if(course.getLessons() != null && !course.getLessons().isEmpty()) {
-                   for(ObjectId id : course.getLessons()) {
-                       Lesson lesson = lessonRepository.findById(id).orElse(null);
-                       if(lesson != null && lesson.getTimeLimit() != null) {
-                           totalTimeLimit += lesson.getTimeLimit();
-                       }
-                   }
-               }
-               if(course.getQuizzes() != null && !course.getQuizzes().isEmpty()) {
-                   for(ObjectId id : course.getQuizzes()) {
-                       Quizzes quizzes = quizzesRepository.findById(id).orElse(null);
-                       if(quizzes != null && quizzes.getTimeLimit() != null) {
-                           totalTimeLimit += quizzes.getTimeLimit();
-                       }
-                   }
-               }
-                overview.put("totalTimeLimit", totalTimeLimit);
+                           (course.getLessons() != null ? course.getLessons().size() : 0));
+                overview.put("totalTimeLimit", course.getTotalTimeLimit());
                return overview;
            })
            .collect(Collectors.toList());
@@ -121,33 +103,51 @@ public class CourseService {
                     overview.put("studentsCount", course.getStudentsEnrolled() != null ?
                             course.getStudentsEnrolled().size() : 0);
                     overview.put("contentCount",
-                            (course.getLessons() != null ? course.getLessons().size() : 0) +
-                                    (course.getQuizzes() != null ? course.getQuizzes().size() : 0));
-                    int totalTimeLimit = 0;
-                    if(course.getLessons() != null && !course.getLessons().isEmpty()) {
-                        for(ObjectId id : course.getLessons()) {
-                            Lesson lesson = lessonRepository.findById(id).orElse(null);
-                            if(lesson != null && lesson.getTimeLimit() != null) {
-                                totalTimeLimit += lesson.getTimeLimit();
-                            }
-                        }
-                    }
-                    if(course.getQuizzes() != null && !course.getQuizzes().isEmpty()) {
-                        for(ObjectId id : course.getQuizzes()) {
-                            Quizzes quizzes = quizzesRepository.findById(id).orElse(null);
-                            if(quizzes != null && quizzes.getTimeLimit() != null) {
-                                totalTimeLimit += quizzes.getTimeLimit();
-                            }
-                        }
-                    }
-                    overview.put("totalTimeLimit", totalTimeLimit);
+                            (course.getLessons() != null ? course.getLessons().size() : 0));
+                    overview.put("totalTimeLimit", course.getTotalTimeLimit());
                     return overview;
                 })
                 .collect(Collectors.toList());
 
         return ResponseEntity.ok(courseOverviews);
     }
-
+    public ResponseEntity<?> updateTimeLimit() {
+        List<Course> courses = courseRepository.findAll();
+        List<Lesson> lessons = lessonRepository.findAll();
+        List<Quizzes> quizzes = quizzesRepository.findAll();
+        for (Lesson lesson : lessons) {
+            Integer randomInt = (int) (Math.random() * 100);
+            lesson.setTimeLimit(randomInt);
+            lessonRepository.save(lesson);
+        }
+        for (Quizzes quiz : quizzes) {
+            Integer randomInt = (int) (Math.random() * 100);
+            quiz.setTimeLimit(randomInt);
+            quizzesRepository.save(quiz);
+        }
+        for (Course course : courses) {
+            int totalTimeLimit = 0;
+            if (course.getLessons() != null && !course.getLessons().isEmpty()) {
+                for (ObjectId id : course.getLessons()) {
+                    Lesson lesson = lessonRepository.findById(id).orElse(null);
+                    if (lesson != null && lesson.getTimeLimit() != null) {
+                        totalTimeLimit += lesson.getTimeLimit();
+                    }
+                }
+            }
+            if (course.getQuizzes() != null && !course.getQuizzes().isEmpty()) {
+                for (ObjectId id : course.getQuizzes()) {
+                    Quizzes quiz = quizzesRepository.findById(id).orElse(null);
+                    if (quiz != null && quiz.getTimeLimit() != null) {
+                        totalTimeLimit += quiz.getTimeLimit();
+                    }
+                }
+            }
+            course.setTotalTimeLimit(totalTimeLimit);
+            courseRepository.save(course);
+        }
+        return ResponseEntity.ok("Done !");
+    }
     public ResponseEntity<?> updatePopularCategories(List<String> ids) {
         List<Map<String, Object>> results = new ArrayList<>();
         for (String id : ids) {

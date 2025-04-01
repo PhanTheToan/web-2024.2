@@ -52,6 +52,9 @@ public class Course {
     @Field(name = "quizzes")
     private ArrayList<ObjectId> quizzes; // Danh sách ID quiz
 
+    @Field(name = "totalTimeLimit")
+    private Integer totalTimeLimit; // Tổng thời gian giới hạn làm bài, tính bằng phút
+
     @Indexed(name = "averageRating_index")
     @Field(name = "averageRating")
     private Double averageRating;
