@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.bson.types.ObjectId;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
 import web20242.webcourse.model.constant.ECategory;
@@ -32,6 +33,7 @@ public class Course {
     @Field(name = "teacherId")
     private ObjectId teacherId; // ID của user có role là "TEACHER"
 
+    @Indexed
     @Field(name = "categories")
     private ArrayList<ECategory> categories; // Danh mục khóa học
 
@@ -49,6 +51,10 @@ public class Course {
 
     @Field(name = "quizzes")
     private ArrayList<ObjectId> quizzes; // Danh sách ID quiz
+
+    @Indexed(name = "averageRating_index")
+    @Field(name = "averageRating")
+    private Double averageRating;
 
     @Field(name = "createdAt")
     private LocalDateTime createdAt;
