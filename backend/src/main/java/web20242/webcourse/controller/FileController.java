@@ -5,6 +5,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import web20242.webcourse.model.Logo;
 import web20242.webcourse.service.FileService;
 
 import java.io.IOException;
@@ -68,6 +69,20 @@ public class FileController {
         }
         return fileService.uploadFileR2(file);
     }
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @PostMapping("/logo")
+    public String uploadLogo(
+            @RequestParam("logo") MultipartFile file
+    ) throws IOException, NoSuchAlgorithmException {
+        return fileService.uploadFileR2(file);
+    }
+
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @PostMapping("/upLogo")
+    public ResponseEntity<?> upLogo(@RequestBody Logo logo){
+        return ResponseEntity.ok(fileService.upLogo(logo));
+    }
+
 //    @PreAuthorize("hasRole('ROLE_ADMIN') || hasRole('ROLE_TEACHER')")
 //    @PostMapping("/video")
 //    public String uploadVideoToR2(

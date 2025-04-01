@@ -8,16 +8,27 @@ import org.bson.types.ObjectId;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
+import web20242.webcourse.model.constant.ECategory;
 
-@Document(collection = "logos")
+@Document(collection = "categories")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Logo {
+public class Category {
     @Id
-    private ObjectId id;
+    public ObjectId id;
 
-    @Field(name="url")
-    private String url;
+    @Field(name="category")
+    public String category;
+
+    @Field(name="urlLogo")
+    public String urlLogo;
+
+    @Field(name="status")
+    public boolean status; // True: Popular, False: Normal
+
+    public boolean getStatus() {
+        return status;
+    }
 }

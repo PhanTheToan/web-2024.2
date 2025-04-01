@@ -1,6 +1,8 @@
 package web20242.webcourse.service;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.core.sync.RequestBody;
@@ -8,7 +10,9 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import web20242.webcourse.model.Image;
+import web20242.webcourse.model.Logo;
 import web20242.webcourse.repository.ImageRepository;
+import web20242.webcourse.repository.LogoRepository;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -24,6 +28,8 @@ public class FileService {
     private final S3Client s3Client;
     private final ImageRepository imageRepository;
 
+    @Autowired
+    private LogoRepository logoRepository;
     @Value("${cloudflare.r2.bucket}")
     private String bucketName;
 
@@ -153,6 +159,8 @@ public class FileService {
             case ".gif" -> "image/gif";
             case ".webp" -> "image/webp";
             case ".pdf" -> "application/pdf";
+            case ".svg" -> "application/svg";
+            case ".xml"-> "application/xml";
             default -> "application/octet-stream";
         };
     }
@@ -165,4 +173,8 @@ public class FileService {
         return Base64.getUrlEncoder().withoutPadding().encodeToString(digest);
     }
 
+
+    public ResponseEntity<?> upLogo(Logo logo) {
+        return ResponseEntity.ok(logoRepository.save(logo));
+    }
 }
