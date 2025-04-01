@@ -30,11 +30,6 @@ public class CourseController {
     public ResponseEntity<?> getAllCoursesForLandingPages() {
         return ResponseEntity.ok(courseService.getAllCoursesForLandingPage());
     }
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
-    @GetMapping("/all")
-    public ResponseEntity<?> getAllCourse() {
-        return ResponseEntity.ok(courseService.getAllCourses());
-    }
 //    @PutMapping("/cleanup-invalid-categories")
 //    public ResponseEntity<?> cleanupInvalidCategories() {
 //        return courseService.updateCategoryNames();

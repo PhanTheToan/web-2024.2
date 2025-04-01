@@ -22,9 +22,7 @@ import web20242.webcourse.repository.QuizzesRepository;
 import org.springframework.data.mongodb.core.MongoTemplate;
 
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -92,6 +90,78 @@ public class CourseService {
 
        return ResponseEntity.ok(courseOverviews);
    }
+
+    public ResponseEntity<?> getFeaturedCategories() {
+       List<Course> allCourses = courseRepository.findByCategoriesIn(List.of(ECategory.POPULAR));
+        List<Map<String, Object>> courseOverviews = allCourses.stream()
+                .map(course -> {
+                    Map<String, Object> overview = new HashMap<>();
+                    overview.put("id", String.valueOf(course.getId()));
+                    overview.put("title", course.getTitle());
+
+                    User userTeacher = userService.findById(String.valueOf(course.getTeacherId()));
+                    if(userTeacher==null){
+                        String firstName = "Unknown";
+                        String lastName = "Teacher";
+                        overview.put("teacherFullName", (firstName +" "+ lastName));
+                    }else{
+                        String firstName = userTeacher.getFirstName();
+                        String lastName = userTeacher.getLastName();
+                        overview.put("teacherFullName", (firstName +" "+ lastName));
+                    }
+                    overview.put("categories", course.getCategories());
+                    overview.put("price", course.getPrice());
+                    overview.put("studentsCount", course.getStudentsEnrolled() != null ?
+                            course.getStudentsEnrolled().size() : 0);
+                    overview.put("contentCount",
+                            (course.getLessons() != null ? course.getLessons().size() : 0) +
+                                    (course.getQuizzes() != null ? course.getQuizzes().size() : 0));
+                    int totalTimeLimit = 0;
+                    if(course.getLessons() != null && !course.getLessons().isEmpty()) {
+                        for(ObjectId id : course.getLessons()) {
+                            Lesson lesson = lessonRepository.findById(id).orElse(null);
+                            if(lesson != null && lesson.getTimeLimit() != null) {
+                                totalTimeLimit += lesson.getTimeLimit();
+                            }
+                        }
+                    }
+                    if(course.getQuizzes() != null && !course.getQuizzes().isEmpty()) {
+                        for(ObjectId id : course.getQuizzes()) {
+                            Quizzes quizzes = quizzesRepository.findById(id).orElse(null);
+                            if(quizzes != null && quizzes.getTimeLimit() != null) {
+                                totalTimeLimit += quizzes.getTimeLimit();
+                            }
+                        }
+                    }
+                    overview.put("totalTimeLimit", totalTimeLimit);
+                    return overview;
+                })
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(courseOverviews);
+    }
+
+    public ResponseEntity<?> updatePopularCategories(List<String> ids) {
+        List<Map<String, Object>> results = new ArrayList<>();
+        for (String id : ids) {
+            Optional<Course> courseOptional = courseRepository.findById(new ObjectId(id));
+            if (courseOptional.isEmpty()) {
+                results.add(Map.of("id", id, "status", "Course not found"));
+            } else {
+                Course course = courseOptional.get();
+                ArrayList<ECategory> categories = course.getCategories();
+                if (categories.contains(ECategory.POPULAR)) {
+                    categories.remove(ECategory.POPULAR);
+                } else {
+                    categories.add(ECategory.POPULAR);
+                }
+                course.setCategories(categories);
+                courseRepository.save(course);
+                results.add(Map.of("id", id, "status", "Successfully updated"));
+            }
+        }
+        return ResponseEntity.ok(results);
+    }
 //
 //    public ResponseEntity<?> updateCategoryNames() {
 //        try {
