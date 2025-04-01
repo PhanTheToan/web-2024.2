@@ -1,24 +1,13 @@
 package web20242.webcourse.service;
 
-import com.mongodb.client.result.DeleteResult;
-
-import com.mongodb.client.result.UpdateResult;
 import org.bson.types.ObjectId;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.mongodb.core.query.Criteria;
-import org.springframework.data.mongodb.core.query.Query;
-import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import web20242.webcourse.model.*;
-import web20242.webcourse.model.constant.ECategory;
-import web20242.webcourse.repository.CourseRepository;
-import web20242.webcourse.repository.LessonRepository;
-import web20242.webcourse.repository.QuizzesRepository;
+import web20242.webcourse.repository.*;
 import org.springframework.data.mongodb.core.MongoTemplate;
-import web20242.webcourse.repository.ReviewRepository;
 
 
 import java.time.LocalDateTime;
@@ -39,7 +28,8 @@ public class CourseService {
     private MongoTemplate mongoTemplate;
     @Autowired
     private ReviewRepository reviewRepository;
-
+    @Autowired
+    private PopularCategoryRepository popularCategoryRepository;
     //@Scheduled(fixedDelay = 86400000)
 //    public void updateRatingsDaily() {
 //        updateCourseRatings();
@@ -80,7 +70,7 @@ public class CourseService {
    }
 
     public ResponseEntity<?> getFeaturedCategories() {
-       List<Course> allCourses = courseRepository.findByCategoriesIn(List.of(ECategory.POPULAR));
+       List<Course> allCourses = courseRepository.findByCategoriesIn(List.of("POPULAR"));
         List<Map<String, Object>> courseOverviews = allCourses.stream()
                 .map(course -> {
                     Map<String, Object> overview = new HashMap<>();
@@ -148,19 +138,22 @@ public class CourseService {
         }
         return ResponseEntity.ok("Done !");
     }
+
     public ResponseEntity<?> updatePopularCategories(List<String> ids) {
         List<Map<String, Object>> results = new ArrayList<>();
+
         for (String id : ids) {
             Optional<Course> courseOptional = courseRepository.findById(new ObjectId(id));
             if (courseOptional.isEmpty()) {
                 results.add(Map.of("id", id, "status", "Course not found"));
             } else {
+                String popularId = "POPULAR";
                 Course course = courseOptional.get();
-                ArrayList<ECategory> categories = course.getCategories();
-                if (categories.contains(ECategory.POPULAR)) {
-                    categories.remove(ECategory.POPULAR);
+                ArrayList<String> categories = course.getCategories();
+                if (categories.contains(popularId)) {
+                    categories.remove(popularId);
                 } else {
-                    categories.add(ECategory.POPULAR);
+                    categories.add(popularId);
                 }
                 course.setCategories(categories);
                 course.setUpdatedAt(LocalDateTime.now());
@@ -170,95 +163,95 @@ public class CourseService {
         }
         return ResponseEntity.ok(results);
     }
-    public ResponseEntity<?> getFilteredCourses(CourseFilterRequest filterRequest) {
-        double minPrice = 0;
-        double maxPrice = Double.MAX_VALUE;
-
-        if (filterRequest.getPriceFilter() != null) {
-            if ("Free".equalsIgnoreCase(filterRequest.getPriceFilter())) {
-                maxPrice = 0;
-            } else if ("Paid".equalsIgnoreCase(filterRequest.getPriceFilter())) {
-                minPrice = 0.01;
-            }
-        }
-
-        List<String> categories = (filterRequest.getCategories() != null && !filterRequest.getCategories().isEmpty())
-                ? filterRequest.getCategories().stream()
-                .map(Enum::name)
-                .collect(Collectors.toList())
-                : Collections.emptyList();
-
-        List<ObjectId> teacherIds = (filterRequest.getTeacherIds() != null && !filterRequest.getTeacherIds().isEmpty())
-                ? filterRequest.getTeacherIds().stream()
-                .map(idStr -> {
-                    try {
-                        return new ObjectId(idStr);
-                    } catch (Exception e) {
-                        return null;
-                    }
-                })
-                .filter(Objects::nonNull)
-                .collect(Collectors.toList())
-                : Collections.emptyList();
-
-        List<Double> ratings = (filterRequest.getRatings() != null && !filterRequest.getRatings().isEmpty())
-                ? filterRequest.getRatings()
-                : Collections.emptyList();
-
-        List<Course> courses = courseRepository.findByFilters(
-                categories.isEmpty() ? null : categories,
-                ratings.isEmpty() ? null : ratings,
-                teacherIds.isEmpty() ? null : teacherIds,
-                minPrice,
-                maxPrice
-        );
-
-        // Map courses to overview information only
-        List<Map<String, Object>> courseOverviews = courses.stream().map(course -> {
-            Map<String, Object> overview = new HashMap<>();
-            overview.put("id", String.valueOf(course.getId()));
-            overview.put("title", course.getTitle());
-
-            User userTeacher = userService.findById(String.valueOf(course.getTeacherId()));
-            if (userTeacher == null) {
-                overview.put("teacherFullName", "Unknown Teacher");
-            } else {
-                String fullName = userTeacher.getFirstName() + " " + userTeacher.getLastName();
-                overview.put("teacherFullName", fullName);
-            }
-
-            overview.put("thumbnail", course.getThumbnail());
-            overview.put("categories", course.getCategories());
-            overview.put("price", course.getPrice());
-            overview.put("studentsCount", course.getStudentsEnrolled() != null ? course.getStudentsEnrolled().size() : 0);
-
-            int contentCount = (course.getLessons() != null ? course.getLessons().size() : 0) +
-                    (course.getQuizzes() != null ? course.getQuizzes().size() : 0);
-            overview.put("contentCount", contentCount);
-
-            int totalTimeLimit = 0;
-            if (course.getLessons() != null && !course.getLessons().isEmpty()) {
-                for (ObjectId lessonId : course.getLessons()) {
-                    Lesson lesson = lessonRepository.findById(lessonId).orElse(null);
-                    if (lesson != null && lesson.getTimeLimit() != null) {
-                        totalTimeLimit += lesson.getTimeLimit();
-                    }
-                }
-            }
-            if (course.getQuizzes() != null && !course.getQuizzes().isEmpty()) {
-                for (ObjectId quizId : course.getQuizzes()) {
-                    Quizzes quiz = quizzesRepository.findById(quizId).orElse(null);
-                    if (quiz != null && quiz.getTimeLimit() != null) {
-                        totalTimeLimit += quiz.getTimeLimit();
-                    }
-                }
-            }
-            overview.put("totalTimeLimit", totalTimeLimit);
-            return overview;
-        }).collect(Collectors.toList());
-
-        return ResponseEntity.ok(courseOverviews);
-    }
+//    public ResponseEntity<?> getFilteredCourses(CourseFilterRequest filterRequest) {
+//        double minPrice = 0;
+//        double maxPrice = Double.MAX_VALUE;
+//
+//        if (filterRequest.getPriceFilter() != null) {
+//            if ("Free".equalsIgnoreCase(filterRequest.getPriceFilter())) {
+//                maxPrice = 0;
+//            } else if ("Paid".equalsIgnoreCase(filterRequest.getPriceFilter())) {
+//                minPrice = 0.01;
+//            }
+//        }
+//
+//        List<String> categories = (filterRequest.getCategories() != null && !filterRequest.getCategories().isEmpty())
+//                ? filterRequest.getCategories().stream()
+//                .map(Enum::name)
+//                .collect(Collectors.toList())
+//                : Collections.emptyList();
+//
+//        List<ObjectId> teacherIds = (filterRequest.getTeacherIds() != null && !filterRequest.getTeacherIds().isEmpty())
+//                ? filterRequest.getTeacherIds().stream()
+//                .map(idStr -> {
+//                    try {
+//                        return new ObjectId(idStr);
+//                    } catch (Exception e) {
+//                        return null;
+//                    }
+//                })
+//                .filter(Objects::nonNull)
+//                .collect(Collectors.toList())
+//                : Collections.emptyList();
+//
+//        List<Double> ratings = (filterRequest.getRatings() != null && !filterRequest.getRatings().isEmpty())
+//                ? filterRequest.getRatings()
+//                : Collections.emptyList();
+//
+//        List<Course> courses = courseRepository.findByFilters(
+//                categories.isEmpty() ? null : categories,
+//                ratings.isEmpty() ? null : ratings,
+//                teacherIds.isEmpty() ? null : teacherIds,
+//                minPrice,
+//                maxPrice
+//        );
+//
+//        // Map courses to overview information only
+//        List<Map<String, Object>> courseOverviews = courses.stream().map(course -> {
+//            Map<String, Object> overview = new HashMap<>();
+//            overview.put("id", String.valueOf(course.getId()));
+//            overview.put("title", course.getTitle());
+//
+//            User userTeacher = userService.findById(String.valueOf(course.getTeacherId()));
+//            if (userTeacher == null) {
+//                overview.put("teacherFullName", "Unknown Teacher");
+//            } else {
+//                String fullName = userTeacher.getFirstName() + " " + userTeacher.getLastName();
+//                overview.put("teacherFullName", fullName);
+//            }
+//
+//            overview.put("thumbnail", course.getThumbnail());
+//            overview.put("categories", course.getCategories());
+//            overview.put("price", course.getPrice());
+//            overview.put("studentsCount", course.getStudentsEnrolled() != null ? course.getStudentsEnrolled().size() : 0);
+//
+//            int contentCount = (course.getLessons() != null ? course.getLessons().size() : 0) +
+//                    (course.getQuizzes() != null ? course.getQuizzes().size() : 0);
+//            overview.put("contentCount", contentCount);
+//
+//            int totalTimeLimit = 0;
+//            if (course.getLessons() != null && !course.getLessons().isEmpty()) {
+//                for (ObjectId lessonId : course.getLessons()) {
+//                    Lesson lesson = lessonRepository.findById(lessonId).orElse(null);
+//                    if (lesson != null && lesson.getTimeLimit() != null) {
+//                        totalTimeLimit += lesson.getTimeLimit();
+//                    }
+//                }
+//            }
+//            if (course.getQuizzes() != null && !course.getQuizzes().isEmpty()) {
+//                for (ObjectId quizId : course.getQuizzes()) {
+//                    Quizzes quiz = quizzesRepository.findById(quizId).orElse(null);
+//                    if (quiz != null && quiz.getTimeLimit() != null) {
+//                        totalTimeLimit += quiz.getTimeLimit();
+//                    }
+//                }
+//            }
+//            overview.put("totalTimeLimit", totalTimeLimit);
+//            return overview;
+//        }).collect(Collectors.toList());
+//
+//        return ResponseEntity.ok(courseOverviews);
+//    }
 
 
     private void updateCourseRatings() {

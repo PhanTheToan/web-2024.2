@@ -56,5 +56,4 @@ web20242/webcourse/configuration/R2Config.class
 web20242/webcourse/security/jwt/JwtAuthenticationFilter.class
 web20242/webcourse/model/constant/EStatus.class
 web20242/webcourse/repository/UserRepository.class
-web20242/webcourse/model/constant/ECategory.class
 web20242/webcourse/model/Question$QuestionBuilder.class

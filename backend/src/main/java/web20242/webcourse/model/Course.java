@@ -9,11 +9,9 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
-import web20242.webcourse.model.constant.ECategory;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.List;
 
 @Document(collection = "courses")
 @Data
@@ -35,7 +33,7 @@ public class Course {
 
     @Indexed
     @Field(name = "categories")
-    private ArrayList<ECategory> categories; // Danh mục khóa học
+    private ArrayList<String> categories; // Danh mục khóa học
 
     @Field(name = "thumbnail")
     private String thumbnail; // URL ảnh
