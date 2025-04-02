@@ -1,5 +1,6 @@
 import { Star, CheckCircle } from "lucide-react";
 import { Course } from "@/app/types";
+import Link from "next/link";
 
 interface CourseItemProps {
     course: Course;
@@ -14,6 +15,9 @@ function CardContent({ children, className }: { children: React.ReactNode; class
 }
 
 export default function CourseItem({ course }: CourseItemProps) {
+  // Determine the first lesson ID to link to
+  const firstLessonId = course.lessons[0]?._id;
+
   return (
     <div 
       className="w-full p-6 bg-gray-100 rounded-lg  relative overflow-hidden md:flex md:flex-col shadow-lg"
@@ -26,7 +30,20 @@ export default function CourseItem({ course }: CourseItemProps) {
         <div className="relative z-10 bg-white bg-opacity-40 p-6 md:p-8 rounded-lg text-center md:text-left  mx-auto">
             <h1 className="text-2xl md:text-4xl font-bold text-black">{course.title}</h1>
             <p className="text-black mt-2">Giảng viên: <span className="text-orange-950 font-semibold cursor:pointer hover:text-orange-500 cursor: pointer">{course.teacherId.firstName} {course.teacherId.lastName}</span></p>
-            <button className="mt-4 bg-orange-600 text-white px-6 py-2 rounded-lg hover:bg-orange-700 transition w-full md:w-auto">Đăng ký</button>
+            
+            {firstLessonId ? (
+              <Link 
+                href={`/courses/${course._id}/lesson/${firstLessonId}`}
+                className="mt-4 bg-orange-600 text-white px-6 py-2 rounded-lg hover:bg-orange-700 transition w-full md:w-auto inline-block text-center"
+              >
+                Bắt đầu học
+              </Link>
+            ) : (
+              <button className="mt-4 bg-orange-600 text-white px-6 py-2 rounded-lg hover:bg-orange-700 transition w-full md:w-auto">
+                Đăng ký
+              </button>
+            )}
+            
             <p className="mt-2 text-gray-700">{course.studentsEnrolled.length} đã đăng ký</p>
         </div>
       </div>

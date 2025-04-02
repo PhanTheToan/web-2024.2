@@ -1,4 +1,10 @@
-import { Course } from '@/app/types';
+import { Course, Lesson } from '@/app/types';
+import { mockLessons } from './mockData';
+
+// Get the appropriate lessons for each course from mockLessons
+const getLessonsForCourse = (courseId: string): Lesson[] => {
+  return mockLessons.filter(lesson => lesson.courseId === courseId);
+};
 
 export const mockCourses: Course[] = [
   {
@@ -58,34 +64,12 @@ export const mockCourses: Course[] = [
         updatedAt: new Date()
       }
     ],
-    lessons: [
-      { 
-        title: 'Giới thiệu về Prompt Engineering',
-        description: 'Tìm hiểu cơ bản về prompt engineering và tầm quan trọng của nó'
-      },
-      { 
-        title: 'Các kỹ thuật Prompt cơ bản',
-        description: 'Học các kỹ thuật cơ bản để tạo prompt hiệu quả'
-      },
-      { 
-        title: 'Prompt nâng cao',
-        description: 'Khám phá các kỹ thuật prompt nâng cao và best practices'
-      },
-      { 
-        title: 'Thực hành và dự án',
-        description: 'Áp dụng kiến thức vào các dự án thực tế'
-      }
-    ],
+    lessons: getLessonsForCourse('1'),
     quizzes: ['quiz1'],
-    duration: '8 giờ',
     rating: 4.8,
-    requirements: [
-      'Kiến thức cơ bản về AI và Machine Learning',
-      'Máy tính có kết nối internet',
-      'Tinh thần học tập tích cực'
-    ],
     createdAt: new Date(),
     updatedAt: new Date(),
+    duration: '40 minutes',
   },
   {
     _id: '2',
@@ -111,26 +95,12 @@ export const mockCourses: Course[] = [
     thumbnail: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR7t_b8CO_lPSkjiQa6_giaw40gQAtnHayjsg&s',
     price: 29.99,
     studentsEnrolled: [],
-    lessons: [
-      { 
-        title: 'HTML cơ bản',
-        description: 'Tìm hiểu về HTML và cấu trúc trang web'
-      },
-      { 
-        title: 'CSS cơ bản',
-        description: 'Học cách tạo style cho trang web với CSS'
-      }
-    ],
+    lessons: getLessonsForCourse('2'),
     quizzes: ['quiz2'],
-    duration: '6 giờ',
     rating: 4.5,
-    requirements: [
-      'Không cần kinh nghiệm lập trình',
-      'Máy tính có kết nối internet',
-      'Trình duyệt web hiện đại'
-    ],
     createdAt: new Date(),
     updatedAt: new Date(),
+    duration: '20 minutes',
   },
   {
     _id: '3',
@@ -173,29 +143,11 @@ export const mockCourses: Course[] = [
         updatedAt: new Date()
       }
     ],
-    lessons: [
-      { 
-        title: 'Giới thiệu về Data Science',
-        description: 'Tổng quan về khoa học dữ liệu'
-      },
-      { 
-        title: 'Phân tích dữ liệu cơ bản',
-        description: 'Các kỹ thuật phân tích dữ liệu cơ bản'
-      },
-      { 
-        title: 'Visualization dữ liệu',
-        description: 'Học cách tạo biểu đồ và trực quan hóa dữ liệu'
-      }
-    ],
+    lessons: getLessonsForCourse('3'),
     quizzes: ['quiz3'],
-    duration: '10 giờ',
     rating: 4.7,
-    requirements: [
-      'Kiến thức cơ bản về toán học',
-      'Máy tính có kết nối internet',
-      'Python cơ bản (khuyến nghị)'
-    ],
     createdAt: new Date(),
     updatedAt: new Date(),
+    duration: '30 minutes',
   }
 ];
