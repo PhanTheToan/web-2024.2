@@ -128,11 +128,12 @@ export default function Home() {
   // Fetch categories
   useEffect(() => {
     setTimeout(() => {
-      fetch("https://api.example.com/categories")
+      fetch("http://localhost:8082/api/categories/popular")
         .then((response) => response.json())
         .then((data) => {
-          if (Array.isArray(data) && data.length > 0) {
-            setCategories(data);
+          console.log("Dữ liệu từ API:", data);
+          if (data.body && Array.isArray(data.body) && data.body.length > 0) {
+            setCategories(data.body);  // ✅ Lấy danh mục từ data.body
           } else {
             setError("Không có dữ liệu danh mục từ API, hiển thị dữ liệu mặc định.");
           }
@@ -143,6 +144,7 @@ export default function Home() {
         });
     }, 2000);
   }, []);
+  
 
   // Fetch courses
   useEffect(() => {
@@ -241,14 +243,14 @@ export default function Home() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 p-8 bg-white">
           {categories.map((category) => (
-            <div key={category.id} className="border border-gray-300 rounded-2xl p-6 text-center transition duration-300 hover:shadow-lg">
-              <img src={category.image} alt={category.name} className="mx-auto mb-4" />
+            <div key={category.categoryId} className="border border-gray-300 rounded-2xl p-6 text-center transition duration-300 hover:shadow-lg">
+              <img src={category.categoryUrl} alt={category.categoryName} className="mx-auto mb-4" />
               <h4 className="text-lg font-semibold mb-2 text-gray-800">
-                <a href={`https://edupress.thimpress.com/course-category/${category.slug}`} className="hover:text-orange-500">
-                  {category.name}
+                <a href={"#"} className="hover:text-orange-500">
+                  {category.categoryName}
                 </a>
               </h4>
-              <span className="text-gray-600">{category.courses} Khóa học</span>
+              {/* <span className="text-gray-600">{category.courses} Khóa học</span> */}
             </div>
           ))}
         </div>

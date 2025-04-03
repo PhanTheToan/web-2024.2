@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import * as dotenv from "dotenv";
+import { redirect } from "next/dist/server/api-utils";
 dotenv.config();
 
 export const FormLogin = () => {
@@ -26,7 +27,9 @@ export const FormLogin = () => {
 
       if (response.ok) {
         alert("Đăng nhập thành công!");
-      } else {
+        window.location.href = "/"; // Chuyển về trang chủ
+      }
+      else {
         setError(data.message || "Sai username hoặc mật khẩu!");
       }
     } catch (err) {
