@@ -21,8 +21,14 @@ public class Category {
     @Field(name="category")
     public String category;
 
+    @Field(name="count")
+    public Integer count;
+
     @Field(name="urlLogo")
     public String urlLogo;
+
+    @Field(name = "displayName")
+    public String displayName; // Tên hiển thị của danh mục
 
     @Field(name="status")
     public boolean status; // True: Popular, False: Normal

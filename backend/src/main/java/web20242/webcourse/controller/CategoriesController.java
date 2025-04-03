@@ -42,9 +42,15 @@ public class CategoriesController {
     }
 
     @PreAuthorize("hasRole('ROLE_ADMIN')")
-    @PutMapping("/featured-status")
-    public ResponseEntity<?> changStatus() {
-        return ResponseEntity.ok(popularCategoryService.deletePopularCategory());
+    @PutMapping("/update-infor")
+    public ResponseEntity<?> changStatus(@RequestBody Category category) {
+        return ResponseEntity.ok(popularCategoryService.updateInfor(category));
+    }
+
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @PutMapping("/update-count")
+    public ResponseEntity<?> updateCountByCategoryNameForSystem() {
+        return ResponseEntity.ok(popularCategoryService.updateCountByCategoryNameForSystem());
     }
 
     @GetMapping("/popular")

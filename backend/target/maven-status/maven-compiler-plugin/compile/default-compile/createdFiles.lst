@@ -28,11 +28,13 @@ web20242/webcourse/model/Category$CategoryBuilder.class
 web20242/webcourse/model/OtpData$OtpDataBuilder.class
 web20242/webcourse/model/Enrollment$EnrollmentBuilder.class
 web20242/webcourse/model/Review.class
+web20242/webcourse/model/RandomStringGenerator.class
 web20242/webcourse/model/OtpData.class
 web20242/webcourse/security/dto/ApiResponse.class
 web20242/webcourse/security/service/AuthenticationService.class
 web20242/webcourse/model/Review$ReviewBuilder.class
 web20242/webcourse/model/Logo$LogoBuilder.class
+web20242/webcourse/model/Enrollment$QuizScore$QuizScoreBuilder.class
 web20242/webcourse/service/ReviewService.class
 web20242/webcourse/model/User$UserBuilder.class
 web20242/webcourse/security/service/JwtService.class
@@ -43,6 +45,7 @@ web20242/webcourse/service/CourseService.class
 web20242/webcourse/WebcourseApplication.class
 web20242/webcourse/model/CourseFilterRequest.class
 web20242/webcourse/repository/EnrollmentRepository.class
+web20242/webcourse/model/Enrollment$QuizScore.class
 web20242/webcourse/service/UserService.class
 web20242/webcourse/model/Quizzes.class
 web20242/webcourse/repository/CourseRepository.class

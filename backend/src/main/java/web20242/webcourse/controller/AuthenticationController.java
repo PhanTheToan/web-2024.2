@@ -10,11 +10,14 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.parameters.P;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import web20242.webcourse.model.OtpData;
+import web20242.webcourse.model.RandomStringGenerator;
 import web20242.webcourse.security.dto.ApiResponse;
 import web20242.webcourse.security.dto.AuthenticationRequest;
 import web20242.webcourse.security.dto.AuthenticationResponse;
@@ -166,7 +169,14 @@ public class AuthenticationController {
         message.setText("Mã OTP của bạn là: " + otp + ". Hết hạn sau " + 5 + " phút.");
         javaMailSender.send(message);
     }
-
+    private void sendResetPassword(String to, String username, String password){
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setTo(to);
+        message.setSubject("Đặt lại mật khẩu");
+        message.setText("Username: "+username);
+        message.setText("Mật khẩu mới của bạn là: " + password + ". Vui lòng đăng nhập và thay đổi mật khẩu.");
+        javaMailSender.send(message);
+    }
 
     @PostMapping("/signout")
     public ResponseEntity<String> signout() {
@@ -179,12 +189,14 @@ public class AuthenticationController {
     }
 
     // Đăng ký Teacher
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/teacher/signup")
     public ResponseEntity<ApiResponse<String>> signupTeacher(@RequestBody User user) {
         return handleSignup(user, ERole.ROLE_TEACHER);
     }
 
     // Đăng ký Admin
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/admin/signup")
     public ResponseEntity<ApiResponse<String>> signupAdmin(@RequestBody User user) {
         return handleSignup(user, ERole.ROLE_ADMIN);
@@ -267,7 +279,25 @@ public class AuthenticationController {
                     .body(new ApiResponse<>(HttpStatus.INTERNAL_SERVER_ERROR.value(), "Lỗi server: " + e.getMessage(), null));
         }
     }
-
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping("/admin-reset-password")
+    public ResponseEntity<ApiResponse<String>> resetPasswordForAdmin(@RequestBody Map<String, String> request) {
+        try {
+            String id = request.get("id");
+            String email = request.get("email");
+            String username = request.get("username");
+            User user = userService.findById(id);
+            String randomPassword = RandomStringGenerator.generateRandomString(10);
+            user.setPassword(randomPassword);
+            user.setUpdatedAt(LocalDateTime.now());
+            userService.updateUser(user);
+            sendResetPassword(email,username,randomPassword);
+            return ResponseEntity.ok(new ApiResponse<>(HttpStatus.OK.value(), "Đặt lại mật khẩu thành công", null));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(HttpStatus.INTERNAL_SERVER_ERROR.value(), "Lỗi server: " + e.getMessage(), null));
+        }
+    }
     @PostMapping("/reset-password")
     public ResponseEntity<ApiResponse<String>> resetPassword(@RequestBody Map<String, String> request) {
         try {

@@ -33,6 +33,9 @@ public class Enrollment {
     @Field(name= "lessonIdAndQuizId")
     private ArrayList<ObjectId> lessonAndQuizId; // ID của bài học hoặc bài quiz trong collection "lessons" hoặc "quizzes"
 
+    @Field(name = "quizScores")
+    private ArrayList<QuizScore> quizScores; // Danh sách điểm của các bài quiz
+
     @Field(name = "progress")
     private Double progress; // Tiến độ hoàn thành (%), dùng Double thay cho Number
 
@@ -44,4 +47,16 @@ public class Enrollment {
 
     @Field(name = "completedAt",targetType = FieldType.TIMESTAMP)
     private LocalDateTime completedAt; // Ngày hoàn thành
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class QuizScore {
+        @Field(name = "quizId")
+        private ObjectId quizId; // ID của bài quiz
+
+        @Field(name = "score")
+        private Double score; // Điểm của bài quiz
+    }
 }

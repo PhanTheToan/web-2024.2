@@ -4,4 +4,6 @@ public enum EStatus {
     DONE,
     INPROGRESS,
     NOTSTARTED,
+    ACTIVE,
+    INACTIVE,
 }

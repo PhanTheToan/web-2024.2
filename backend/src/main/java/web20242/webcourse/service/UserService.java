@@ -4,6 +4,7 @@ import lombok.Setter;
 import org.bson.types.ObjectId;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cglib.core.Local;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -20,10 +21,8 @@ import web20242.webcourse.repository.EnrollmentRepository;
 import web20242.webcourse.repository.UserRepository;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public class UserService implements UserDetailsService {
@@ -109,8 +108,64 @@ public class UserService implements UserDetailsService {
             throw new IllegalArgumentException("User not found with id: " + user.getId());
         }
     }
-    public List<User> findAllUsers() {
-        return userRepository.findAll();
+    public void editInformationUsersForUser(User user){
+        Optional<User> existingUser = userRepository.findByUsername(user.getUsername());
+        if(existingUser.isPresent()){
+            User userToUpdate = existingUser.get();
+            if(user.getId() == userToUpdate.getId())
+            {
+//                userToUpdate.setUsername(user.getUsername());
+//            userToUpdate.setPassword(user.getPassword());
+//            if (user.getPassword() != null && !user.getPassword().isEmpty()) {
+//                userToUpdate.setPassword(passwordEncoder.encode(user.getPassword()));
+//            }
+//            userToUpdate.setEmail(user.getEmail());
+//            userToUpdate.setRole(user.getRole());
+                userToUpdate.setFirstName(user.getFirstName());
+                userToUpdate.setLastName(user.getLastName());
+                userToUpdate.setGender(user.getGender());
+                userToUpdate.setPhone(user.getPhone());
+                userToUpdate.setDateOfBirth(user.getDateOfBirth());
+                userToUpdate.setProfileImage(user.getProfileImage());
+                userToUpdate.setUpdatedAt(LocalDateTime.now());
+                userRepository.save(userToUpdate);
+            }else {
+                throw new IllegalArgumentException("User not found with id: " + user.getId());
+            }
+        }
+        else {
+            throw new IllegalArgumentException("User not found with id: " + user.getId());
+        }
+    }
+    public void setStatusAllUser(){
+        List<User> users = userRepository.findAll();
+        for (User user : users) {
+            if (user.getStatus() == EStatus.ACTIVE) {
+                user.setStatus(EStatus.INACTIVE);
+            } else {
+                user.setStatus(EStatus.ACTIVE);
+            }
+            user.setUpdatedAt(LocalDateTime.now());
+            userRepository.save(user);
+        }
+    }
+    public ResponseEntity<?> findAllUsers() {
+        List<User> users = userRepository.findAll();
+        List<Map<String, String>> result = users.stream().map(user -> {
+            Map<String, String> map = new HashMap<>();
+            map.put("UserId", user.getId() != null ? user.getId().toHexString() : "");
+            map.put("Username", user.getUsername() != null ? user.getUsername() : "");
+            map.put("Email", user.getEmail() != null ? user.getEmail() : "");
+            map.put("Role", user.getRole() != null ? user.getRole().name() : "");
+            map.put("FirstName", user.getFirstName() != null ? user.getFirstName() : "");
+            map.put("LastName", user.getLastName() != null ? user.getLastName() : "");
+            map.put("Phone", user.getPhone() != null ? user.getPhone() : "");
+            map.put("DateOfBirth", user.getDateOfBirth() != null ? user.getDateOfBirth().toString() : "");
+            map.put("Status", user.getStatus() != null ? user.getStatus().name() : "");
+
+            return map;
+        }).toList();
+        return ResponseEntity.ok(result);
     }
 
     public void deleteUserLeaveCourse(String userId, String courseId) {

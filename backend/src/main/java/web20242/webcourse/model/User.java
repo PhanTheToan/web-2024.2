@@ -12,6 +12,7 @@ import org.springframework.data.mongodb.core.mapping.Field;
 import org.springframework.data.mongodb.core.mapping.FieldType;
 import org.springframework.format.annotation.DateTimeFormat;
 import web20242.webcourse.model.constant.ERole;
+import web20242.webcourse.model.constant.EStatus;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -53,6 +54,9 @@ public class User {
 
     @Field(name = "gender")
     private String gender;
+
+    @Field(name = "status")
+    private EStatus status; // "ACTIVE", "INACTIVE"
 
     @Field(name = "profile_image")
     private String profileImage; // URL ảnh

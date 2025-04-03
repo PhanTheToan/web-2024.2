@@ -18,14 +18,25 @@ public class UserController {
 
     @PreAuthorize("hasRole('ROLE_ADMIN')")
     @GetMapping
-    public ResponseEntity<List<User>> getAllUsers() {
-        List<User> users = userService.findAllUsers();
-        return ResponseEntity.ok(users);
+    public ResponseEntity<?> getAllUsers() {
+        return ResponseEntity.ok(userService.findAllUsers());
     }
-    @PreAuthorize("hasRole('ROLE_ADMIN') || hasRole('ROLE_USER') || hasRole('ROLE_TEACHER')")
+    @PreAuthorize("hasRole('ROLE_ADMIN'))")
     @PutMapping("/editUser")
     public ResponseEntity<?> editUsers(@RequestBody User user) {
         userService.editInformationUsers(user);
         return ResponseEntity.ok("User edited successfully");
     }
+    @PreAuthorize("hasRole('ROLE_USER') || hasRole('ROLE_TEACHER')")
+    @PutMapping("/edit")
+    public ResponseEntity<?> editUser(@RequestBody User user) {
+        userService.editInformationUsersForUser(user);
+        return ResponseEntity.ok("User edited successfully");
+    }
+//    @PreAuthorize("hasRole('ROLE_ADMIN')")
+//    @PutMapping("/edit-status")
+//    public ResponseEntity<?> editStatus() {
+//        userService.setStatusAllUser();
+//        return ResponseEntity.ok("User status edited successfully");
+//    }
 }
