@@ -48,8 +48,15 @@ export interface CourseData {
   }
   
   export interface Lesson {
+    _id: string;
+    courseId: string;
     title: string;
-    description: string;
+    content: string;
+    videoUrl: string;
+    materials: string[];
+    order: number;
+    createdAt: Date;
+    description?: string;
   }
 
   export interface User {
@@ -82,7 +89,7 @@ export interface CourseData {
     quizzes: string[];
     duration: string;
     rating: number;
-    requirements: string[];
+    requirements?: string[];
     createdAt: Date;
     updatedAt: Date;
   }

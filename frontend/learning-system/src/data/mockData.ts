@@ -63,8 +63,10 @@ export const mockCourses = [
     studentsEnrolled: ['student1', 'student2'],
     lessons: ['lesson1', 'lesson2', 'lesson3', 'lesson4'],
     quizzes: ['quiz1'],
+    rating: 4.8,
     createdAt: new Date(),
     updatedAt: new Date(),
+    duration: '40 minutes',
   },
   {
     _id: '2',
@@ -75,10 +77,12 @@ export const mockCourses = [
     thumbnail: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR7t_b8CO_lPSkjiQa6_giaw40gQAtnHayjsg&s',
     price: 29.99,
     studentsEnrolled: [],
-    lessons: ['lesson3', 'lesson4'],
+    lessons: ['lesson5', 'lesson6'],
     quizzes: ['quiz2'],
+    rating: 4.5,
     createdAt: new Date(),
     updatedAt: new Date(),
+    duration: '20 minutes',
   },
   {
     _id: '3',
@@ -89,10 +93,12 @@ export const mockCourses = [
     thumbnail: 'https://blogassets.leverageedu.com/blog/wp-content/uploads/2020/05/23151218/BA-Courses.png',
     price: 59.99,
     studentsEnrolled: ['student3'],
-    lessons: ['lesson5', 'lesson6', 'lesson7'],
+    lessons: ['lesson7', 'lesson8', 'lesson9'],
     quizzes: ['quiz3'],
+    rating: 4.7,
     createdAt: new Date(),
     updatedAt: new Date(),
+    duration: '30 minutes',
   }
 ];
 
@@ -102,87 +108,210 @@ export const mockLessons = [
     _id: 'lesson1',
     courseId: '1',
     title: 'Giới thiệu về Prompt Engineering',
-    content: 'Nội dung chi tiết về Prompt Engineering...',
-    videoUrl: 'https://example.com/videos/prompt-engineering-intro.mp4',
+    content: `Prompt engineering là kỹ thuật thiết kế và tối ưu hóa các prompt (câu lệnh đầu vào) để tương tác hiệu quả với các mô hình AI như GPT-4, Claude, hay Gemini. 
+    
+    Trong bài học này, chúng ta sẽ tìm hiểu về tầm quan trọng của việc tạo ra các prompt chất lượng và cách thức hoạt động cơ bản của các mô hình ngôn ngữ lớn (LLMs).
+    
+    Các nội dung chính:
+    - Khái niệm về prompt engineering
+    - Tại sao prompt engineering quan trọng
+    - Các thành phần cơ bản của một prompt hiệu quả
+    - Ứng dụng thực tế của prompt engineering`,
+    videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
     materials: [
-      'https://example.com/materials/prompt-engineering-slides.pdf',
-      'https://example.com/materials/prompt-engineering-examples.pdf'
+      'https://example.com/prompt-engineering-intro.pdf',
+      'https://example.com/prompt-engineering-cheatsheet.pdf'
     ],
     order: 1,
     createdAt: new Date(),
+    description: 'Tìm hiểu cơ bản về prompt engineering và tầm quan trọng của nó'
   },
   {
     _id: 'lesson2',
     courseId: '1',
     title: 'Các kỹ thuật Prompt cơ bản',
-    content: 'Nội dung chi tiết về các kỹ thuật cơ bản...',
-    videoUrl: 'https://example.com/videos/prompt-techniques.mp4',
+    content: `Trong bài học này, chúng ta sẽ tìm hiểu về các kỹ thuật cơ bản để tạo prompt hiệu quả khi làm việc với các mô hình AI.
+    
+    Các kỹ thuật bao gồm:
+    1. Zero-shot prompting: Yêu cầu AI thực hiện nhiệm vụ mà không cung cấp ví dụ
+    2. Few-shot prompting: Cung cấp một vài ví dụ trong prompt để AI học theo
+    3. Chain-of-thought: Hướng dẫn AI suy nghĩ từng bước một
+    4. Role prompting: Gán vai trò cụ thể cho AI
+    
+    Chúng ta sẽ thực hành với từng kỹ thuật và phân tích kết quả.`,
+    videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
     materials: [
-      'https://example.com/materials/prompt-techniques-slides.pdf'
+      'https://example.com/basic-prompt-techniques.pdf',
+      'https://example.com/prompt-examples.zip'
     ],
     order: 2,
     createdAt: new Date(),
+    description: 'Học các kỹ thuật cơ bản để tạo prompt hiệu quả'
   },
   {
     _id: 'lesson3',
-    courseId: '2',
-    title: 'HTML cơ bản',
-    content: 'Nội dung chi tiết về HTML...',
-    videoUrl: 'https://example.com/videos/html-basics.mp4',
+    courseId: '1',
+    title: 'Prompt nâng cao',
+    content: `Bài học này đi sâu vào các kỹ thuật prompt nâng cao để tối ưu hóa kết quả từ các mô hình AI.
+    
+    Chúng ta sẽ tìm hiểu:
+    - Multimodal prompting: Kết hợp văn bản và hình ảnh
+    - Template-based prompting: Sử dụng template để tạo prompt có cấu trúc
+    - Recursive refinement: Lặp lại và cải thiện kết quả qua nhiều lần prompt
+    - Context stuffing: Tối ưu hóa cách sử dụng context window
+    
+    Bài học cũng bao gồm các best practices và cách tránh các lỗi thường gặp.`,
+    videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
     materials: [
-      'https://example.com/materials/html-slides.pdf',
-      'https://example.com/materials/html-examples.zip'
-    ],
-    order: 1,
-    createdAt: new Date(),
-  },
-  {
-    _id: 'lesson4',
-    courseId: '2',
-    title: 'CSS cơ bản',
-    content: 'Nội dung chi tiết về CSS...',
-    videoUrl: 'https://example.com/videos/css-basics.mp4',
-    materials: [
-      'https://example.com/materials/css-slides.pdf'
-    ],
-    order: 2,
-    createdAt: new Date(),
-  },
-  {
-    _id: 'lesson5',
-    courseId: '3',
-    title: 'Giới thiệu về Data Science',
-    content: 'Nội dung chi tiết về Data Science...',
-    videoUrl: 'https://example.com/videos/data-science-intro.mp4',
-    materials: [
-      'https://example.com/materials/data-science-slides.pdf'
-    ],
-    order: 1,
-    createdAt: new Date(),
-  },
-  {
-    _id: 'lesson6',
-    courseId: '3',
-    title: 'Phân tích dữ liệu cơ bản',
-    content: 'Nội dung chi tiết về phân tích dữ liệu...',
-    videoUrl: 'https://example.com/videos/data-analysis.mp4',
-    materials: [
-      'https://example.com/materials/data-analysis-slides.pdf'
-    ],
-    order: 2,
-    createdAt: new Date(),
-  },
-  {
-    _id: 'lesson7',
-    courseId: '3',
-    title: 'Visualization dữ liệu',
-    content: 'Nội dung chi tiết về visualization...',
-    videoUrl: 'https://example.com/videos/data-visualization.mp4',
-    materials: [
-      'https://example.com/materials/visualization-slides.pdf'
+      'https://example.com/advanced-prompt-techniques.pdf',
+      'https://example.com/prompt-optimization-guide.pdf'
     ],
     order: 3,
     createdAt: new Date(),
+    description: 'Khám phá các kỹ thuật prompt nâng cao và best practices'
+  },
+  {
+    _id: 'lesson4',
+    courseId: '1',
+    title: 'Thực hành và dự án',
+    content: `Trong bài học cuối cùng của khóa học, chúng ta sẽ áp dụng tất cả các kỹ thuật đã học vào các dự án thực tế.
+    
+    Các dự án thực hành:
+    1. Tạo một chatbot trợ lý khách hàng
+    2. Xây dựng hệ thống phân tích văn bản tự động
+    3. Thiết kế prompt để tạo nội dung theo thương hiệu
+    4. Tối ưu hóa prompt cho ứng dụng cụ thể
+    
+    Bạn sẽ được hướng dẫn từng bước và nhận phản hồi chi tiết về các prompt đã tạo.`,
+    videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
+    materials: [
+      'https://example.com/prompt-projects.pdf',
+      'https://example.com/project-templates.zip',
+      'https://example.com/evaluation-criteria.pdf'
+    ],
+    order: 4,
+    createdAt: new Date(),
+    description: 'Áp dụng kiến thức vào các dự án thực tế'
+  },
+  
+  // Course 2: Introduction to Web Development
+  {
+    _id: 'lesson5',
+    courseId: '2',
+    title: 'HTML cơ bản',
+    content: `HTML (HyperText Markup Language) là ngôn ngữ đánh dấu tiêu chuẩn cho các trang web.
+    
+    Trong bài học này, chúng ta sẽ tìm hiểu:
+    - Cấu trúc cơ bản của một trang HTML
+    - Các thẻ HTML phổ biến và cách sử dụng
+    - Thuộc tính và giá trị
+    - Semantic HTML và tầm quan trọng của nó
+    - Cách tổ chức nội dung trang web
+    
+    Bạn sẽ thực hành xây dựng một trang web đơn giản từ đầu bằng HTML.`,
+    videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
+    materials: [
+      'https://example.com/html-basics.pdf',
+      'https://example.com/html-cheatsheet.pdf'
+    ],
+    order: 1,
+    createdAt: new Date(),
+    description: 'Tìm hiểu về HTML và cấu trúc trang web'
+  },
+  {
+    _id: 'lesson6',
+    courseId: '2',
+    title: 'CSS cơ bản',
+    content: `CSS (Cascading Style Sheets) là ngôn ngữ được sử dụng để tạo style cho các trang web HTML.
+    
+    Trong bài học này, chúng ta sẽ tìm hiểu:
+    - Cú pháp CSS và cách hoạt động
+    - Selectors và độ ưu tiên
+    - Box model và layout
+    - Typography và màu sắc
+    - Responsive design cơ bản
+    
+    Bạn sẽ thực hành tạo style cho trang web HTML đã xây dựng ở bài trước.`,
+    videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
+    materials: [
+      'https://example.com/css-basics.pdf',
+      'https://example.com/css-exercises.zip'
+    ],
+    order: 2,
+    createdAt: new Date(),
+    description: 'Học cách tạo style cho trang web với CSS'
+  },
+  
+  // Course 3: Data Science Fundamentals
+  {
+    _id: 'lesson7',
+    courseId: '3',
+    title: 'Giới thiệu về Data Science',
+    content: `Data Science là lĩnh vực liên ngành kết hợp các kỹ năng về thống kê, toán học, lập trình và kiến thức chuyên ngành để trích xuất giá trị từ dữ liệu.
+    
+    Trong bài học này, chúng ta sẽ tìm hiểu:
+    - Định nghĩa và phạm vi của Data Science
+    - Các vai trò khác nhau trong ngành
+    - Quy trình phân tích dữ liệu
+    - Các công cụ và ngôn ngữ phổ biến
+    - Ứng dụng thực tế của Data Science
+    
+    Bạn sẽ được giới thiệu tổng quan về hành trình học Data Science.`,
+    videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
+    materials: [
+      'https://example.com/intro-data-science.pdf',
+      'https://example.com/data-science-roadmap.pdf'
+    ],
+    order: 1,
+    createdAt: new Date(),
+    description: 'Tổng quan về khoa học dữ liệu'
+  },
+  {
+    _id: 'lesson8',
+    courseId: '3',
+    title: 'Phân tích dữ liệu cơ bản',
+    content: `Phân tích dữ liệu là quá trình kiểm tra, làm sạch, biến đổi và mô hình hóa dữ liệu để khám phá thông tin hữu ích.
+    
+    Trong bài học này, chúng ta sẽ tìm hiểu:
+    - Thu thập và làm sạch dữ liệu
+    - Thống kê mô tả cơ bản
+    - Phân tích khám phá dữ liệu (EDA)
+    - Tìm kiếm mẫu và tương quan
+    - Báo cáo kết quả phân tích
+    
+    Bạn sẽ thực hành phân tích một bộ dữ liệu thực tế bằng Python và thư viện pandas.`,
+    videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
+    materials: [
+      'https://example.com/data-analysis-basics.pdf',
+      'https://example.com/sample-dataset.csv',
+      'https://example.com/analysis-notebook.ipynb'
+    ],
+    order: 2,
+    createdAt: new Date(),
+    description: 'Các kỹ thuật phân tích dữ liệu cơ bản'
+  },
+  {
+    _id: 'lesson9',
+    courseId: '3',
+    title: 'Visualization dữ liệu',
+    content: `Visualization dữ liệu là quá trình biểu diễn dữ liệu dưới dạng đồ họa để giúp người xem hiểu và khám phá dữ liệu dễ dàng hơn.
+    
+    Trong bài học này, chúng ta sẽ tìm hiểu:
+    - Nguyên tắc thiết kế visualization hiệu quả
+    - Các loại biểu đồ và khi nào nên sử dụng
+    - Thư viện visualization trong Python (Matplotlib, Seaborn, Plotly)
+    - Tạo dashboard tương tác
+    - Kể chuyện với dữ liệu
+    
+    Bạn sẽ thực hành tạo các visualization từ bộ dữ liệu đã phân tích ở bài trước.`,
+    videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
+    materials: [
+      'https://example.com/data-visualization.pdf',
+      'https://example.com/visualization-notebook.ipynb'
+    ],
+    order: 3,
+    createdAt: new Date(),
+    description: 'Học cách tạo biểu đồ và trực quan hóa dữ liệu'
   }
 ];
 

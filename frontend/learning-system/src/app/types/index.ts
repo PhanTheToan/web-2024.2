@@ -27,7 +27,6 @@ export interface Course {
   studentsEnrolled: User[];
   lessons: Lesson[];
   quizzes: string[];
-  duration: string;
   rating: number;
   requirements: string[];
   createdAt: Date;

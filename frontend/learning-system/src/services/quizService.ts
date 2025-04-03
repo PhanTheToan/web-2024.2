@@ -1,0 +1,129 @@
+import { mockQuizzes } from '@/data/mockData';
+import { mockCourses } from '@/data/mockCourses';
+
+// Types for Quiz-related operations
+interface QuizQuestion {
+  question: string;
+  options: string[];
+  correctAnswer: string;
+}
+
+interface Quiz {
+  _id: string;
+  courseId: string;
+  title: string;
+  questions: QuizQuestion[];
+  passingScore: number;
+  createdAt: Date;
+}
+
+interface QuizSubmission {
+  quizId: string;
+  userId: string;
+  answers: Record<number, string>; // Index of question -> selected answer
+}
+
+interface QuizResult {
+  score: number;
+  totalQuestions: number;
+  correctAnswers: number;
+  passed: boolean;
+  feedback: {
+    questionIndex: number;
+    isCorrect: boolean;
+    correctAnswer?: string;
+  }[];
+}
+
+// const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
+
+export const quizService = {
+  // Lấy chi tiết một bài quiz
+  getQuizById: async (id: string): Promise<Quiz> => {
+    // TODO: Implement API call when backend is ready
+    // const response = await fetch(`${API_BASE_URL}/quizzes/${id}`);
+    // if (!response.ok) {
+    //   throw new Error('Failed to fetch quiz');
+    // }
+    // return response.json();
+
+    // Temporary mock implementation
+    const quiz = mockQuizzes.find(q => q._id === id);
+    if (!quiz) {
+      throw new Error('Quiz not found');
+    }
+    return quiz as Quiz;
+  },
+
+  // Lấy các bài quiz của một khóa học
+  getQuizzesByCourseId: async (courseId: string): Promise<Quiz[]> => {
+    // TODO: Implement API call when backend is ready
+    // const response = await fetch(`${API_BASE_URL}/courses/${courseId}/quizzes`);
+    // if (!response.ok) {
+    //   throw new Error('Failed to fetch quizzes');
+    // }
+    // return response.json();
+
+    // Temporary mock implementation
+    const course = mockCourses.find(c => c._id === courseId);
+    if (!course) {
+      throw new Error('Course not found');
+    }
+
+    // If the quizzes are just IDs, fetch the full quiz objects
+    if (course.quizzes && Array.isArray(course.quizzes)) {
+      if (typeof course.quizzes[0] === 'string') {
+        const quizIds = course.quizzes as string[];
+        const quizzes = mockQuizzes.filter(quiz => quizIds.includes(quiz._id));
+        return quizzes as Quiz[];
+      }
+    }
+
+    return [];
+  },
+
+  // Nộp bài quiz và nhận kết quả
+  submitQuiz: async (submission: QuizSubmission): Promise<QuizResult> => {
+    // TODO: Implement API call when backend is ready
+    // const response = await fetch(`${API_BASE_URL}/quizzes/${submission.quizId}/submit`, {
+    //   method: 'POST',
+    //   headers: {
+    //     'Content-Type': 'application/json',
+    //   },
+    //   body: JSON.stringify(submission),
+    // });
+    // if (!response.ok) {
+    //   throw new Error('Failed to submit quiz');
+    // }
+    // return response.json();
+
+    // Temporary mock implementation - grading the quiz locally
+    const quiz = await quizService.getQuizById(submission.quizId);
+    let correctAnswers = 0;
+    
+    const feedback = quiz.questions.map((question, index) => {
+      const userAnswer = submission.answers[index];
+      const isCorrect = userAnswer === question.correctAnswer;
+      
+      if (isCorrect) {
+        correctAnswers++;
+      }
+      
+      return {
+        questionIndex: index,
+        isCorrect,
+        correctAnswer: isCorrect ? undefined : question.correctAnswer
+      };
+    });
+    
+    const score = (correctAnswers / quiz.questions.length) * 100;
+    
+    return {
+      score,
+      totalQuestions: quiz.questions.length,
+      correctAnswers,
+      passed: score >= quiz.passingScore,
+      feedback
+    };
+  }
+}; 

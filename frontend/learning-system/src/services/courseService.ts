@@ -1,5 +1,40 @@
 import { FilterState } from '@/app/types';
 import { mockCourses } from '@/data/mockCourses';
+import { mockLessons, mockUsers } from '@/data/mockData';
+
+// Function to transform courseIds to full course objects if needed
+const transformCourseIfNeeded = (course: any) => {
+  // Check if the course already has full lesson objects
+  if (course.lessons && typeof course.lessons[0] === 'object') {
+    return course;
+  }
+  
+  // If lessons are just IDs, replace with full lesson objects
+  const fullLessons = course.lessons.map((lessonId: string) => 
+    mockLessons.find(l => l._id === lessonId)
+  ).filter(Boolean);
+  
+  // If teacherId is a string, replace with full user object
+  let teacherObj = course.teacherId;
+  if (typeof course.teacherId === 'string') {
+    teacherObj = mockUsers.find(u => u._id === course.teacherId);
+  }
+  
+  // If studentsEnrolled are strings, replace with full user objects
+  const studentsObj = course.studentsEnrolled.map((studentId: string | any) => {
+    if (typeof studentId === 'string') {
+      return mockUsers.find(u => u._id === studentId);
+    }
+    return studentId;
+  }).filter(Boolean);
+  
+  return {
+    ...course,
+    teacherId: teacherObj,
+    studentsEnrolled: studentsObj,
+    lessons: fullLessons
+  };
+};
 
 // const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
 
@@ -118,7 +153,7 @@ export const courseService = {
     if (!course) {
       throw new Error('Course not found');
     }
-    return course;
+    return transformCourseIfNeeded(course);
   },
 
   // Lấy danh sách categories

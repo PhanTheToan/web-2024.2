@@ -4,63 +4,69 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { mockCourses } from "@/data/mockCourses";
 import { ChevronRight } from "lucide-react";
-import { Course } from "@/app/types";
-
-// Định nghĩa các route đặc biệt và cách hiển thị
-const SPECIAL_ROUTES: Record<string, string> = {
-  courses: "Khóa học",
-  profile: "Hồ sơ",
-  settings: "Cài đặt",
-  dashboard: "Bảng điều khiển",
-};
-
-// Định nghĩa các route cần xử lý đặc biệt (có ID)
-const DYNAMIC_ROUTES = {
-  courses: {
-    getData: (id: string): Course | undefined => mockCourses.find(c => c._id === id),
-    getTitle: (data: Course): string => data.title,
-  },
-  // Có thể thêm các route khác ở đây
-} as const;
-
-const formatSegment = (segment: string): string => {
-  return segment
-    .replace(/-/g, " ")
-    .replace(/\b\w/g, (char) => char.toUpperCase());
-};
 
 const BreadcrumbContainer = () => {
   const pathname = usePathname();
   const pathSegments = pathname.split("/").filter(Boolean);
 
-  // Xử lý route động (có ID)
-  const getDynamicRouteData = (segment: string, index: number) => {
-    const prevSegment = pathSegments[index - 1];
-    const dynamicRoute = DYNAMIC_ROUTES[prevSegment as keyof typeof DYNAMIC_ROUTES];
+  // Tạo breadcrumb items đơn giản hóa
+  const createSimplifiedBreadcrumbs = () => {
+    const breadcrumbItems = [];
     
-    if (dynamicRoute) {
-      const data = dynamicRoute.getData(segment);
-      return data ? dynamicRoute.getTitle(data) : null;
+    // Trang chủ luôn là item đầu tiên
+    breadcrumbItems.push({
+      href: "/",
+      label: "Trang chủ",
+      isCurrent: pathname === "/"
+    });
+    
+    // Nếu có "courses" trong path
+    if (pathSegments.includes("courses")) {
+      // Thêm route Khóa học
+      breadcrumbItems.push({
+        href: "/courses",
+        label: "Khóa học",
+        isCurrent: pathname === "/courses"
+      });
+      
+      // Nếu có ID khóa học
+      const courseIndex = pathSegments.indexOf("courses");
+      if (courseIndex !== -1 && pathSegments.length > courseIndex + 1) {
+        const courseId = pathSegments[courseIndex + 1];
+        const course = mockCourses.find(c => c._id === courseId);
+        
+        if (course) {
+          breadcrumbItems.push({
+            href: `/courses/${courseId}`,
+            label: course.title,
+            isCurrent: pathSegments.length === courseIndex + 2
+          });
+          
+          // Nếu là trang bài học
+          if (pathSegments.includes("lesson") && pathSegments.length > courseIndex + 3) {
+            breadcrumbItems.push({
+              href: "#",
+              label: "Bài học",
+              isCurrent: true
+            });
+          }
+          
+          // Nếu là trang kiểm tra
+          if (pathSegments.includes("quiz") && pathSegments.length > courseIndex + 3) {
+            breadcrumbItems.push({
+              href: "#",
+              label: "Bài kiểm tra",
+              isCurrent: true
+            });
+          }
+        }
+      }
     }
-    return null;
+    
+    return breadcrumbItems;
   };
 
-  // Xử lý hiển thị segment
-  const getSegmentDisplay = (segment: string, index: number): string => {
-    // Kiểm tra route đặc biệt
-    if (SPECIAL_ROUTES[segment]) {
-      return SPECIAL_ROUTES[segment];
-    }
-
-    // Kiểm tra route động
-    const dynamicTitle = getDynamicRouteData(segment, index);
-    if (dynamicTitle) {
-      return dynamicTitle;
-    }
-
-    // Mặc định format segment
-    return formatSegment(segment);
-  };
+  const breadcrumbs = createSimplifiedBreadcrumbs();
 
   return (
     <nav 
@@ -68,63 +74,50 @@ const BreadcrumbContainer = () => {
       aria-label="Breadcrumb"
     >
       <ol className="flex gap-2 items-center w-full max-w-[1290px] px-5">
-        {/* Home link */}
-        <li className="text-base leading-6 text-neutral-600">
-          <Link 
-            href="/" 
-            className="hover:underline flex items-center gap-1"
-          >
-            <svg 
-              width="16" 
-              height="16" 
-              viewBox="0 0 16 16" 
-              fill="none" 
-              xmlns="http://www.w3.org/2000/svg"
-              className="text-neutral-600"
-            >
-              <path 
-                d="M8 2L2 7.33333V14H6V10H10V14H14V7.33333L8 2Z" 
-                fill="currentColor"
-              />
-            </svg>
-            <span>Trang chủ</span>
-          </Link>
-        </li>
-
-        {/* Path segments */}
-        {pathSegments.map((segment, index) => {
-          const href = "/" + pathSegments.slice(0, index + 1).join("/");
-          const isLast = index === pathSegments.length - 1;
-          const displayText = getSegmentDisplay(segment, index);
-
-          return (
-            <React.Fragment key={href}>
+        {breadcrumbs.map((item, index) => (
+          <React.Fragment key={item.href + index}>
+            {index > 0 && (
               <li aria-hidden="true">
                 <ChevronRight 
                   size={16} 
                   className="text-neutral-400"
                 />
               </li>
+            )}
 
-              <li 
-                className={`text-base leading-6 ${
-                  isLast ? "text-gray-500" : "text-neutral-600"
-                }`}
-              >
-                {isLast ? (
-                  <span className="line-clamp-1">{displayText}</span>
-                ) : (
-                  <Link
-                    href={href}
-                    className="hover:underline transition-colors"
-                  >
-                    {displayText}
-                  </Link>
-                )}
-              </li>
-            </React.Fragment>
-          );
-        })}
+            <li 
+              className={`text-base leading-6 ${
+                item.isCurrent ? "text-gray-500" : "text-neutral-600"
+              }`}
+            >
+              {item.isCurrent ? (
+                <span className="line-clamp-1">{item.label}</span>
+              ) : (
+                <Link
+                  href={item.href}
+                  className="hover:underline transition-colors flex items-center gap-1"
+                >
+                  {index === 0 && (
+                    <svg 
+                      width="16" 
+                      height="16" 
+                      viewBox="0 0 16 16" 
+                      fill="none" 
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="text-neutral-600"
+                    >
+                      <path 
+                        d="M8 2L2 7.33333V14H6V10H10V14H14V7.33333L8 2Z" 
+                        fill="currentColor"
+                      />
+                    </svg>
+                  )}
+                  <span>{item.label}</span>
+                </Link>
+              )}
+            </li>
+          </React.Fragment>
+        ))}
       </ol>
     </nav>
   );
