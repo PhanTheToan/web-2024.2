@@ -47,32 +47,32 @@ interface CourseGridProps {
             }
           }}>
         <Box sx={{ position: "relative" }}>
-          <Chip label={course.category} sx={{ position: "absolute", top: 16, left: 16, backgroundColor: "black", color: "white" }} />
-          <CardMedia sx={{ height: 250 }} image={course.imageUrl} title={course.title} />
+          <Chip label={course.categories} sx={{ position: "absolute", top: 16, left: 16, backgroundColor: "black", color: "white" }} />
+          <CardMedia sx={{ height: 250 }} image={course.thumbnail} title={course.title} />
         </Box>
         <CardContent sx={{ flexGrow: 1, display: "flex", flexDirection: "column", padding: 3 }}>
-          <Typography variant="body2" color="text.secondary" mb={1} fontWeight={600}>by {course.instructor}</Typography>
+          <Typography variant="body2" color="text.secondary" mb={1} fontWeight={600}>by {course.teacherFullName}</Typography>
           <Typography variant="h6" fontWeight="bold" mb={2}>{course.title}</Typography>
           <Box display="flex" alignItems="center" gap={2} mt="auto">
             <Box display="flex" alignItems="center" gap={1}>
               <Clock className="h-5 w-5 text-orange-500" />
-              <Typography variant="body2" fontWeight={600} fontSize={18}>{course.duration}</Typography>
+              <Typography variant="body2" fontWeight={600} fontSize={18}>{course.totalTimeLimit}</Typography>
             </Box>
             <Box display="flex" alignItems="center" gap={1}>
               <Users className="h-5 w-5 text-orange-500" />
-              <Typography variant="body2" fontWeight={600} fontSize={18}>{course.students} Students</Typography>
+              <Typography variant="body2" fontWeight={600} fontSize={18}>{course.studentsCount} Students</Typography>
             </Box>
           </Box>
           <Box display="flex" justifyContent="space-between" alignItems="center" mt={2} pt={2}>
             <Box display="flex" alignItems="center" gap={2}>
               {course.currentPrice !== null ? (
                 <>
-                  <Typography variant="body2" color="text.secondary" sx={{ textDecoration: "line-through" }}>${course.originalPrice.toFixed(1)}</Typography>
-                  <Typography variant="h6" color="error" fontWeight="bold">${course.currentPrice.toFixed(1)}</Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ textDecoration: "line-through" }}>${course.price.toFixed(1)}</Typography>
+                  <Typography variant="h6" color="error" fontWeight="bold">${(course.price * 0.8).toFixed(1)}</Typography>
                 </>
               ) : (
                 <>
-                  <Typography variant="body2" color="text.secondary" sx={{ textDecoration: "line-through" }}>${course.originalPrice.toFixed(1)}</Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ textDecoration: "line-through" }}>${course.price.toFixed(1)}</Typography>
                   <Typography variant="h6" color="success" fontWeight="bold">Free</Typography>
                 </>
               )}

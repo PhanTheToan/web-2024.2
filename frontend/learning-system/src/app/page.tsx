@@ -9,6 +9,9 @@ import Image from 'next/image';
 import { ChevronRight, Star } from "@mui/icons-material";
 import CourseGrid from "./components/courses-grid/page";
 import { Check } from "lucide-react";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+console.log("API_BASE_URL:", API_BASE_URL); // Đảm bảo biến này có giá trị
+
 
 const defaultCourses: Course[] = [
   {
@@ -118,8 +121,8 @@ const defaultFeedbacks = [
 ];
 
 export default function Home() {
-  const [categories, setCategories] = useState(defaultCategories);
-  const [courses, setCourses] = useState(defaultCourses);
+  const [categories, setCategories] = useState([]);
+  const [courses, setCourses] = useState([]);
   const [feedbacks, setFeedbacks] = useState(defaultFeedbacks);
 
   const [loading, setLoading] = useState(true);
@@ -127,16 +130,14 @@ export default function Home() {
 
   // Fetch categories
   useEffect(() => {
+    console.log("API_BASE_URL:", API_BASE_URL);  // Kiểm tra xem giá trị đúng chưa
     setTimeout(() => {
-      fetch("http://localhost:8082/api/categories/popular")
-        .then((response) => response.json())
+      console.log("Fetching categories...");
+      fetch(`${API_BASE_URL}/api/categories/popular`)
+        .then((res) => res.json())
         .then((data) => {
           console.log("Dữ liệu từ API:", data);
-          if (data.body && Array.isArray(data.body) && data.body.length > 0) {
-            setCategories(data.body);  // ✅ Lấy danh mục từ data.body
-          } else {
-            setError("Không có dữ liệu danh mục từ API, hiển thị dữ liệu mặc định.");
-          }
+          setCategories(data.body);  // Assuming this part works as intended
         })
         .catch((error) => {
           console.error("Lỗi khi lấy danh mục:", error);
@@ -144,19 +145,27 @@ export default function Home() {
         });
     }, 2000);
   }, []);
-  
 
   // Fetch courses
   useEffect(() => {
+    console.log("API_BASE_URL:", API_BASE_URL);  // Kiểm tra xem giá trị đúng chưa
+    
+    // Add setTimeout if you still want to simulate a delay
     setTimeout(() => {
-      fetch("http://localhost:8080/api/courses")
+      console.log("Fetching featured courses...");
+  
+      // Make the fetch request to get featured courses
+      fetch(`${API_BASE_URL}/api/categories/featured-courses`)
         .then((response) => {
-          if (!response.ok) throw new Error("Failed to fetch courses");
+          if (!response.ok) throw new Error("Failed to fetch featured courses");
           return response.json();
         })
         .then((data) => {
-          if (Array.isArray(data) && data.length > 0) {
-            setCourses(data);
+          console.log("Dữ liệu từ API:", data);
+          
+          // Assuming data.body contains the courses and we want to set it to state
+          if (Array.isArray(data.body) && data.body.length > 0) {
+            setCourses(data.body);  // Assuming data.body contains the courses
           } else {
             setError("Không có dữ liệu khóa học từ API, hiển thị dữ liệu mặc định.");
           }
@@ -166,27 +175,43 @@ export default function Home() {
           setError("Dữ liệu khóa học hiển thị là tạm thời.");
         })
         .finally(() => setLoading(false));
-    }, 1000);
-  }, []);
+  
+    }, 2000);  // Optional delay before fetching
+  }, []);  // Empty array to run only once when the component is mounted
+  
 
   // Fetch feedbacks
   useEffect(() => {
+    console.log("API_BASE_URL:", API_BASE_URL);  // Kiểm tra xem giá trị đúng chưa
+  
+    // Add setTimeout if you still want to simulate a delay
     setTimeout(() => {
-      fetch("https://api.example.com/feedbacks")
-        .then((response) => response.json())
+      console.log("Fetching feedbacks...");
+  
+      // Fetch feedback data from the API
+      fetch(`${API_BASE_URL}/feedbacks`)
+        .then((response) => {
+          if (!response.ok) throw new Error("Failed to fetch feedbacks");
+          return response.json();
+        })
         .then((data) => {
-          if (Array.isArray(data) && data.length > 0) {
-            setFeedbacks(data);
+          console.log("Dữ liệu từ API:", data);
+  
+          // Assuming the data is wrapped in a 'body' field
+          if (data.body && Array.isArray(data.body) && data.body.length > 0) {
+            setFeedbacks(data.body);  // Set the feedbacks to the state
           } else {
             setError("Không có phản hồi từ API, hiển thị dữ liệu mặc định.");
           }
         })
-        .catch((error) => {
-          console.error("Lỗi khi lấy feedback:", error);
+        .catch((err) => {
+          console.error("Lỗi API:", err);
           setError("Dữ liệu phản hồi hiển thị là tạm thời.");
-        });
-    }, 2000);
-  }, []);
+        })
+        .finally(() => setLoading(false));
+  
+    }, 2000);  // Optional delay before fetching
+  }, []);  // Empty array to run only once when the component is mounted  
 
   return (
     <>
@@ -244,13 +269,13 @@ export default function Home() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 p-8 bg-white">
           {categories.map((category) => (
             <div key={category.categoryId} className="border border-gray-300 rounded-2xl p-6 text-center transition duration-300 hover:shadow-lg">
-              <img src={category.categoryUrl} alt={category.categoryName} className="mx-auto mb-4" />
+              <img src={category.categoryUrl} alt={category.categoryDisplayName} className="mx-auto mb-4" />
               <h4 className="text-lg font-semibold mb-2 text-gray-800">
                 <a href={"#"} className="hover:text-orange-500">
-                  {category.categoryName}
+                  {category.categoryDisplayName}
                 </a>
               </h4>
-              {/* <span className="text-gray-600">{category.courses} Khóa học</span> */}
+              <span className="text-gray-600">{category.categoryCount} Khóa học</span>
             </div>
           ))}
         </div>
@@ -354,7 +379,7 @@ export default function Home() {
                 {/* Hiển thị tên khách hàng */}
                 <div className="flex items-center sm:mb-[12px] mb-[8px]">
                   <span className="font-bold text-[#FF7D28] sm:text-[20px] text-[16px]">
-                    {feedback.name}
+                    {feedback.fullName}
                   </span>
                   <FaCheckCircle className="text-[#01AB31] sm:text-[18px] text-[14px] ml-[6px]" />
                 </div>
