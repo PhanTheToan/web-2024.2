@@ -123,7 +123,7 @@ const defaultFeedbacks = [
 export default function Home() {
   const [categories, setCategories] = useState([]);
   const [courses, setCourses] = useState([]);
-  const [feedbacks, setFeedbacks] = useState(defaultFeedbacks);
+  const [feedbacks, setFeedbacks] = useState([]);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -133,7 +133,7 @@ export default function Home() {
     console.log("API_BASE_URL:", API_BASE_URL);  // Kiểm tra xem giá trị đúng chưa
     setTimeout(() => {
       console.log("Fetching categories...");
-      fetch(`${API_BASE_URL}/api/categories/popular`)
+      fetch(`${API_BASE_URL}/categories/popular`)
         .then((res) => res.json())
         .then((data) => {
           console.log("Dữ liệu từ API:", data);
@@ -149,20 +149,20 @@ export default function Home() {
   // Fetch courses
   useEffect(() => {
     console.log("API_BASE_URL:", API_BASE_URL);  // Kiểm tra xem giá trị đúng chưa
-    
+
     // Add setTimeout if you still want to simulate a delay
     setTimeout(() => {
       console.log("Fetching featured courses...");
-  
+
       // Make the fetch request to get featured courses
-      fetch(`${API_BASE_URL}/api/categories/featured-courses`)
+      fetch(`${API_BASE_URL}/categories/featured-courses`)
         .then((response) => {
           if (!response.ok) throw new Error("Failed to fetch featured courses");
           return response.json();
         })
         .then((data) => {
           console.log("Dữ liệu từ API:", data);
-          
+
           // Assuming data.body contains the courses and we want to set it to state
           if (Array.isArray(data.body) && data.body.length > 0) {
             setCourses(data.body);  // Assuming data.body contains the courses
@@ -175,28 +175,28 @@ export default function Home() {
           setError("Dữ liệu khóa học hiển thị là tạm thời.");
         })
         .finally(() => setLoading(false));
-  
+
     }, 2000);  // Optional delay before fetching
   }, []);  // Empty array to run only once when the component is mounted
-  
+
 
   // Fetch feedbacks
   useEffect(() => {
     console.log("API_BASE_URL:", API_BASE_URL);  // Kiểm tra xem giá trị đúng chưa
-  
+
     // Add setTimeout if you still want to simulate a delay
     setTimeout(() => {
       console.log("Fetching feedbacks...");
-  
+
       // Fetch feedback data from the API
-      fetch(`${API_BASE_URL}/feedbacks`)
+      fetch(`${API_BASE_URL}/reviews`)
         .then((response) => {
           if (!response.ok) throw new Error("Failed to fetch feedbacks");
           return response.json();
         })
         .then((data) => {
           console.log("Dữ liệu từ API:", data);
-  
+
           // Assuming the data is wrapped in a 'body' field
           if (data.body && Array.isArray(data.body) && data.body.length > 0) {
             setFeedbacks(data.body);  // Set the feedbacks to the state
@@ -209,7 +209,7 @@ export default function Home() {
           setError("Dữ liệu phản hồi hiển thị là tạm thời.");
         })
         .finally(() => setLoading(false));
-  
+
     }, 2000);  // Optional delay before fetching
   }, []);  // Empty array to run only once when the component is mounted  
 
@@ -362,17 +362,17 @@ export default function Home() {
             CẢM NHẬN CỦA KHÁCH HÀNG
           </h2>
           <div className="grid lg:grid-cols-3 md:grid-cols-2 grid-cols-1 gap-[20px]">
-            {feedbacks.map((feedback) => (
+            {feedbacks.map((feedback, index) => (
               <div
-                key={feedback.id}
+                key={index}
                 className="border border-gray-400 rounded-[20px] p-[24px] sm:py-[28px] sm:px-[32px]"
               >
                 {/* Hiển thị số sao */}
                 <div className="text-[#FFC633] flex sm:text-[20px] text-[16px] mb-[12px] sm:mb-[15px]">
                   {Array(feedback.rating)
-                    .fill()
+                    .fill(0)
                     .map((_, index) => (
-                      <FaStar key={index} className="text-[#FFC633]" />
+                      <FaStar key={`${feedback.id}-star-${index}`} className="text-[#FFC633]" />
                     ))}
                 </div>
 
@@ -390,6 +390,7 @@ export default function Home() {
                 </p>
               </div>
             ))}
+
           </div>
         </div>
       </div>
