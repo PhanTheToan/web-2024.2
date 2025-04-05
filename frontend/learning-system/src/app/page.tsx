@@ -9,7 +9,10 @@ import Image from 'next/image';
 import { ChevronRight, Star } from "@mui/icons-material";
 import CourseGrid from "./components/courses-grid/page";
 import { Check } from "lucide-react";
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+// import * as dotenv from "dotenv";
+
+// dotenv.config();
+const API_BASE_URL = process.env.BASE_URL;
 console.log("API_BASE_URL:", API_BASE_URL); // Đảm bảo biến này có giá trị
 
 
@@ -130,10 +133,10 @@ export default function Home() {
 
   // Fetch categories
   useEffect(() => {
-    console.log("API_BASE_URL:", API_BASE_URL);  // Kiểm tra xem giá trị đúng chưa
+    console.log("API_BASE_URL:", API_BASE_URL);  
     setTimeout(() => {
       console.log("Fetching categories...");
-      fetch(`${API_BASE_URL}/api/categories/popular`)
+      fetch(`${API_BASE_URL}/categories/popular`)
         .then((res) => res.json())
         .then((data) => {
           console.log("Dữ liệu từ API:", data);
@@ -155,7 +158,7 @@ export default function Home() {
       console.log("Fetching featured courses...");
   
       // Make the fetch request to get featured courses
-      fetch(`${API_BASE_URL}/api/categories/featured-courses`)
+      fetch(`${API_BASE_URL}/categories/featured-courses`)
         .then((response) => {
           if (!response.ok) throw new Error("Failed to fetch featured courses");
           return response.json();
@@ -189,7 +192,7 @@ export default function Home() {
       console.log("Fetching feedbacks...");
   
       // Fetch feedback data from the API
-      fetch(`${API_BASE_URL}/feedbacks`)
+      fetch(`${API_BASE_URL}/reviews`)
         .then((response) => {
           if (!response.ok) throw new Error("Failed to fetch feedbacks");
           return response.json();
