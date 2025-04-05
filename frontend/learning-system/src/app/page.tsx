@@ -9,7 +9,10 @@ import Image from 'next/image';
 import { ChevronRight, Star } from "@mui/icons-material";
 import CourseGrid from "./components/courses-grid/page";
 import { Check } from "lucide-react";
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+// import * as dotenv from "dotenv";
+
+// dotenv.config();
+const API_BASE_URL = process.env.BASE_URL;
 console.log("API_BASE_URL:", API_BASE_URL); // Đảm bảo biến này có giá trị
 
 
@@ -130,7 +133,7 @@ export default function Home() {
 
   // Fetch categories
   useEffect(() => {
-    console.log("API_BASE_URL:", API_BASE_URL);  // Kiểm tra xem giá trị đúng chưa
+    console.log("API_BASE_URL:", API_BASE_URL);  
     setTimeout(() => {
       console.log("Fetching categories...");
       fetch(`${API_BASE_URL}/categories/popular`)
