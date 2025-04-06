@@ -13,7 +13,7 @@ export const Footer = () => {
                             <Link href="#" className="font-[700] sm:text-[34px] text-[28px] sm:mb-[25px]  text-black mb-[20px] ">
                                 EduPress
                             </Link>
-                            <p className="font-[400] text-[14px] text-secondary sm:mb-[35px] mb-[20px]">
+                            <p className="font-[400] text-[14px] text-black sm:mb-[35px] mb-[20px]">
                             LearnPress là một Plugin WordPress LMS toàn diện dành cho WordPress.
                             </p>
                             <div className="flex gap-[12px]">
@@ -33,16 +33,16 @@ export const Footer = () => {
                                 CÔNG TY
                             </h2>
                             <div className="flex flex-col gap-[12px]">
-                                <Link href="#" className="font-[400] text-[16px] text-secondary hover:text-[#FF782D]">
+                                <Link href="#" className="font-[400] text-[16px] text-black hover:text-[#FF782D]">
                                     Giới Thiệu
                                 </Link>
-                                <Link href="#" className="font-[400] text-[16px] text-secondary hover:text-[#FF782D]">
+                                <Link href="#" className="font-[400] text-[16px] text-black hover:text-[#FF782D]">
                                     Sản Phẩm
                                 </Link>
-                                <Link href="#" className="font-[400] text-[16px] text-secondary hover:text-[#FF782D]">
+                                <Link href="#" className="font-[400] text-[16px] text-black hover:text-[#FF782D]">
                                     Công Việc
                                 </Link>
-                                <Link href="#" className="font-[400] text-[16px] text-secondary hover:text-[#FF782D]">
+                                <Link href="#" className="font-[400] text-[16px] text-black hover:text-[#FF782D]">
                                     Việc Làm
                                 </Link>
                             </div>
@@ -52,16 +52,16 @@ export const Footer = () => {
                                 Trợ giúp
                             </h2>
                             <div className="flex flex-col gap-[12px]">
-                                <Link href="#" className="font-[400] text-[16px] text-secondary hover:text-[#FF782D]">
+                                <Link href="#" className="font-[400] text-[16px] text-black hover:text-[#FF782D]">
                                     Hỗ Trợ Khách Hàng
                                 </Link>
-                                <Link href="#" className="font-[400] text-[16px] text-secondary hover:text-[#FF782D]">
+                                <Link href="#" className="font-[400] text-[16px] text-black hover:text-[#FF782D]">
                                     Thông Tin Đơn Hàng
                                 </Link>
-                                <Link href="#" className="font-[400] text-[16px] text-secondary hover:text-[#FF782D]">
+                                <Link href="#" className="font-[400] text-[16px] text-black hover:text-[#FF782D]">
                                     Điều Khoản & Điều Kiện
                                 </Link>
-                                <Link href="#" className="font-[400] text-[16px] text-secondary hover:text-[#FF782D]">
+                                <Link href="#" className="font-[400] text-[16px] text-black hover:text-[#FF782D]">
                                     Chính Sách
                                 </Link>
                             </div>
@@ -71,16 +71,16 @@ export const Footer = () => {
                                 FAQ
                             </h2>
                             <div className="flex flex-col gap-[12px]">
-                                <Link href="#" className="font-[400] text-[16px] text-secondary hover:text-[#FF782D]">
+                                <Link href="#" className="font-[400] text-[16px] text-black hover:text-[#FF782D]">
                                     Tài Khoản
                                 </Link>
-                                <Link href="#" className="font-[400] text-[16px] text-secondary hover:text-[#FF782D]">
+                                <Link href="#" className="font-[400] text-[16px] text-black hover:text-[#FF782D]">
                                     Quản Lý Đơn Hàng
                                 </Link>
-                                <Link href="#" className="font-[400] text-[16px] text-secondary hover:text-[#FF782D]">
+                                <Link href="#" className="font-[400] text-[16px] text-black hover:text-[#FF782D]">
                                     Đơn Hàng
                                 </Link>
-                                <Link href="#" className="font-[400] text-[16px] text-secondary hover:text-[#FF782D]">
+                                <Link href="#" className="font-[400] text-[16px] text-black hover:text-[#FF782D]">
                                     Thanh Toán
                                 </Link>
                             </div>
@@ -90,16 +90,16 @@ export const Footer = () => {
                                 Tài nguyên
                             </h2>
                             <div className="flex flex-col gap-[12px]">
-                                <Link href="#" className="font-[400] text-[16px] text-secondary hover:text-[#FF782D]">
+                                <Link href="#" className="font-[400] text-[16px] text-black hover:text-[#FF782D]">
                                     Sách Miễn Phí
                                 </Link>
-                                <Link href="#" className="font-[400] text-[16px] text-secondary hover:text-[#FF782D]">
+                                <Link href="#" className="font-[400] text-[16px] text-black hover:text-[#FF782D]">
                                     Bài Viết
                                 </Link>
-                                <Link href="#" className="font-[400] text-[16px] text-secondary hover:text-[#FF782D]">
+                                <Link href="#" className="font-[400] text-[16px] text-black hover:text-[#FF782D]">
                                     Kiến Thức
                                 </Link>
-                                <Link href="#" className="font-[400] text-[16px] text-secondary hover:text-[#FF782D]">
+                                <Link href="#" className="font-[400] text-[16px] text-black hover:text-[#FF782D]">
                                     Youtube
                                 </Link>
                             </div>
@@ -108,7 +108,7 @@ export const Footer = () => {
 
                     {/* <!-- Bottom --> */}
                     <div className="border-t border-[#0000001A] pt-[20px] sm:mt-[48px] mt-[38px] flex flex-wrap items-center sm:justify-between justify-center">
-                        <div className="font-[400] text-[14px] text-secondary sm:mb-[0px] mb-[20px]">
+                        <div className="font-[400] text-[14px] text-black sm:mb-[0px] mb-[20px]">
                             Công nghệ Web 2025, All Rights Reserved
                         </div>
                         <div className="inline-flex sm:gap-[12px] gap-[10px]">

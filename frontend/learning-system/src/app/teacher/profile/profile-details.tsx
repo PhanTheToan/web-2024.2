@@ -16,22 +16,22 @@ export function ProfileDetails() {
     dob: "01/01/1995",
     gender: "male",
     address: "123 Đường ABC, Quận XYZ, TP. Hồ Chí Minh",
-    bio: "Tôi là một học viên đam mê học hỏi và phát triển bản thân thông qua các khóa học trực tuyến.",
+    bio: "Tôi là một giảng viên đam mê học hỏi và phát triển bản thân thông qua các khóa học trực tuyến.",
   })
 
-  useEffect(() => {
-    const fetchProfile = async () => {
-      try {
-        const response = await fetch("/api/profile")
-        if (!response.ok) throw new Error("Failed to fetch profile")
-        const data = await response.json()
-        setProfile(data)
-      } catch (error) {
-        console.error("Error fetching profile:", error)
+    useEffect(() => {
+      const fetchProfile = async () => {
+        try {
+          const response = await fetch("/api/profile")
+          if (!response.ok) throw new Error("Failed to fetch profile")
+          const data = await response.json()
+          setProfile(data)
+        } catch (error) {
+          console.error("Error fetching profile:", error)
+        }
       }
-    }
-    fetchProfile()
-  }, [])
+      fetchProfile()
+    }, [])
 
   const handleChange = (field: string, value: string) => {
     setProfile((prev) => ({ ...prev, [field]: value }))
@@ -49,11 +49,21 @@ export function ProfileDetails() {
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="fullName">Họ và tên</Label>
-              <Input id="fullName" value={profile.fullName} onChange={(e) => handleChange("fullName", e.target.value)} />
+              <Input
+                id="fullName"
+                value={profile.fullName}
+                onChange={(e) => handleChange("fullName", e.target.value)}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" value={profile.email} disabled />
+              <Input
+                id="email"
+                type="email"
+                value={profile.email}
+                onChange={(e) => handleChange("email", e.target.value)}
+                disabled
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="phone">Số điện thoại</Label>
@@ -87,18 +97,42 @@ export function ProfileDetails() {
           </div>
           <div className="flex gap-2">
             <Button onClick={handleSave}>Lưu thay đổi</Button>
-            <Button variant="outline" onClick={() => setIsEditing(false)}>Hủy</Button>
+            <Button variant="outline" onClick={() => setIsEditing(false)}>
+              Hủy
+            </Button>
           </div>
         </>
       ) : (
         <>
           <div className="grid gap-4 md:grid-cols-2">
-            {Object.entries(profile).map(([key, value]) => (
-              <div key={key}>
-                <h3 className="font-medium text-muted-foreground">{key}</h3>
-                <p>{value}</p>
-              </div>
-            ))}
+            <div>
+              <h3 className="font-medium text-muted-foreground">Họ và tên</h3>
+              <p>{profile.fullName}</p>
+            </div>
+            <div>
+              <h3 className="font-medium text-muted-foreground">Email</h3>
+              <p>{profile.email}</p>
+            </div>
+            <div>
+              <h3 className="font-medium text-muted-foreground">Số điện thoại</h3>
+              <p>{profile.phone}</p>
+            </div>
+            <div>
+              <h3 className="font-medium text-muted-foreground">Ngày sinh</h3>
+              <p>{profile.dob}</p>
+            </div>
+            <div>
+              <h3 className="font-medium text-muted-foreground">Giới tính</h3>
+              <p>{profile.gender === "male" ? "Nam" : profile.gender === "female" ? "Nữ" : "Khác"}</p>
+            </div>
+            <div>
+              <h3 className="font-medium text-muted-foreground">Địa chỉ</h3>
+              <p>{profile.address}</p>
+            </div>
+          </div>
+          <div>
+            <h3 className="font-medium text-muted-foreground">Giới thiệu bản thân</h3>
+            <p>{profile.bio}</p>
           </div>
           <Button onClick={() => setIsEditing(true)}>Chỉnh sửa</Button>
         </>
@@ -106,3 +140,4 @@ export function ProfileDetails() {
     </div>
   )
 }
+
