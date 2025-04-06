@@ -70,7 +70,7 @@ const CourseCardGrid: React.FC<CourseCardGridProps> = ({ course }) => {
             ) : (
               <span className="text-primary-600 font-semibold text-lg">
                 ${course.price}
-              </span>
+          </span>
             )}
           </div>
           <button className="px-4 py-2 text-sm font-medium text-primary-600 hover:text-primary-700 border border-primary-600 rounded-full hover:bg-primary-50 transition-colors">

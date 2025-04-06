@@ -1,9 +1,9 @@
-import { FilterState } from '@/app/types';
+import { FilterState, Course } from '@/app/types';
 import { mockCourses } from '@/data/mockCourses';
 import { mockLessons, mockUsers } from '@/data/mockData';
 
 // Function to transform courseIds to full course objects if needed
-const transformCourseIfNeeded = (course: any) => {
+const transformCourseIfNeeded = (course: Course) => {
   // Check if the course already has full lesson objects
   if (course.lessons && typeof course.lessons[0] === 'object') {
     return course;
@@ -21,7 +21,7 @@ const transformCourseIfNeeded = (course: any) => {
   }
   
   // If studentsEnrolled are strings, replace with full user objects
-  const studentsObj = course.studentsEnrolled.map((studentId: string | any) => {
+  const studentsObj = course.studentsEnrolled.map((studentId: string | typeof mockUsers[0]) => {
     if (typeof studentId === 'string') {
       return mockUsers.find(u => u._id === studentId);
     }
@@ -219,5 +219,133 @@ export const courseService = {
       throw new Error('Course not found');
     }
     return { success: true, message: 'Enrolled successfully' };
+  },
+
+  // Xóa khóa học
+  deleteCourse: async (courseId: string) => {
+    // TODO: Implement API call when backend is ready
+    // const response = await fetch(`${API_BASE_URL}/courses/${courseId}`, {
+    //   method: 'DELETE',
+    // });
+    // if (!response.ok) {
+    //   throw new Error('Failed to delete course');
+    // }
+    // return response.json();
+
+    // Temporary mock implementation
+    console.log('Deleting course:', courseId);
+    
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    return { success: true, message: 'Course deleted successfully' };
+  },
+
+  // Hủy đăng ký học viên khỏi khóa học
+  removeStudentFromCourse: async (courseId: string, studentId: string) => {
+    // TODO: Implement API call when backend is ready
+    // const response = await fetch(`${API_BASE_URL}/courses/${courseId}/students/${studentId}`, {
+    //   method: 'DELETE',
+    // });
+    // if (!response.ok) {
+    //   throw new Error('Failed to remove student from course');
+    // }
+    // return response.json();
+
+    // Temporary mock implementation
+    console.log(`Removing student ${studentId} from course ${courseId}`);
+    
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 800));
+    
+    return { success: true, message: 'Student removed successfully' };
+  },
+  
+  // Cập nhật thứ tự bài học trong khóa học
+  updateLessonOrder: async (courseId: string, lessonIds: string[]) => {
+    // TODO: Implement API call when backend is ready
+    // const response = await fetch(`${API_BASE_URL}/courses/${courseId}/lessons/reorder`, {
+    //   method: 'PUT',
+    //   headers: {
+    //     'Content-Type': 'application/json',
+    //   },
+    //   body: JSON.stringify({ lessonIds }),
+    // });
+    // if (!response.ok) {
+    //   throw new Error('Failed to update lesson order');
+    // }
+    // return response.json();
+
+    // Temporary mock implementation
+    console.log('Updating lesson order:', { courseId, lessonIds });
+    
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    return { success: true, message: 'Lesson order updated successfully' };
+  },
+  
+  // Cập nhật thứ tự bài kiểm tra trong khóa học
+  updateQuizOrder: async (courseId: string, quizIds: string[]) => {
+    // TODO: Implement API call when backend is ready
+    // const response = await fetch(`${API_BASE_URL}/courses/${courseId}/quizzes/reorder`, {
+    //   method: 'PUT',
+    //   headers: {
+    //     'Content-Type': 'application/json',
+    //   },
+    //   body: JSON.stringify({ quizIds }),
+    // });
+    // if (!response.ok) {
+    //   throw new Error('Failed to update quiz order');
+    // }
+    // return response.json();
+
+    // Temporary mock implementation
+    console.log('Updating quiz order:', { courseId, quizIds });
+    
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    return { success: true, message: 'Quiz order updated successfully' };
+  },
+  
+  // Xóa bài học
+  deleteLesson: async (courseId: string, lessonId: string) => {
+    // TODO: Implement API call when backend is ready
+    // const response = await fetch(`${API_BASE_URL}/courses/${courseId}/lessons/${lessonId}`, {
+    //   method: 'DELETE',
+    // });
+    // if (!response.ok) {
+    //   throw new Error('Failed to delete lesson');
+    // }
+    // return response.json();
+
+    // Temporary mock implementation
+    console.log(`Deleting lesson ${lessonId} from course ${courseId}`);
+    
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 800));
+    
+    return { success: true, message: 'Lesson deleted successfully' };
+  },
+  
+  // Xóa bài kiểm tra
+  deleteQuiz: async (courseId: string, quizId: string) => {
+    // TODO: Implement API call when backend is ready
+    // const response = await fetch(`${API_BASE_URL}/courses/${courseId}/quizzes/${quizId}`, {
+    //   method: 'DELETE',
+    // });
+    // if (!response.ok) {
+    //   throw new Error('Failed to delete quiz');
+    // }
+    // return response.json();
+
+    // Temporary mock implementation
+    console.log(`Deleting quiz ${quizId} from course ${courseId}`);
+    
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 800));
+    
+    return { success: true, message: 'Quiz deleted successfully' };
   },
 }; 
