@@ -56,6 +56,7 @@ web20242/webcourse/controller/UserController.class
 web20242/webcourse/model/Lesson.class
 web20242/webcourse/controller/FileController.class
 web20242/webcourse/configuration/R2Config.class
+web20242/webcourse/controller/AdminController.class
 web20242/webcourse/security/jwt/JwtAuthenticationFilter.class
 web20242/webcourse/model/constant/EStatus.class
 web20242/webcourse/repository/UserRepository.class

@@ -49,4 +49,8 @@ public class CourseController {
 //    public ResponseEntity<?> cleanupInvalidCategories() {
 //        return courseService.updateCategoryNames();
 //    }
+//    @GetMapping("/page/{page}")
+//    public ResponseEntity<?> getCoursesByPage(@PathVariable int page) {
+//        return ResponseEntity.ok(courseService.getCoursesByPage(page));
+//    }
 }

@@ -36,12 +36,12 @@ public class CategoryService {
         try {
             List<Category> categories = popularCategoryRepository.findAll();
             categories.forEach(category -> {
-                AtomicReference<Integer> sumCountForCourse = new AtomicReference<>(0);
+              //  AtomicReference<Integer> sumCountForCourse = new AtomicReference<>(0);
                 ArrayList<Course> course = courseRepository.findByCategoriesIn(List.of(category.getCategory()));
-                course.forEach(c -> {
-                    sumCountForCourse.updateAndGet(v -> v + c.getStudentsEnrolled().size());
-                });
-                category.setCount(sumCountForCourse.get());
+//                course.forEach(c -> {
+//                    sumCountForCourse.updateAndGet(v -> v + c.getStudentsEnrolled().size());
+//                });
+                category.setCount(course.size());
                 popularCategoryRepository.save(category);
             });
             return ResponseEntity.ok("Done!");

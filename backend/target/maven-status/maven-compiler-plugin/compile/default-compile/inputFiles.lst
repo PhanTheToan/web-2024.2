@@ -2,6 +2,7 @@
 /home/phanthetoan1/PTT-Workspaces/2024.2/Web/web-2024.2/backend/src/main/java/web20242/webcourse/configuration/PasswordConfig.java
 /home/phanthetoan1/PTT-Workspaces/2024.2/Web/web-2024.2/backend/src/main/java/web20242/webcourse/configuration/R2Config.java
 /home/phanthetoan1/PTT-Workspaces/2024.2/Web/web-2024.2/backend/src/main/java/web20242/webcourse/configuration/SecurityConfig.java
+/home/phanthetoan1/PTT-Workspaces/2024.2/Web/web-2024.2/backend/src/main/java/web20242/webcourse/controller/AdminController.java
 /home/phanthetoan1/PTT-Workspaces/2024.2/Web/web-2024.2/backend/src/main/java/web20242/webcourse/controller/AuthenticationController.java
 /home/phanthetoan1/PTT-Workspaces/2024.2/Web/web-2024.2/backend/src/main/java/web20242/webcourse/controller/CategoriesController.java
 /home/phanthetoan1/PTT-Workspaces/2024.2/Web/web-2024.2/backend/src/main/java/web20242/webcourse/controller/CourseController.java

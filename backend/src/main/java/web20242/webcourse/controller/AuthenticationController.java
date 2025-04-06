@@ -30,6 +30,7 @@ import web20242.webcourse.model.constant.ERole;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Random;
 
 
@@ -274,25 +275,6 @@ public class AuthenticationController {
             sendOtpEmail(email, otp);
 
             return ResponseEntity.ok(new ApiResponse<>(HttpStatus.OK.value(), "OTP đã được gửi đến email", null));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(new ApiResponse<>(HttpStatus.INTERNAL_SERVER_ERROR.value(), "Lỗi server: " + e.getMessage(), null));
-        }
-    }
-    @PreAuthorize("hasRole('ADMIN')")
-    @PostMapping("/admin-reset-password")
-    public ResponseEntity<ApiResponse<String>> resetPasswordForAdmin(@RequestBody Map<String, String> request) {
-        try {
-            String id = request.get("id");
-            String email = request.get("email");
-            String username = request.get("username");
-            User user = userService.findById(id);
-            String randomPassword = RandomStringGenerator.generateRandomString(10);
-            user.setPassword(randomPassword);
-            user.setUpdatedAt(LocalDateTime.now());
-            userService.updateUser(user);
-            sendResetPassword(email,username,randomPassword);
-            return ResponseEntity.ok(new ApiResponse<>(HttpStatus.OK.value(), "Đặt lại mật khẩu thành công", null));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ApiResponse<>(HttpStatus.INTERNAL_SERVER_ERROR.value(), "Lỗi server: " + e.getMessage(), null));

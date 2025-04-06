@@ -21,7 +21,7 @@ public class UserController {
     public ResponseEntity<?> getAllUsers() {
         return ResponseEntity.ok(userService.findAllUsers());
     }
-    @PreAuthorize("hasRole('ROLE_ADMIN'))")
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
     @PutMapping("/editUser")
     public ResponseEntity<?> editUsers(@RequestBody User user) {
         userService.editInformationUsers(user);
@@ -39,4 +39,10 @@ public class UserController {
 //        userService.setStatusAllUser();
 //        return ResponseEntity.ok("User status edited successfully");
 //    }
+    @PreAuthorize("hasRole('ROLE_TEACHER') || hasRole('ROLE_USER')")
+    @DeleteMapping("/delete-user/{id}")
+    public ResponseEntity<?> deleteUser(@PathVariable String id){
+      userService.setStatusUser(id);
+       return ResponseEntity.ok("Chuyển trạng thái thành công!");
+    }
 }

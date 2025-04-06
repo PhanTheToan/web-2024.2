@@ -2,6 +2,8 @@ package web20242.webcourse.service;
 
 import org.bson.types.ObjectId;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -10,6 +12,7 @@ import web20242.webcourse.repository.*;
 import org.springframework.data.mongodb.core.MongoTemplate;
 
 
+import java.awt.print.Pageable;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -42,12 +45,13 @@ public class CourseService {
                overview.put("id", String.valueOf(course.getId()));
                overview.put("title", course.getTitle());
 
-               User userTeacher = userService.findById(String.valueOf(course.getTeacherId()));
-               if(userTeacher==null){
+               Optional<User> userTeachers = userService.findById(String.valueOf(course.getTeacherId()));
+               if(userTeachers.isEmpty()){
                     String firstName = "Unknown";
                     String lastName = "Teacher";
                    overview.put("teacherFullName", (firstName +" "+ lastName));
                }else{
+                   User userTeacher = userTeachers.get();
                    String firstName = userTeacher.getFirstName();
                    String lastName = userTeacher.getLastName();
                    overview.put("teacherFullName", (firstName +" "+ lastName));
@@ -77,12 +81,13 @@ public class CourseService {
                     overview.put("id", String.valueOf(course.getId()));
                     overview.put("title", course.getTitle());
 
-                    User userTeacher = userService.findById(String.valueOf(course.getTeacherId()));
-                    if(userTeacher==null){
+                    Optional<User> userTeachers = userService.findById(String.valueOf(course.getTeacherId()));
+                    if(userTeachers.isEmpty()){
                         String firstName = "Unknown";
                         String lastName = "Teacher";
                         overview.put("teacherFullName", (firstName +" "+ lastName));
                     }else{
+                        User userTeacher = userTeachers.get();
                         String firstName = userTeacher.getFirstName();
                         String lastName = userTeacher.getLastName();
                         overview.put("teacherFullName", (firstName +" "+ lastName));
@@ -282,6 +287,41 @@ public class CourseService {
         List<Course> courses = courseRepository.findAll();
         return ResponseEntity.ok(courses);
     }
+
+//    public ResponseEntity<?> getCoursesByPage(int page) {
+//        int pageSize = 6;
+//        Pageable pageable = PageRequest.of(page, pageSize);
+//        Page<Course> coursePage = courseRepository.findAll(pageable);
+//        List<Course> courses = coursePage.getContent();
+//        List<Map<String, Object>> courseOverviews = courses.stream()
+//                .map(course -> {
+//                    Map<String, Object> overview = new HashMap<>();
+//                    overview.put("id", String.valueOf(course.getId()));
+//                    overview.put("title", course.getTitle());
+//
+//                    User userTeacher = userService.findById(String.valueOf(course.getTeacherId()));
+//                    if (userTeacher == null) {
+//                        String firstName = "Unknown";
+//                        String lastName = "Teacher";
+//                        overview.put("teacherFullName", (firstName + " " + lastName));
+//                    } else {
+//                        String firstName = userTeacher.getFirstName();
+//                        String lastName = userTeacher.getLastName();
+//                        overview.put("teacherFullName", (firstName + " " + lastName));
+//                    }
+//                    overview.put("thumbnail", course.getThumbnail());
+//                    overview.put("categories", course.getCategories());
+//                    overview.put("price", course.getPrice());
+//                    overview.put("studentsCount", course.getStudentsEnrolled() != null ?
+//                            course.getStudentsEnrolled().size() : 0);
+//                    overview.put("contentCount",
+//                            (course.getLessons() != null ? course.getLessons().size() : 0));
+//                    overview.put("totalTimeLimit", course.getTotalTimeLimit());
+//                    return overview;
+//                })
+//                .collect(Collectors.toList());
+//        return ResponseEntity.ok(courseOverviews);
+//    }
 
 
 //    public ResponseEntity<?> updateCategoryNames() {

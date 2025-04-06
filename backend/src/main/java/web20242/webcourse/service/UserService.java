@@ -1,9 +1,8 @@
 package web20242.webcourse.service;
 
-import lombok.Setter;
 import org.bson.types.ObjectId;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.cglib.core.Local;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -12,9 +11,7 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import web20242.webcourse.model.Course;
-import web20242.webcourse.model.Enrollment;
 import web20242.webcourse.model.User;
-import web20242.webcourse.model.constant.ERole;
 import web20242.webcourse.model.constant.EStatus;
 import web20242.webcourse.repository.CourseRepository;
 import web20242.webcourse.repository.EnrollmentRepository;
@@ -22,7 +19,6 @@ import web20242.webcourse.repository.UserRepository;
 
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
 public class UserService implements UserDetailsService {
@@ -81,8 +77,8 @@ public class UserService implements UserDetailsService {
     public User findByEmail(String email) {
         return userRepository.findByEmail(email).orElse(null);
     }
-    public User findById(String id){
-        return userRepository.findById(new org.bson.types.ObjectId(id)).orElse(null);
+    public Optional<User> findById(String id){
+        return userRepository.findById(new ObjectId(id));
     }
     public void editInformationUsers(User user){
         Optional<User> existingUser = userRepository.findByUsername(user.getUsername());
@@ -189,5 +185,47 @@ public class UserService implements UserDetailsService {
             }
         }
         enrollmentRepository.deleteById(new ObjectId(userId));
+    }
+
+    public void setStatusUserForAdmin(String id) {
+        Optional<User> user1 = userRepository.findById(new ObjectId(id));
+        if (user1.isPresent()) {
+            User userToUpdate = user1.get();
+            if (userToUpdate.getStatus() == EStatus.ACTIVE) {
+                userToUpdate.setStatus(EStatus.INACTIVE);
+            } else {
+                userToUpdate.setStatus(EStatus.ACTIVE);
+            }
+            userToUpdate.setUpdatedAt(LocalDateTime.now());
+            userRepository.save(userToUpdate);
+        } else {
+            throw new IllegalArgumentException("User not found with id: " + id);
+        }
+    }
+    public void setStatusUser(String id) {
+        Optional<User> user1 = userRepository.findById(new ObjectId(id));
+        if (user1.isPresent()) {
+            User userToUpdate = user1.get();
+            if (userToUpdate.getStatus() == EStatus.ACTIVE) {
+                userToUpdate.setStatus(EStatus.INACTIVE);
+            }else {
+                ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("User not found with id: " + id);
+                return;
+            }
+            userToUpdate.setUpdatedAt(LocalDateTime.now());
+            userRepository.save(userToUpdate);
+        } else {
+            throw new IllegalArgumentException("User not found with id: " + id);
+        }
+    }
+
+    public void removeUser(String id) {
+        Optional<User> userOptional = userRepository.findById(new ObjectId(id));
+        if (userOptional.isPresent()) {
+            User user = userOptional.get();
+            userRepository.delete(user);
+        } else {
+            throw new IllegalArgumentException("User not found with id: " + id);
+        }
     }
 }
