@@ -61,35 +61,88 @@ export interface CourseData {
 
   export interface User {
     _id: string;
-    username: string;
-    password: string;
-    role: 'ADMIN' | 'TEACHER' | 'USER';
-    firstName: string;
-    lastName: string;
+    firstName?: string;
+    lastName?: string;
+    name?: string;
     email: string;
-    phone?: string;
-    dateOfBirth?: Date;
-    gender?: 'Male' | 'Female' | 'Other';
-    profileImage?: string;
-    coursesEnrolled: string[];
-    createdAt: Date;
-    updatedAt: Date;
+    avatar?: string;
+    role?: 'student' | 'teacher' | 'admin';
+    createdAt?: Date;
+    enrolledCourses?: string[] | Course[];
   }
   
   export interface Course {
     _id: string;
     title: string;
     description: string;
-    teacherId: User;
-    categories: string[];
     thumbnail?: string;
+    duration?: string;
     price: number;
-    studentsEnrolled: User[];
-    lessons: Lesson[];
-    quizzes: string[];
-    duration: string;
-    rating: number;
-    requirements?: string[];
+    lessons: Lesson[] | string[];
+    quizzes: Quiz[] | string[];
+    studentsEnrolled: User[] | string[];
+    teacherId: User | string;
+    category?: Category;
     createdAt: Date;
-    updatedAt: Date;
+    updatedAt?: Date;
+  }
+
+  export interface LessonMaterial {
+    name: string;
+    type: 'pdf' | 'doc' | 'image' | 'other';
+    path: string;
+    size?: number;
+  }
+
+  export interface Quiz {
+    _id: string;
+    courseId: string;
+    title: string;
+    description?: string;
+    questions: QuizQuestion[];
+    passingScore: number;
+    timeLimit?: number;
+    createdAt: Date;
+  }
+
+  export interface QuizQuestion {
+    question: string;
+    options: string[];
+    correctAnswer: string;
+  }
+
+  export interface Category {
+    _id: string;
+    name: string;
+    slug?: string;
+  }
+
+  export interface Enrollment {
+    _id: string;
+    userId: string;
+    courseId: string;
+    enrolledAt: Date;
+    progress: number;
+    completed: boolean;
+    completedAt?: Date;
+    lastAccessedAt?: Date;
+  }
+
+  export interface QuizSubmission {
+    _id: string;
+    quizId: string;
+    userId: string;
+    answers: Record<number, string>;
+    score: number;
+    passed: boolean;
+    submittedAt: Date;
+  }
+
+  export interface Review {
+    _id: string;
+    userId: string | User;
+    courseId: string;
+    rating: number;
+    comment: string;
+    createdAt: Date;
   }

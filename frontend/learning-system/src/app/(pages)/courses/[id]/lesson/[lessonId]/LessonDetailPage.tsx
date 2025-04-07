@@ -8,7 +8,7 @@ import { lessonService } from "@/services/lessonService";
 import { courseService } from "@/services/courseService";
 import { enrollmentService } from "@/services/enrollmentService";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, BookOpen, Clock, Check, FileText, PlayCircle, Download } from "lucide-react";
+import { ChevronLeft, ChevronRight, BookOpen, Clock, Check, FileText, PlayCircle, Download, Eye, ExternalLink } from "lucide-react";
 
 const LessonDetailPage: React.FC = () => {
   const params = useParams();
@@ -21,12 +21,23 @@ const LessonDetailPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [completedLessons, setCompletedLessons] = useState<Set<string>>(new Set());
   const [isUpdatingProgress, setIsUpdatingProgress] = useState(false);
+  const [selectedPdf, setSelectedPdf] = useState<string | null>(null);
 
   // Mock user ID for demonstration - in a real app, this would come from authentication
   const currentUserId = 'student1';
 
   const courseId = params.id as string;
   const lessonId = params.lessonId as string;
+
+  // Function to get file name from path
+  const getFileName = (path: string) => {
+    return path.split('/').pop() || path;
+  };
+  
+  // Function to check if file is a PDF
+  const isPdf = (path: string) => {
+    return path.toLowerCase().endsWith('.pdf');
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -40,7 +51,7 @@ const LessonDetailPage: React.FC = () => {
           enrollmentService.getEnrollment(currentUserId, courseId)
         ]);
         
-        setCourse(courseData);
+        setCourse(courseData as Course);
         setLesson(lessonData);
         
         // Check if user is enrolled
@@ -310,39 +321,106 @@ const LessonDetailPage: React.FC = () => {
               </div>
             )}
 
-            {/* Learning materials cards */}
+            {/* PDF Viewer Section */}
+            {selectedPdf && (
+              <div className="bg-white rounded-lg shadow-md overflow-hidden mb-6">
+                <div className="p-4 bg-gradient-to-r from-gray-900 to-gray-800 text-white flex justify-between items-center">
+                  <div className="flex items-center">
+                    <FileText className="w-5 h-5 mr-2 text-primary-400" />
+                    <h2 className="font-semibold">Tài liệu PDF: {getFileName(selectedPdf)}</h2>
+                  </div>
+                  <div className="flex space-x-2">
+                    <a
+                      href={selectedPdf}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-1.5 bg-white/20 text-white hover:bg-white/30 rounded-full"
+                      title="Mở trong tab mới"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                    </a>
+                    <a
+                      href={selectedPdf}
+                      download
+                      className="p-1.5 bg-white/20 text-white hover:bg-white/30 rounded-full"
+                      title="Tải xuống"
+                    >
+                      <Download className="w-4 h-4" />
+                    </a>
+                  </div>
+                </div>
+                <div className="p-4">
+                  <iframe
+                    src={`${selectedPdf}#toolbar=0&navpanes=0`}
+                    className="w-full h-[500px] border rounded"
+                    title="PDF Viewer"
+                  ></iframe>
+                </div>
+              </div>
+            )}
+
+            {/* Learning materials cards - Updated for PDF viewing */}
             {lesson.materials && lesson.materials.length > 0 && (
               <div className="bg-white rounded-lg shadow-md p-6 mb-6">
                 <h2 className="text-xl font-bold mb-4 flex items-center">
                   <FileText className="w-5 h-5 mr-2 text-primary-600" />
                   Tài liệu học tập
                 </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4">
                   {lesson.materials.map((material, index) => (
-                    <div key={index} className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
+                    <div 
+                      key={index} 
+                      className={`border rounded-lg overflow-hidden hover:shadow-md transition-all ${
+                        isPdf(material) ? 'cursor-pointer' : ''
+                      } ${selectedPdf === material ? 'border-primary-500 bg-primary-50' : 'border-gray-200'}`}
+                      onClick={() => isPdf(material) && setSelectedPdf(material)}
+                    >
                       <div className="bg-gray-50 p-4 border-b flex items-center justify-between">
                         <div className="flex items-center">
-                          <FileText className="w-5 h-5 text-primary-600 mr-2" />
-                          <h3 className="font-medium">Tài liệu {index + 1}</h3>
+                          <FileText className={`w-5 h-5 mr-2 ${
+                            isPdf(material) ? 'text-red-500' : 'text-primary-600'
+                          }`} />
+                          <h3 className="font-medium">{getFileName(material)}</h3>
                         </div>
+                        {selectedPdf === material && isPdf(material) && (
+                          <span className="text-xs bg-primary-600 text-white px-2 py-1 rounded">
+                            Đang xem
+                          </span>
+                        )}
                       </div>
                       <div className="p-4">
                         <div className="mb-3 text-sm text-gray-600">
-                          Tài liệu bổ sung cho bài học
+                          {isPdf(material) 
+                            ? 'Tài liệu PDF bổ sung cho bài học' 
+                            : 'Tài liệu bổ sung cho bài học'}
                         </div>
-                        <div className="flex space-x-2">
+                        <div className="flex flex-wrap gap-2">
+                          {isPdf(material) && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedPdf(material);
+                              }}
+                              className="text-primary-600 hover:text-primary-700 px-3 py-1.5 rounded-md border border-primary-600 text-sm inline-flex items-center"
+                            >
+                              <Eye className="w-4 h-4 mr-1" />
+                              Xem PDF
+                            </button>
+                          )}
                           <a 
                             href={material} 
                             target="_blank" 
                             rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
                             className="text-primary-600 hover:text-primary-700 px-3 py-1.5 rounded-md border border-primary-600 text-sm inline-flex items-center"
                           >
-                            <FileText className="w-4 h-4 mr-1" />
-                            Xem online
+                            <ExternalLink className="w-4 h-4 mr-1" />
+                            Mở liên kết
                           </a>
                           <a 
                             href={material} 
                             download 
+                            onClick={(e) => e.stopPropagation()}
                             className="bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-md text-gray-700 border border-gray-300 text-sm inline-flex items-center"
                           >
                             <Download className="w-4 h-4 mr-1" />

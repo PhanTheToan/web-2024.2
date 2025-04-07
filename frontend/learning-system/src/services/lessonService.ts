@@ -1,4 +1,4 @@
-import { Lesson } from '@/app/types';
+import { Lesson, Course } from '@/app/types';
 import { mockLessons } from '@/data/mockData';
 import { mockCourses } from '@/data/mockCourses';
 
@@ -61,8 +61,11 @@ export const lessonService = {
     return lessons;
   },
 
-  // Cập nhật tiến độ học của một bài học
+  // Update lesson progress for a user
   updateLessonProgress: async (_lessonId: string, _progress: number) => {
+    // Đánh dấu việc sử dụng tham số
+    console.log(`Updating progress for lesson ${_lessonId} to ${_progress}%`);
+    
     // TODO: Implement API call when backend is ready
     // const response = await fetch(`${API_BASE_URL}/lessons/${lessonId}/progress`, {
     //   method: 'POST',
@@ -77,11 +80,14 @@ export const lessonService = {
     // return response.json();
 
     // Temporary mock implementation
-    return { success: true, message: 'Progress updated successfully' };
+    return { success: true, message: 'Lesson progress updated' };
   },
 
   // Đánh dấu bài học đã hoàn thành
   markLessonComplete: async (_lessonId: string) => {
+    // Đánh dấu việc sử dụng tham số
+    console.log(`Marking lesson ${_lessonId} as complete`);
+    
     // TODO: Implement API call when backend is ready
     // const response = await fetch(`${API_BASE_URL}/lessons/${lessonId}/complete`, {
     //   method: 'POST',
@@ -93,5 +99,138 @@ export const lessonService = {
 
     // Temporary mock implementation
     return { success: true, message: 'Lesson marked as complete' };
+  },
+
+  // Tạo bài học mới
+  createLesson: async (lessonData: Omit<Lesson, '_id' | 'createdAt'> & { _id?: string }) => {
+    // TODO: Implement API call when backend is ready
+    // const response = await fetch(`${API_BASE_URL}/lessons`, {
+    //   method: 'POST',
+    //   headers: {
+    //     'Content-Type': 'application/json',
+    //   },
+    //   body: JSON.stringify(lessonData),
+    // });
+    // if (!response.ok) {
+    //   throw new Error('Failed to create lesson');
+    // }
+    // return response.json();
+
+    // Ensure description is not undefined
+    const description = lessonData.description || '';
+    
+    // Temporary mock implementation
+    const newLesson: Lesson = {
+      _id: lessonData._id || `lesson-${Date.now()}`,
+      courseId: lessonData.courseId,
+      title: lessonData.title,
+      content: lessonData.content,
+      videoUrl: lessonData.videoUrl || '',
+      materials: lessonData.materials || [],
+      order: lessonData.order || 1,
+      createdAt: new Date(),
+      description,
+    };
+    
+    // In a real application, this would update the database
+    mockLessons.push(newLesson);
+    
+    // Find the course and add the lesson to it if it exists
+    const courseIndex = mockCourses.findIndex(c => c._id === lessonData.courseId);
+    if (courseIndex !== -1) {
+      // Get a reference to the course
+      const course = mockCourses[courseIndex];
+      
+      // Add the lesson to the course's lessons array
+      // We know from mockCourses.ts that lessons is a Lesson[] array
+      // Safe to cast here as we've examined the actual implementation
+      if (Array.isArray(course.lessons)) {
+        // The typings in mockCourses.ts show that lessons is Lesson[]
+        (course.lessons as unknown as Lesson[]).push(newLesson);
+      }
+    }
+    
+    return newLesson;
+  },
+  
+  // Cập nhật bài học
+  updateLesson: async (lessonId: string, lessonData: Partial<Lesson>) => {
+    // TODO: Implement API call when backend is ready
+    // const response = await fetch(`${API_BASE_URL}/lessons/${lessonId}`, {
+    //   method: 'PUT',
+    //   headers: {
+    //     'Content-Type': 'application/json',
+    //   },
+    //   body: JSON.stringify(lessonData),
+    // });
+    // if (!response.ok) {
+    //   throw new Error('Failed to update lesson');
+    // }
+    // return response.json();
+
+    // Temporary mock implementation
+    const lessonIndex = mockLessons.findIndex(l => l._id === lessonId);
+    if (lessonIndex === -1) {
+      // Check in courses if not found in mockLessons
+      for (const course of mockCourses) {
+        if (Array.isArray(course.lessons)) {
+          // We know from mockCourses.ts that lessons is Lesson[]
+          const courseLessons = course.lessons as unknown as Lesson[];
+          const courseLessonIndex = courseLessons.findIndex(l => l._id === lessonId);
+          
+          if (courseLessonIndex !== -1) {
+            const updatedLesson = {
+              ...courseLessons[courseLessonIndex],
+              ...lessonData,
+            };
+            
+            courseLessons[courseLessonIndex] = updatedLesson;
+            return updatedLesson;
+          }
+        }
+      }
+      throw new Error('Lesson not found');
+    }
+    
+    const updatedLesson = {
+      ...mockLessons[lessonIndex],
+      ...lessonData,
+    };
+    
+    mockLessons[lessonIndex] = updatedLesson;
+    return updatedLesson;
+  },
+  
+  // Xóa bài học
+  deleteLesson: async (courseId: string, lessonId: string) => {
+    // TODO: Implement API call when backend is ready
+    // const response = await fetch(`${API_BASE_URL}/courses/${courseId}/lessons/${lessonId}`, {
+    //   method: 'DELETE',
+    // });
+    // if (!response.ok) {
+    //   throw new Error('Failed to delete lesson');
+    // }
+    // return response.json();
+
+    // Temporary mock implementation
+    // Remove from mockLessons
+    const lessonIndex = mockLessons.findIndex(l => l._id === lessonId);
+    if (lessonIndex !== -1) {
+      mockLessons.splice(lessonIndex, 1);
+    }
+    
+    // Remove from course if it exists there
+    const courseIndex = mockCourses.findIndex(c => c._id === courseId);
+    if (courseIndex !== -1) {
+      const course = mockCourses[courseIndex];
+      if (Array.isArray(course.lessons)) {
+        // We know from mockCourses.ts that lessons is Lesson[]
+        course.lessons = (course.lessons as unknown as Lesson[]).filter(
+          l => l._id !== lessonId
+        );
+      }
+    }
+    
+    return { success: true, message: 'Lesson deleted successfully' };
   },
 }; 

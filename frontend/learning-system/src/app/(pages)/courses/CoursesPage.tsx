@@ -201,17 +201,17 @@ const CoursesPage: React.FC = () => {
                     totalPages={totalPages}
                     onPageChange={handlePageChange}
                   />
-                </div>
+            </div>
               </>
             )}
           </div>
 
-          <Sidebar
-            categories={categories}
-            instructors={instructors}
-            prices={prices}
-            reviews={reviews}
-            onFiltersChange={handleFiltersChange}
+            <Sidebar
+              categories={categories}
+              instructors={instructors}
+              prices={prices}
+              reviews={reviews}
+              onFiltersChange={handleFiltersChange}
             isCollapsed={isSidebarCollapsed}
             onToggleCollapse={toggleSidebar}
             selectedFilters={filters}
