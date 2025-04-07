@@ -14,6 +14,7 @@ import web20242.webcourse.model.OtpData;
 import web20242.webcourse.model.RandomStringGenerator;
 import web20242.webcourse.model.User;
 import web20242.webcourse.model.constant.ERole;
+import web20242.webcourse.model.constant.EStatus;
 import web20242.webcourse.security.dto.ApiResponse;
 import web20242.webcourse.security.dto.AuthenticationResponse;
 import web20242.webcourse.security.service.AuthenticationService;
@@ -121,6 +122,7 @@ public class AdminController {
             }
 
             User user = otpData.getUser();
+            user.setStatus(EStatus.ACTIVE);
             user.setCreatedAt(LocalDateTime.now());
             user.setUpdatedAt(LocalDateTime.now());
             User createdUser = userService.createUser(user);
@@ -165,7 +167,7 @@ public class AdminController {
     @PutMapping("/delete-user/{id}")
     public ResponseEntity<?> deleteUser(@PathVariable String id){
                 userService.setStatusUserForAdmin(id);
-                return ResponseEntity.ok("Xóa người dùng thành công");
+                return ResponseEntity.ok("Update trạng thái thành công!");
     }
     @PreAuthorize("hasRole('ROLE_ADMIN')")
     @DeleteMapping("/delete-forever/{id}")

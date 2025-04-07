@@ -3,10 +3,14 @@ package web20242.webcourse.controller;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.parameters.P;
 import org.springframework.web.bind.annotation.*;
 import web20242.webcourse.model.CourseFilterRequest;
 import web20242.webcourse.service.CourseService;
 import web20242.webcourse.service.UserService;
+
+import java.security.Principal;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/course")
@@ -32,6 +36,28 @@ public class CourseController {
         return ResponseEntity.ok(courseService.updateTimeLimit());
     }
 
+//    @PreAuthorize("hasRole('ROLE_ADMIN')")
+//    @PutMapping("/update/admin/status")
+//    public ResponseEntity<?> updateStatus(){
+//        return ResponseEntity.ok(courseService.updateStatus());
+//    }
+
+    @PreAuthorize("hasRole('ROLE_TEACHER')")
+    @PutMapping("/update/status/{id}")
+    public ResponseEntity<?> updateStatusById(@PathVariable String id, Principal principal){
+        return ResponseEntity.ok(courseService.updateStatusForTeacher(id, principal));
+    }
+
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @PutMapping("/update/admin-status/{id}")
+    public ResponseEntity<?> updateStatusByAdmin(@PathVariable String id){
+        return ResponseEntity.ok(courseService.updateStatusForAdmin(id));
+    }
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @GetMapping("/test")
+    public ResponseEntity<?> test(Principal principal){
+        return ResponseEntity.ok(courseService.test(principal));
+    }
 //    @PostMapping("/filter")
 //    public ResponseEntity<?> getFilteredCourses(@RequestBody CourseFilterRequest filterRequest) {
 //        return courseService.getFilteredCourses(filterRequest);
@@ -40,11 +66,25 @@ public class CourseController {
 //    public void updateRating(){
 //        courseService.updateRatingsDaily();
 //    }
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @PutMapping("/set-owner")
+    public ResponseEntity<?> setOwner(@RequestBody Map<String, String> data) {
+        String courseId = data.get("courseId");
+        String userId = data.get("userId");
+        return ResponseEntity.ok(courseService.setOwner(courseId, userId));
+    }
 
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
     @GetMapping("/all")
     public ResponseEntity<?> getAlls() {
-        return ResponseEntity.ok(courseService.getAllCourses());
+        return ResponseEntity.ok(courseService.getAllCoursesForAdmin());
     }
+    @PreAuthorize("hasRole('ROLE_TEACHER')")
+    @GetMapping("/all-teacher")
+    public ResponseEntity<?> getAllsForTeacher(Principal principal) {
+        return ResponseEntity.ok(courseService.getAllCoursesForTeacher(principal));
+    }
+
 //    @PutMapping("/cleanup-invalid-categories")
 //    public ResponseEntity<?> cleanupInvalidCategories() {
 //        return courseService.updateCategoryNames();

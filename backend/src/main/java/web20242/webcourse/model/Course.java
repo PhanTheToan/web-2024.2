@@ -9,6 +9,7 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
+import web20242.webcourse.model.constant.EStatus;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -37,6 +38,9 @@ public class Course {
 
     @Field(name = "thumbnail")
     private String thumbnail; // URL ảnh
+
+    @Field(name="status")
+    private EStatus status; // "ACTIVE", "INACTIVE"
 
     @Field(name = "price")
     private Double price; // Dùng Double thay cho Number

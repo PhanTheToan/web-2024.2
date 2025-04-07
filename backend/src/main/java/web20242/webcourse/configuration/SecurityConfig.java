@@ -21,6 +21,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import web20242.webcourse.security.jwt.JwtAuthenticationFilter;
 import web20242.webcourse.security.jwt.AuthEntryPointJwt;
 
+import java.util.Arrays;
 import java.util.Collections;
 
 @Configuration
@@ -45,11 +46,11 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/api/auth/**",
-                                "/api/courses",
-                                "api/courses/filter",
-                                "api/categories/featured-category",
-                                "api/categories/featured-courses",
-                                "api/categories/popular",
+                                "/api/course",
+                                "/api/courses/filter",
+                                "/api/categories/featured-category",
+                                "/api/categories/featured-courses",
+                                "/api/categories/popular",
                                 "/api/reviews"
                                 ).permitAll()
                         .anyRequest().authenticated()
@@ -65,7 +66,7 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(Collections.singletonList("http://localhost:3000")); // Thay bằng domain frontend
-        configuration.setAllowedMethods(Collections.singletonList("*")); // GET, POST, v.v.
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE"));
         configuration.setAllowedHeaders(Collections.singletonList("*"));
         configuration.setAllowCredentials(true); // Quan trọng: Cho phép gửi cookie
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

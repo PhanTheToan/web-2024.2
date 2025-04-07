@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import web20242.webcourse.model.OtpData;
 import web20242.webcourse.model.RandomStringGenerator;
+import web20242.webcourse.model.constant.EStatus;
 import web20242.webcourse.security.dto.ApiResponse;
 import web20242.webcourse.security.dto.AuthenticationRequest;
 import web20242.webcourse.security.dto.AuthenticationResponse;
@@ -242,6 +243,7 @@ public class AuthenticationController {
             }
 
             User user = otpData.getUser();
+            user.setStatus(EStatus.ACTIVE);
             user.setCreatedAt(LocalDateTime.now());
             user.setUpdatedAt(LocalDateTime.now());
             User createdUser = userService.createUser(user);

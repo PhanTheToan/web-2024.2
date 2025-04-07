@@ -8,11 +8,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import web20242.webcourse.model.*;
+import web20242.webcourse.model.constant.EStatus;
 import web20242.webcourse.repository.*;
 import org.springframework.data.mongodb.core.MongoTemplate;
 
 
 import java.awt.print.Pageable;
+import java.security.Principal;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -37,41 +39,42 @@ public class CourseService {
 //    public void updateRatingsDaily() {
 //        updateCourseRatings();
 //    }
-   public ResponseEntity<?> getAllCoursesForLandingPage() {
-       List<Course> allCourses = courseRepository.findAll();
-       List<Map<String, Object>> courseOverviews = allCourses.stream()
-           .map(course -> {
-               Map<String, Object> overview = new HashMap<>();
-               overview.put("id", String.valueOf(course.getId()));
-               overview.put("title", course.getTitle());
+    public ResponseEntity<?> getAllCoursesForLandingPage() {
+        List<Course> allCourses = courseRepository.findAll();
+        List<Map<String, Object>> courseOverviews = allCourses.stream()
+                .filter(course -> EStatus.ACTIVE.equals(course.getStatus())) // Filter by ACTIVE status
+                .map(course -> {
+                    Map<String, Object> overview = new HashMap<>();
+                    overview.put("id", String.valueOf(course.getId()));
+                    overview.put("title", course.getTitle());
 
-               Optional<User> userTeachers = userService.findById(String.valueOf(course.getTeacherId()));
-               if(userTeachers.isEmpty()){
-                    String firstName = "Unknown";
-                    String lastName = "Teacher";
-                   overview.put("teacherFullName", (firstName +" "+ lastName));
-               }else{
-                   User userTeacher = userTeachers.get();
-                   String firstName = userTeacher.getFirstName();
-                   String lastName = userTeacher.getLastName();
-                   overview.put("teacherFullName", (firstName +" "+ lastName));
-               }
-               overview.put("teacherId", String.valueOf(course.getTeacherId()));
-               overview.put("description", course.getDescription());
-               overview.put("categories", course.getCategories());
-               overview.put("thumbnail", course.getThumbnail());
-               overview.put("price", course.getPrice());
-               overview.put("studentsCount", course.getStudentsEnrolled() != null ?
+                    Optional<User> userTeachers = userService.findById(String.valueOf(course.getTeacherId()));
+                    if(userTeachers.isEmpty()){
+                        String firstName = "Unknown";
+                        String lastName = "Teacher";
+                        overview.put("teacherFullName", (firstName + " " + lastName));
+                    } else {
+                        User userTeacher = userTeachers.get();
+                        String firstName = userTeacher.getFirstName();
+                        String lastName = userTeacher.getLastName();
+                        overview.put("teacherFullName", (firstName + " " + lastName));
+                    }
+                    overview.put("teacherId", String.valueOf(course.getTeacherId()));
+                    overview.put("description", course.getDescription());
+                    overview.put("categories", course.getCategories());
+                    overview.put("thumbnail", course.getThumbnail());
+                    overview.put("price", course.getPrice());
+                    overview.put("studentsCount", course.getStudentsEnrolled() != null ?
                             course.getStudentsEnrolled().size() : 0);
-               overview.put("contentCount",
-                           (course.getLessons() != null ? course.getLessons().size() : 0));
-                overview.put("totalTimeLimit", course.getTotalTimeLimit());
-               return overview;
-           })
-           .collect(Collectors.toList());
+                    overview.put("contentCount",
+                            (course.getLessons() != null ? course.getLessons().size() : 0));
+                    overview.put("totalTimeLimit", course.getTotalTimeLimit());
+                    return overview;
+                })
+                .collect(Collectors.toList());
 
-       return ResponseEntity.ok(courseOverviews);
-   }
+        return ResponseEntity.ok(courseOverviews);
+    }
 
     public ResponseEntity<?> getFeaturedCategories() {
        List<Course> allCourses = courseRepository.findByCategoriesIn(List.of("POPULAR"));
@@ -283,10 +286,169 @@ public class CourseService {
         return Math.round(sum / reviews.size() * 2) / 2.0; // rounding to nearest 0.5
     }
 
-    public ResponseEntity<List<Course>> getAllCourses() {
-        List<Course> courses = courseRepository.findAll();
-        return ResponseEntity.ok(courses);
+    public ResponseEntity<List<Map<String, Object>>> getAllCoursesForAdmin() {
+        List<Course> allCourses = courseRepository.findAll();
+        List<Map<String, Object>> courseOverviews = allCourses.stream()
+                .map(course -> {
+                    Map<String, Object> overview = new HashMap<>();
+                    overview.put("id", String.valueOf(course.getId()));
+                    overview.put("title", course.getTitle());
+
+                    Optional<User> userTeachers = userService.findById(String.valueOf(course.getTeacherId()));
+                    if(userTeachers.isEmpty()){
+                        String firstName = "Unknown";
+                        String lastName = "Teacher";
+                        overview.put("teacherFullName", (firstName +" "+ lastName));
+                        overview.put("teacherID", null);
+                    }else{
+                        User userTeacher = userTeachers.get();
+                        String firstName = userTeacher.getFirstName();
+                        String lastName = userTeacher.getLastName();
+                        overview.put("teacherFullName", (firstName +" "+ lastName));
+                        overview.put("teacherId", String.valueOf(course.getTeacherId()));
+                    }
+                    overview.put("courseStatus", course.getStatus());
+                    overview.put("thumbnail", course.getThumbnail());
+                    overview.put("categories", course.getCategories());
+                    overview.put("price", course.getPrice());
+                    overview.put("studentsCount", course.getStudentsEnrolled() != null ?
+                            course.getStudentsEnrolled().size() : 0);
+                    overview.put("contentCount",
+                            (course.getLessons() != null ? course.getLessons().size() : 0));
+                    overview.put("totalTimeLimit", course.getTotalTimeLimit());
+                    return overview;
+                })
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(courseOverviews);
     }
+    public ResponseEntity<List<Map<String, Object>>> getAllCoursesForTeacher(Principal principal) {
+        if (principal == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(null);
+        }
+
+        User user = userService.findByUsername(principal.getName());
+
+        List<Course> allCourses = courseRepository.findAll();
+
+        List<Map<String, Object>> courseOverviews = allCourses.stream()
+                .filter(course -> course.getTeacherId().equals(user.getId()))
+                .map(course -> {
+                    Map<String, Object> overview = new HashMap<>();
+                    overview.put("id", String.valueOf(course.getId()));
+                    overview.put("title", course.getTitle());
+
+                    Optional<User> userTeachers = userService.findById(String.valueOf(course.getTeacherId()));
+                    if (userTeachers.isEmpty()) {
+                        String firstName = "Unknown";
+                        String lastName = "Teacher";
+                        overview.put("teacherFullName", (firstName + " " + lastName));
+                        overview.put("teacherID", null);
+                    } else {
+                        User userTeacher = userTeachers.get();
+                        String firstName = userTeacher.getFirstName();
+                        String lastName = userTeacher.getLastName();
+                        overview.put("teacherFullName", (firstName + " " + lastName));
+                        overview.put("teacherId", String.valueOf(course.getTeacherId()));
+                    }
+
+                    overview.put("courseStatus", course.getStatus());
+                    overview.put("thumbnail", course.getThumbnail());
+                    overview.put("categories", course.getCategories());
+                    overview.put("price", course.getPrice());
+                    overview.put("studentsCount", course.getStudentsEnrolled() != null ?
+                            course.getStudentsEnrolled().size() : 0);
+                    overview.put("contentCount",
+                            (course.getLessons() != null ? course.getLessons().size() : 0));
+                    overview.put("totalTimeLimit", course.getTotalTimeLimit());
+                    return overview;
+                })
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(courseOverviews);
+    }
+
+    public ResponseEntity<?> updateStatus() {
+       List<Course> courses = courseRepository.findAll();
+        for (Course course : courses) {
+            if (course.getStatus() == null) {
+                course.setStatus(EStatus.ACTIVE);
+            } else if (course.getStatus().equals(EStatus.ACTIVE)) {
+                course.setStatus(EStatus.INACTIVE);
+            } else {
+                course.setStatus(EStatus.ACTIVE);
+            }
+            course.setUpdatedAt(LocalDateTime.now());
+            courseRepository.save(course);
+        }
+        return ResponseEntity.ok("Done !");
+    }
+    public ResponseEntity<?> updateStatusForAdmin(String id){
+       Optional<Course> courseOptional = courseRepository.findById(new ObjectId(id));
+        if (courseOptional.isPresent()) {
+            Course course = courseOptional.get();
+            if (course.getStatus() == null) {
+                course.setStatus(EStatus.ACTIVE);
+            } else if (course.getStatus().equals(EStatus.ACTIVE)) {
+                course.setStatus(EStatus.INACTIVE);
+            } else {
+                course.setStatus(EStatus.ACTIVE);
+            }
+            course.setUpdatedAt(LocalDateTime.now());
+            courseRepository.save(course);
+            return ResponseEntity.ok("Done !");
+        } else {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Course not found");
+        }
+    }
+    public ResponseEntity<?> updateStatusForTeacher(String id, Principal principal){
+        Optional<Course> courseOptional = courseRepository.findById(new ObjectId(id));
+        if(principal == null){
+            return  ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("User not authenticated");
+        }
+        User user = userService.findByUsername(principal.getName());
+        if (courseOptional.isPresent()) {
+            Course course = courseOptional.get();
+            if(Objects.equals(course.getTeacherId(), user.getId())){
+                course.setStatus(course.getStatus() == null || course.getStatus().equals(EStatus.INACTIVE)
+                        ? EStatus.ACTIVE
+                        : EStatus.INACTIVE);
+                course.setUpdatedAt(LocalDateTime.now());
+                courseRepository.save(course);
+                return ResponseEntity.ok("Done !");
+            }else {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body("You are not the owner of this course");
+            }
+        } else {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Course not found");
+        }
+    }
+
+    public ResponseEntity<?> test(Principal principal) {
+         User user = userService.findByUsername(principal.getName());
+         if (user == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("User not authenticated");
+         }
+        Map<String, Object> overview = new HashMap<>();
+        overview.put("id", String.valueOf(user.getId()));
+        overview.put("username", user.getUsername());
+        overview.put("firstName", user.getFirstName());
+        overview.put("lastName", user.getLastName());
+         return ResponseEntity.ok(overview);
+    }
+
+    public ResponseEntity<?> setOwner(String courseId, String userId) {
+        Optional<Course> courseOptional = courseRepository.findById(new ObjectId(courseId));
+        if (courseOptional.isPresent()) {
+            Course course = courseOptional.get();
+            course.setTeacherId(new ObjectId(userId));
+            course.setUpdatedAt(LocalDateTime.now());
+            courseRepository.save(course);
+            return ResponseEntity.ok("Done !");
+        } else {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Course not found");
+        }
+    }
+
 
 //    public ResponseEntity<?> getCoursesByPage(int page) {
 //        int pageSize = 6;
