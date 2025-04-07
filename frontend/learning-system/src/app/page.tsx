@@ -12,9 +12,8 @@ import { Check } from "lucide-react";
 // import * as dotenv from "dotenv";
 
 // dotenv.config();
-const API_BASE_URL = process.env.BASE_URL;
-console.log("API_BASE_URL:", API_BASE_URL); // Đảm bảo biến này có giá trị
-
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+console.log("API_BASE_URL:", API_BASE_URL);
 
 const defaultCourses: Course[] = [
   {
