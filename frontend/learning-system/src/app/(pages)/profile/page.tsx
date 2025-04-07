@@ -20,7 +20,6 @@ export default function ProfilePage() {
             <p className="text-muted-foreground">nguyenvana@example.com</p>
           </div>
         </div>
-        <Button>Chỉnh sửa hồ sơ</Button>
       </div>
       <Tabs defaultValue="profile" className="w-full">
         <TabsList className="grid w-full grid-cols-2 md:w-auto">
