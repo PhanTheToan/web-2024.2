@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -181,8 +182,30 @@ public class AuthenticationController {
     }
 
     @PostMapping("/signout")
-    public ResponseEntity<String> signout() {
-        return ResponseEntity.ok("Đăng xuất thành công. Vui lòng xóa token ở client.");
+    public ResponseEntity<String> signout(HttpServletRequest request, HttpServletResponse response) {
+        String jwt = getJwtFromCookies(request);
+
+        if (jwt == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body("Không tìm thấy token. Vui lòng đăng nhập trước khi đăng xuất.");
+        }
+
+        String username = jwtService.extractUsername(jwt);
+        if (username == null || !jwtService.validateToken(jwt)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body("Token không hợp lệ. Vui lòng đăng nhập lại.");
+        }
+
+        ResponseCookie deleteCookie = ResponseCookie.from("jwtToken", null)
+                .path("/")
+                .maxAge(0)
+                .httpOnly(true)
+                .secure(true)
+                .build();
+
+        response.addHeader("Set-Cookie", deleteCookie.toString());
+
+        return ResponseEntity.ok("Đăng xuất thành công.");
     }
     // Đăng ký User
     @PostMapping("/signup")

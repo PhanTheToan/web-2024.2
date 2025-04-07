@@ -54,6 +54,11 @@ public class CourseController {
         return ResponseEntity.ok(courseService.updateStatusForAdmin(id));
     }
     @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @DeleteMapping("/delete/{id}")
+    public ResponseEntity<?> deleteCourseForever(@PathVariable String id){
+        return ResponseEntity.ok(courseService.deleteCourseForever(id));
+    }
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
     @GetMapping("/test")
     public ResponseEntity<?> test(Principal principal){
         return ResponseEntity.ok(courseService.test(principal));

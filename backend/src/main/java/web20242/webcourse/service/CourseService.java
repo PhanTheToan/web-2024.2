@@ -24,9 +24,13 @@ public class CourseService {
     @Autowired
     private UserService userService;
     @Autowired
+    private UserRepository userRepository;
+    @Autowired
     private CourseRepository courseRepository;
     @Autowired
     private LessonRepository lessonRepository;
+    @Autowired
+    private EnrollmentRepository enrollmentRepository;
     @Autowired
     private QuizzesRepository quizzesRepository;
     @Autowired
@@ -447,6 +451,39 @@ public class CourseService {
         } else {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Course not found");
         }
+    }
+
+    public ResponseEntity<?> deleteCourseForever(String id) {
+        Optional<Course> courseOptional = courseRepository.findById(new ObjectId(id));
+        if (courseOptional.isPresent()) {
+            Course course = courseOptional.get();
+            courseRepository.delete(course);
+            List<Lesson> lessonOptional = lessonRepository.findByCourseId(course.getId());
+            List<Quizzes> quizzesList = quizzesRepository.findByCourseId(course.getId());
+            List<Enrollment> enrollments = enrollmentRepository.findByCourseId(course.getId());
+            List<Review> reviews = reviewRepository.findByCourseId(course.getId());
+            List<User> students = userRepository.findByCoursesEnrolled(course.getId());
+            for (Lesson lesson : lessonOptional) {
+                lessonRepository.delete(lesson);
+            }
+            for( Quizzes quizzes : quizzesList) {
+                quizzesRepository.delete(quizzes);
+            }
+            for (Enrollment enrollment : enrollments) {
+                enrollmentRepository.delete(enrollment);
+            }
+            for( Review review : reviews) {
+                reviewRepository.delete(review);
+            }
+            for(User user : students){
+                user.getCoursesEnrolled().remove(course.getId());
+            }
+            return ResponseEntity.ok("Course deleted successfully");
+        } else {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Course not found");
+        }
+
+
     }
 
 
