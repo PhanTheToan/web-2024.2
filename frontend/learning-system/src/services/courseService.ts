@@ -1,38 +1,68 @@
-import { FilterState, Course } from '@/app/types';
+import { FilterState, Course, Lesson, Quiz, User } from '@/app/types';
 import { mockCourses } from '@/data/mockCourses';
-import { mockLessons, mockUsers } from '@/data/mockData';
+import { mockLessons, mockUsers, mockQuizzes } from '@/data/mockData';
+
+// Function to calculate total course duration from lessons and quizzes
+const calculateTotalDuration = (lessons: Lesson[], quizzes: Quiz[]): number => {
+  // Calculate total duration from lessons
+  const lessonsDuration = lessons.reduce((total, lesson) => {
+    // Use timeLimit if available, otherwise default to 0
+    return total + (lesson.timeLimit || 0);
+  }, 0);
+  
+  // Calculate total duration from quizzes
+  const quizzesDuration = quizzes.reduce((total, quiz) => {
+    // Use timeLimit if available, otherwise default to 0
+    return total + (quiz.timeLimit || 0);
+  }, 0);
+  
+  // Return the sum of both durations
+  return lessonsDuration + quizzesDuration;
+};
 
 // Function to transform courseIds to full course objects if needed
 const transformCourseIfNeeded = (course: Course) => {
   // Check if the course already has full lesson objects
   if (course.lessons && typeof course.lessons[0] === 'object') {
-    return course;
+    return {
+      ...course,
+      totalDuration: calculateTotalDuration(course.lessons as Lesson[], course.quizzes as Quiz[])
+    };
   }
   
   // If lessons are just IDs, replace with full lesson objects
-  const fullLessons = course.lessons.map((lessonId: string) => 
+  const fullLessons = (course.lessons as string[]).map((lessonId: string) => 
     mockLessons.find(l => l._id === lessonId)
-  ).filter(Boolean);
+  ).filter(Boolean) as Lesson[];
+  
+  // If quizzes are just IDs, replace with full quiz objects
+  const fullQuizzes = (course.quizzes as string[]).map((quizId: string) => 
+    mockQuizzes.find(q => q._id === quizId)
+  ).filter(Boolean) as Quiz[];
   
   // If teacherId is a string, replace with full user object
   let teacherObj = course.teacherId;
   if (typeof course.teacherId === 'string') {
-    teacherObj = mockUsers.find(u => u._id === course.teacherId);
+    const teacher = mockUsers.find(u => u._id === course.teacherId);
+    teacherObj = teacher || course.teacherId;
   }
   
   // If studentsEnrolled are strings, replace with full user objects
-  const studentsObj = course.studentsEnrolled.map((studentId: string | typeof mockUsers[0]) => {
+  const studentsObj = course.studentsEnrolled.map((studentId: string | User) => {
     if (typeof studentId === 'string') {
-      return mockUsers.find(u => u._id === studentId);
+      const student = mockUsers.find(u => u._id === studentId);
+      return student || studentId;
     }
     return studentId;
-  }).filter(Boolean);
+  });
   
   return {
     ...course,
     teacherId: teacherObj,
     studentsEnrolled: studentsObj,
-    lessons: fullLessons
+    lessons: fullLessons,
+    quizzes: fullQuizzes,
+    totalDuration: calculateTotalDuration(fullLessons, fullQuizzes)
   };
 };
 
@@ -348,4 +378,142 @@ export const courseService = {
     
     return { success: true, message: 'Quiz deleted successfully' };
   },
-}; 
+
+  // Create a new course
+  createCourse: async (courseData: Omit<Course, '_id' | 'createdAt' | 'updatedAt' | 'totalDuration'>) => {
+    // TODO: Implement API call when backend is ready
+    // const response = await fetch(`${API_BASE_URL}/courses`, {
+    //   method: 'POST',
+    //   headers: {
+    //     'Content-Type': 'application/json',
+    //   },
+    //   body: JSON.stringify(courseData),
+    // });
+    // if (!response.ok) {
+    //   throw new Error('Failed to create course');
+    // }
+    // return response.json();
+
+    // Temporary mock implementation
+    console.log('Creating course:', courseData);
+    
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // Generate a unique ID
+    const newId = `course-${Date.now()}`;
+    
+    // Calculate total duration from lesson and quiz timeLimits
+    let totalDuration = 0;
+    
+    // If lessons are provided and they're full lesson objects (not just IDs)
+    if (courseData.lessons && courseData.lessons.length > 0 && typeof courseData.lessons[0] === 'object') {
+      totalDuration += (courseData.lessons as Lesson[]).reduce((sum, lesson) => sum + (lesson.timeLimit || 0), 0);
+    }
+    
+    // If quizzes are provided and they're full quiz objects (not just IDs)
+    if (courseData.quizzes && courseData.quizzes.length > 0 && typeof courseData.quizzes[0] === 'object') {
+      totalDuration += (courseData.quizzes as Quiz[]).reduce((sum, quiz) => sum + (quiz.timeLimit || 0), 0);
+    }
+    
+    // If lessons/quizzes are just IDs, we need to look them up
+    if (courseData.lessons && courseData.lessons.length > 0 && typeof courseData.lessons[0] === 'string') {
+      const lessonIds = courseData.lessons as string[];
+      const lessonObjects = lessonIds.map(id => mockLessons.find(l => l._id === id)).filter(Boolean) as Lesson[];
+      totalDuration += lessonObjects.reduce((sum, lesson) => sum + (lesson.timeLimit || 0), 0);
+    }
+    
+    if (courseData.quizzes && courseData.quizzes.length > 0 && typeof courseData.quizzes[0] === 'string') {
+      const quizIds = courseData.quizzes as string[];
+      const quizObjects = quizIds.map(id => mockQuizzes.find(q => q._id === id)).filter(Boolean) as Quiz[];
+      totalDuration += quizObjects.reduce((sum, quiz) => sum + (quiz.timeLimit || 0), 0);
+    }
+    
+    const newCourse: Course = {
+      _id: newId,
+      ...courseData,
+      totalDuration,
+      registrations: 0, // Start with 0 registrations
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    
+    return { success: true, course: newCourse };
+  },
+  
+  // Update an existing course
+  updateCourse: async (courseId: string, courseData: Partial<Course>) => {
+    // TODO: Implement API call when backend is ready
+    // const response = await fetch(`${API_BASE_URL}/courses/${courseId}`, {
+    //   method: 'PUT',
+    //   headers: {
+    //     'Content-Type': 'application/json',
+    //   },
+    //   body: JSON.stringify(courseData),
+    // });
+    // if (!response.ok) {
+    //   throw new Error('Failed to update course');
+    // }
+    // return response.json();
+
+    // Temporary mock implementation
+    console.log('Updating course:', { courseId, courseData });
+    
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // Find the existing course
+    const existingCourse = mockCourses.find(c => c._id === courseId);
+    if (!existingCourse) {
+      throw new Error('Course not found');
+    }
+    
+    // If lessons or quizzes have changed, recalculate the total duration
+    let totalDuration = existingCourse.totalDuration;
+    
+    if (courseData.lessons || courseData.quizzes) {
+      // Start with 0 and calculate from provided data
+      totalDuration = 0;
+      
+      // Use provided lessons or fall back to existing ones
+      const lessons = courseData.lessons || existingCourse.lessons;
+      const quizzes = courseData.quizzes || existingCourse.quizzes;
+      
+      // Calculate from lessons
+      if (lessons && lessons.length > 0) {
+        if (typeof lessons[0] === 'object') {
+          // If lessons are full objects
+          totalDuration += (lessons as Lesson[]).reduce((sum, lesson) => sum + (lesson.timeLimit || 0), 0);
+        } else {
+          // If lessons are just IDs
+          const lessonIds = lessons as string[];
+          const lessonObjects = lessonIds.map(id => mockLessons.find(l => l._id === id)).filter(Boolean) as Lesson[];
+          totalDuration += lessonObjects.reduce((sum, lesson) => sum + (lesson.timeLimit || 0), 0);
+        }
+      }
+      
+      // Calculate from quizzes
+      if (quizzes && quizzes.length > 0) {
+        if (typeof quizzes[0] === 'object') {
+          // If quizzes are full objects
+          totalDuration += (quizzes as Quiz[]).reduce((sum, quiz) => sum + (quiz.timeLimit || 0), 0);
+        } else {
+          // If quizzes are just IDs
+          const quizIds = quizzes as string[];
+          const quizObjects = quizIds.map(id => mockQuizzes.find(q => q._id === id)).filter(Boolean) as Quiz[];
+          totalDuration += quizObjects.reduce((sum, quiz) => sum + (quiz.timeLimit || 0), 0);
+        }
+      }
+    }
+    
+    // Update the course with new data and total duration
+    const updatedCourse: Course = {
+      ...existingCourse,
+      ...courseData,
+      totalDuration,
+      updatedAt: new Date(),
+    };
+    
+    return { success: true, course: updatedCourse };
+  },
+};

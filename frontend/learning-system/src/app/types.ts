@@ -55,20 +55,26 @@ export interface CourseData {
     videoUrl: string;
     materials: string[];
     order: number;
+    timeLimit?: number; // in minutes, optional
     createdAt: Date;
     description?: string;
   }
 
   export interface User {
     _id: string;
-    firstName?: string;
-    lastName?: string;
-    name?: string;
+    username: string;
+    password: string;
+    role: 'student' | 'teacher' | 'admin';
+    firstName: string;
+    lastName: string;
     email: string;
-    avatar?: string;
-    role?: 'student' | 'teacher' | 'admin';
-    createdAt?: Date;
-    enrolledCourses?: string[] | Course[];
+    phone: string;
+    dateOfBirth: Date;
+    gender: string;
+    profileImage: string;
+    coursesEnrolled: string[];
+    createdAt: Date;
+    updatedAt: Date;
   }
   
   export interface Course {
@@ -76,13 +82,18 @@ export interface CourseData {
     title: string;
     description: string;
     thumbnail?: string;
-    duration?: string;
+    totalDuration: number; // in minutes
     price: number;
     lessons: Lesson[] | string[];
     quizzes: Quiz[] | string[];
     studentsEnrolled: User[] | string[];
     teacherId: User | string;
-    category?: Category;
+    categories: string[];
+    category?: string | { name: string; _id: string }; // For backward compatibility
+    rating: number;
+    registrations: number; // Number of registrations
+    isPopular?: boolean; // Whether the course is marked as popular
+    isPublished?: boolean; // Whether the course is published
     createdAt: Date;
     updatedAt?: Date;
   }

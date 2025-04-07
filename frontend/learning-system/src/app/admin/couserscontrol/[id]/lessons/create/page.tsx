@@ -28,6 +28,7 @@ export default function CreateLessonPage() {
     content: '',
     videoUrl: '',
     order: 0,
+    timeLimit: 30, // Default to 30 minutes
     materials: [] as { name: string; path: string; size: number }[],
   });
 
@@ -349,6 +350,24 @@ export default function CreateLessonPage() {
               value={formData.order}
               onChange={handleChange}
             />
+          </div>
+          
+          <div className="mb-6">
+            <label className="block text-gray-700 font-medium mb-2" htmlFor="timeLimit">
+              Thời gian học (phút) <span className="text-red-500">*</span>
+            </label>
+            <input
+              id="timeLimit"
+              name="timeLimit"
+              type="number"
+              min="1"
+              required
+              className="w-full px-3 py-2 border rounded-md"
+              value={formData.timeLimit}
+              onChange={handleChange}
+              placeholder="Nhập thời gian học (phút)"
+            />
+            <p className="text-gray-500 text-sm mt-1">Thời gian ước tính để hoàn thành bài học này</p>
           </div>
           
           <div className="mb-6">

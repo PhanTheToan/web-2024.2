@@ -6,7 +6,7 @@ import { courseService } from '@/services/courseService';
 import { 
   ArrowLeft, Edit, Trash, BookOpen, DollarSign, 
   BarChart2, Star, Calendar, Users, Clock, FileText, 
-  Play, Eye, MoveUp, MoveDown, AlertCircle, CheckCircle2, 
+  Eye, MoveUp, MoveDown, AlertCircle, CheckCircle2, 
   ArrowUpDown, Plus, UserMinus, UserCheck, UserX, UserPlus
 } from 'lucide-react';
 import { Course } from '@/app/types';
@@ -300,16 +300,6 @@ export default function CourseDetailPage() {
       setDeletingItem(false);
     }
   };
-  
-  // Preview lesson
-  const previewLesson = (lessonId: string) => {
-    window.open(`/course/${courseId}/lessons/${lessonId}`, '_blank');
-  };
-  
-  // Preview quiz
-  const previewQuiz = (quizId: string) => {
-    window.open(`/course/${courseId}/quizzes/${quizId}`, '_blank');
-  };
 
   // Add function to handle student deletion
   const handleStudentDelete = async () => {
@@ -552,7 +542,7 @@ export default function CourseDetailPage() {
                 <div className="flex flex-col items-center p-3 bg-gray-50 rounded-lg">
                   <Clock className="w-6 h-6 text-gray-700 mb-2" />
                   <div className="text-sm text-gray-500">Thời lượng</div>
-                  <div className="font-medium">{course.duration || '30 phút'}</div>
+                  <div className="font-medium">{course.totalDuration || 0} phút</div>
                 </div>
                 <div className="flex flex-col items-center p-3 bg-gray-50 rounded-lg">
                   <BookOpen className="w-6 h-6 text-gray-700 mb-2" />
@@ -583,8 +573,8 @@ export default function CourseDetailPage() {
               
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="bg-gray-50 p-4 rounded-lg">
-                  <div className="text-sm text-gray-500 mb-1">Lượt xem</div>
-                  <div className="text-xl font-bold">{analyticsData.totalViews}</div>
+                  <div className="text-sm text-gray-500 mb-1">Lượt đăng ký</div>
+                  <div className="text-xl font-bold">{course.registrations || course.studentsEnrolled.length}</div>
                 </div>
                 <div className="bg-gray-50 p-4 rounded-lg">
                   <div className="text-sm text-gray-500 mb-1">Tỷ lệ hoàn thành</div>
@@ -683,14 +673,6 @@ export default function CourseDetailPage() {
                 <Plus className="w-4 h-4 mr-2" />
                 Thêm bài kiểm tra mới
               </Link>
-              {/* <Link 
-                href={`/course/${course._id}`}
-                className="flex items-center text-blue-600 hover:text-blue-800"
-                target="_blank"
-              >
-                <Eye className="w-4 h-4 mr-2" />
-                Xem như học viên
-              </Link> */}
             </div>
           </div>
         </div>
@@ -814,13 +796,6 @@ export default function CourseDetailPage() {
                         <p className="text-sm text-gray-500">{lesson.description || 'Không có mô tả'}</p>
                       </div>
                       <div className="flex items-center ml-4">
-                        <button 
-                          onClick={() => previewLesson(lesson._id)}
-                          className="text-green-600 hover:text-green-800 mr-2"
-                          title="Xem trước bài học"
-                        >
-                          <Play className="w-5 h-5" />
-                        </button>
                         <Link 
                           href={`/admin/couserscontrol/${course._id}/lessons/${lesson._id}`}
                           className="text-blue-600 hover:text-blue-800 mr-2"
@@ -945,13 +920,6 @@ export default function CourseDetailPage() {
                           </p>
                         </div>
                         <div className="flex items-center ml-4">
-                          <button 
-                            onClick={() => previewQuiz(quizId)}
-                            className="text-green-600 hover:text-green-800 mr-2"
-                            title="Xem trước bài kiểm tra"
-                          >
-                            <Play className="w-5 h-5" />
-                          </button>
                           <Link 
                             href={`/admin/couserscontrol/${course._id}/quizzes/${quizId}`}
                             className="text-blue-600 hover:text-blue-800 mr-2"
@@ -986,7 +954,7 @@ export default function CourseDetailPage() {
           {activeTab === 'students' && (
             <div>
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold">Danh sách học viên</h3>
+                <h3 className="text-lg-semibold">Danh sách học viên</h3>
                 
                 <div className="flex items-center space-x-2">
                   {/* Add student button */}

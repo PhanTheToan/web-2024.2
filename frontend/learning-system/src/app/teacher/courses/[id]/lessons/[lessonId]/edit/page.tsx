@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { courseService } from '@/services/courseService';
 import { lessonService } from '@/services/lessonService';
 import { ArrowLeft, AlertCircle, CheckCircle, Loader2, X, File } from 'lucide-react';
-import { Course } from '@/app/types';
+import { Course, Lesson } from '@/app/types';
 import { toast } from 'react-hot-toast';
 
 export default function EditLessonPage() {
@@ -28,6 +28,7 @@ export default function EditLessonPage() {
     content: '',
     videoUrl: '',
     order: 0,
+    timeLimit: 0,
     materials: [] as {name: string, path: string, size: string}[],
   });
 
@@ -45,16 +46,16 @@ export default function EditLessonPage() {
         setCourse(courseData as Course);
         
         // Fetch lesson data
-        const lessonData = await lessonService.getLessonById(lessonId);
+        const lessonData = await lessonService.getLessonById(lessonId) as Lesson;
         
         // Convert string materials to file objects
         const materialFiles = Array.isArray(lessonData.materials) 
-          ? lessonData.materials.map(path => {
+          ? lessonData.materials.map((path: string) => {
               const fileName = path.split('/').pop() || 'unknown';
               return {
                 name: fileName,
                 path: path,
-                size: 'Unknown' // Size cannot be determined for existing files
+                size: 'Unknown'
               };
             })
           : [];
@@ -66,6 +67,7 @@ export default function EditLessonPage() {
           content: lessonData.content,
           videoUrl: lessonData.videoUrl || '',
           order: lessonData.order || 0,
+          timeLimit: lessonData.timeLimit || 0,
           materials: materialFiles,
         });
         
@@ -90,7 +92,7 @@ export default function EditLessonPage() {
     const { name, value } = e.target;
     setFormData({
       ...formData,
-      [name]: name === 'order' ? parseInt(value) || 0 : value,
+      [name]: name === 'order' || name === 'timeLimit' ? parseInt(value) || 0 : value,
     });
   };
   
@@ -200,6 +202,10 @@ export default function EditLessonPage() {
       
       if (!formData.content.trim()) {
         throw new Error('Nội dung bài học không được để trống');
+      }
+      
+      if (formData.timeLimit <= 0) {
+        throw new Error('Thời gian học phải lớn hơn 0 phút');
       }
       
       // Extract just the paths for API call
@@ -385,6 +391,23 @@ export default function EditLessonPage() {
               className="w-full px-3 py-2 border rounded-md"
               value={formData.order}
               onChange={handleChange}
+            />
+          </div>
+          
+          <div className="mb-6">
+            <label className="block text-gray-700 font-medium mb-2" htmlFor="timeLimit">
+              Thời gian học (phút) <span className="text-red-500">*</span>
+            </label>
+            <input
+              id="timeLimit"
+              name="timeLimit"
+              type="number"
+              min="1"
+              required
+              className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+              value={formData.timeLimit}
+              onChange={handleChange}
+              placeholder="Nhập thời gian học (phút)"
             />
           </div>
           

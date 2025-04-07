@@ -13,9 +13,17 @@ import { lessonService } from '@/services/lessonService';
 import { quizService } from '@/services/quizService';
 
 // Define extended interfaces to manage types until the backend is complete
-interface ExtendedCourse extends Omit<Course, 'quizzes'> {
+interface ExtendedUser extends User {
+  progress?: number;
+  lastActive?: Date | string;
+  enrolledAt?: Date | string;
+  completedLessons?: number;
+}
+
+interface ExtendedCourse extends Omit<Course, 'quizzes' | 'studentsEnrolled'> {
   category?: { _id: string; name: string };
   quizzes?: QuizItem[] | string[];
+  studentsEnrolled: Array<ExtendedUser | string>;
 }
 
 interface QuizItem {
@@ -58,6 +66,8 @@ export default function TeacherCourseDetailPage() {
   const [addStudentLoading, setAddStudentLoading] = useState(false);
   const [addStudentSuccess, setAddStudentSuccess] = useState(false);
   const [addStudentError, setAddStudentError] = useState<string | null>(null);
+  const [studentSort, setStudentSort] = useState<'progress' | 'name' | 'date'>('progress');
+  const [studentSortDirection, setStudentSortDirection] = useState<'asc' | 'desc'>('desc');
 
   useEffect(() => {
     const fetchCourse = async () => {
@@ -529,14 +539,6 @@ export default function TeacherCourseDetailPage() {
             <Edit className="w-4 h-4 mr-2" />
             Chỉnh sửa
           </Link>
-          <Link
-            href={`/courses/${courseId}`}
-            className="bg-blue-600 text-white px-4 py-2 rounded-md flex items-center hover:bg-blue-700 transition-colors"
-            target="_blank"
-          >
-            <Eye className="w-4 h-4 mr-2" />
-            Xem công khai
-          </Link>
         </div>
       </div>
 
@@ -564,7 +566,7 @@ export default function TeacherCourseDetailPage() {
                   <div className="flex flex-col items-center p-3 bg-gray-50 rounded-lg">
                     <Clock className="w-6 h-6 text-gray-700 mb-2" />
                     <div className="text-sm text-gray-500">Thời lượng</div>
-                    <div className="font-medium">{course.duration || '30 phút'}</div>
+                    <div className="font-medium">{course.totalDuration || 0} phút</div>
                   </div>
                   <div className="flex flex-col items-center p-3 bg-gray-50 rounded-lg">
                     <BookOpen className="w-6 h-6 text-gray-700 mb-2" />
@@ -595,8 +597,8 @@ export default function TeacherCourseDetailPage() {
                 
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div className="bg-gray-50 p-4 rounded-lg">
-                    <div className="text-sm text-gray-500 mb-1">Lượt xem</div>
-                    <div className="text-xl font-bold">{analyticsData.totalViews}</div>
+                    <div className="text-sm text-gray-500 mb-1">Lượt đăng ký</div>
+                    <div className="text-xl font-bold">{course.registrations || course.studentsEnrolled.length}</div>
                   </div>
                   <div className="bg-gray-50 p-4 rounded-lg">
                     <div className="text-sm text-gray-500 mb-1">Tỷ lệ hoàn thành</div>
@@ -672,14 +674,6 @@ export default function TeacherCourseDetailPage() {
                   <Plus className="w-4 h-4 mr-2" />
                   Thêm bài kiểm tra mới
                 </Link>
-                {/* <Link 
-                  href={`/course/${course._id}`}
-                  className="flex items-center text-indigo-600 hover:text-indigo-800"
-                  target="_blank"
-                >
-                  <Eye className="w-4 h-4 mr-2" />
-                  Xem như học viên
-                </Link> */}
               </div>
             </div>
           </div>
@@ -690,14 +684,14 @@ export default function TeacherCourseDetailPage() {
       <div className="bg-white rounded-lg shadow-md overflow-hidden mb-6">
         <div className="border-b">
           <nav className="flex">
-            {/* <button 
+            <button 
               className={`px-6 py-4 font-medium ${activeTab === 'overview' 
                 ? 'border-b-2 border-indigo-500 text-indigo-600' 
                 : 'text-gray-500 hover:text-gray-700'}`}
               onClick={() => setActiveTab('overview')}
             >
               Tổng quan
-            </button> */}
+            </button>
             <button 
               className={`px-6 py-4 font-medium ${activeTab === 'lessons' 
                 ? 'border-b-2 border-indigo-500 text-indigo-600' 
@@ -731,8 +725,8 @@ export default function TeacherCourseDetailPage() {
               {analyticsData && (
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                   <div className="bg-gray-50 p-4 rounded-lg">
-                    <div className="text-sm text-gray-500 mb-1">Lượt xem</div>
-                    <div className="text-xl font-bold">{analyticsData.totalViews}</div>
+                    <div className="text-sm text-gray-500 mb-1">Lượt đăng ký</div>
+                    <div className="text-xl font-bold">{course.registrations || course.studentsEnrolled.length}</div>
                   </div>
                   <div className="bg-gray-50 p-4 rounded-lg">
                     <div className="text-sm text-gray-500 mb-1">Tỷ lệ hoàn thành</div>
@@ -1001,6 +995,28 @@ export default function TeacherCourseDetailPage() {
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-medium">Danh sách học viên</h3>
                 <div className="flex space-x-2">
+                  <div className="flex items-center mr-4">
+                    <label htmlFor="student-sort" className="mr-2 text-sm text-gray-600">Sắp xếp theo:</label>
+                    <select
+                      id="student-sort"
+                      className="text-sm border border-gray-300 rounded-md py-1 px-2"
+                      value={studentSort}
+                      onChange={(e) => setStudentSort(e.target.value as 'progress' | 'name' | 'date')}
+                    >
+                      <option value="progress">Tiến độ</option>
+                      <option value="name">Tên</option>
+                      <option value="date">Ngày đăng ký</option>
+                    </select>
+                    
+                    <button
+                      onClick={() => setStudentSortDirection(studentSortDirection === 'asc' ? 'desc' : 'asc')}
+                      className="ml-2 p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded"
+                      title={studentSortDirection === 'asc' ? 'Đang sắp xếp tăng dần' : 'Đang sắp xếp giảm dần'}
+                    >
+                      {studentSortDirection === 'asc' ? '↑' : '↓'}
+                    </button>
+                  </div>
+                  
                   <button
                     onClick={() => setEnrollmentRequestsModalOpen(true)}
                     className="bg-blue-600 text-white px-4 py-2 rounded-md flex items-center text-sm hover:bg-blue-700 transition-colors mr-2"
@@ -1019,40 +1035,128 @@ export default function TeacherCourseDetailPage() {
               </div>
 
               <div className="space-y-4">
-                {(!course?.studentsEnrolled || course.studentsEnrolled.length === 0) ? (
+                {course.studentsEnrolled.length === 0 ? (
                   <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg">
                     <p>Chưa có học viên nào đăng ký khóa học này</p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {course.studentsEnrolled.map((student) => {
-                      const studentId = typeof student === 'string' ? student : student._id;
-                      const studentName = typeof student !== 'string' 
-                        ? `${student.firstName || ''} ${student.lastName || ''}`.trim() || 'Học viên'
-                        : 'Học viên';
-                      const studentEmail = typeof student !== 'string' ? student.email : 'email@example.com';
-                      
-                      return (
-                        <div key={studentId} className="flex justify-between items-start p-4 bg-gray-50 rounded-lg">
-                          <div className="flex items-center">
-                            <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 mr-3 font-bold">
-                              {studentName.charAt(0).toUpperCase()}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {[...course.studentsEnrolled]
+                      .sort((a, b) => {
+                        const getProgress = (student: ExtendedUser | string) => 
+                          typeof student !== 'string' && 'progress' in student ? student.progress || 0 : 0;
+                        
+                        const getName = (student: ExtendedUser | string) => {
+                          if (typeof student === 'string') return '';
+                          return `${student.firstName || ''} ${student.lastName || ''}`.trim();
+                        };
+                        
+                        const getDate = (student: ExtendedUser | string) => {
+                          if (typeof student === 'string') return 0;
+                          if ('enrolledAt' in student && student.enrolledAt) {
+                            return new Date(student.enrolledAt as Date | string).getTime();
+                          }
+                          return 0;
+                        };
+                        
+                        if (studentSort === 'progress') {
+                          const progressA = getProgress(a);
+                          const progressB = getProgress(b);
+                          return studentSortDirection === 'asc' ? progressA - progressB : progressB - progressA;
+                        } else if (studentSort === 'name') {
+                          const nameA = getName(a);
+                          const nameB = getName(b);
+                          return studentSortDirection === 'asc' 
+                            ? nameA.localeCompare(nameB) 
+                            : nameB.localeCompare(nameA);
+                        } else { // date
+                          const dateA = getDate(a);
+                          const dateB = getDate(b);
+                          return studentSortDirection === 'asc' ? dateA - dateB : dateB - dateA;
+                        }
+                      })
+                      .map((student) => {
+                        const studentId = typeof student === 'string' ? student : student._id;
+                        const studentName = typeof student !== 'string' 
+                          ? `${student.firstName || ''} ${student.lastName || ''}`.trim() 
+                          : 'Unknown';
+                        const studentEmail = typeof student !== 'string' ? student.email : '';
+                        
+                        // Generate placeholder data for demo
+                        const progress = typeof student !== 'string' && 'progress' in student
+                          ? student.progress || Math.floor(Math.random() * 100)
+                          : Math.floor(Math.random() * 100);
+                          
+                        const lastActive = typeof student !== 'string' && 'lastActive' in student
+                          ? student.lastActive || new Date(Date.now() - Math.floor(Math.random() * 30) * 24 * 60 * 60 * 1000)
+                          : new Date(Date.now() - Math.floor(Math.random() * 30) * 24 * 60 * 60 * 1000);
+                          
+                        const enrolledAt = typeof student !== 'string' && 'enrolledAt' in student
+                          ? student.enrolledAt || new Date(Date.now() - Math.floor(Math.random() * 90) * 24 * 60 * 60 * 1000)
+                          : new Date(Date.now() - Math.floor(Math.random() * 90) * 24 * 60 * 60 * 1000);
+
+                        return (
+                          <div key={studentId} className="bg-white p-4 rounded-lg shadow">
+                            <div className="flex items-start justify-between">
+                              <div className="flex items-start space-x-3">
+                                <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-semibold">
+                                  {studentName.charAt(0).toUpperCase()}
+                                </div>
+                                <div>
+                                  <h4 className="font-medium">{studentName}</h4>
+                                  <p className="text-sm text-gray-500">{studentEmail}</p>
+                                  <div className="mt-1 text-xs text-gray-400">
+                                    Đăng ký: {new Date(enrolledAt).toLocaleDateString('vi-VN')}
+                                    <span className="mx-2">•</span>
+                                    Hoạt động gần đây: {new Date(lastActive).toLocaleDateString('vi-VN')}
+                                  </div>
+                                </div>
+                              </div>
+                              <button 
+                                onClick={() => confirmStudentDelete(studentId, studentName)}
+                                className="text-red-500 hover:text-red-700 text-sm"
+                              >
+                                Xóa
+                              </button>
                             </div>
-                            <div>
-                              <h4 className="font-medium text-gray-900">{studentName}</h4>
-                              <p className="text-sm text-gray-500">{studentEmail}</p>
+                            
+                            <div className="mt-4">
+                              <div className="flex justify-between items-center mb-1">
+                                <span className="text-sm font-medium">Tiến độ học tập</span>
+                                <span className="text-sm text-gray-600">{progress}%</span>
+                              </div>
+                              <div className="w-full bg-gray-200 rounded-full h-2">
+                                <div 
+                                  className={`${
+                                    progress >= 80 
+                                      ? 'bg-green-500' 
+                                      : progress >= 30 
+                                        ? 'bg-yellow-500' 
+                                        : 'bg-red-500'
+                                  } h-2 rounded-full`} 
+                                  style={{ width: `${progress}%` }}
+                                ></div>
+                              </div>
+                              <div className="mt-2">
+                                <span className={`text-xs px-2 py-1 rounded-full ${
+                                  progress === 100 
+                                    ? 'bg-green-100 text-green-800' 
+                                    : progress > 0 
+                                      ? 'bg-yellow-100 text-yellow-800' 
+                                      : 'bg-gray-100 text-gray-800'
+                                }`}>
+                                  {progress === 100 
+                                    ? 'Hoàn thành' 
+                                    : progress > 0 
+                                      ? 'Đang học' 
+                                      : 'Chưa bắt đầu'
+                                  }
+                                </span>
+                              </div>
                             </div>
                           </div>
-                          <button 
-                            onClick={() => confirmStudentDelete(studentId, studentName)}
-                            className="text-red-600 hover:text-red-800"
-                            title="Xóa học viên"
-                          >
-                            <UserMinus className="w-5 h-5" />
-                          </button>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
                   </div>
                 )}
               </div>

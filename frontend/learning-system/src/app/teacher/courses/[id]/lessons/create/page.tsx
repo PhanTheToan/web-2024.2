@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { courseService } from "@/services/courseService";
 import { lessonService } from "@/services/lessonService";
 import Link from "next/link";
-import { ArrowLeft, FileText, Upload, Save } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { Course, LessonMaterial } from "@/app/types";
 
 export default function CreateLessonPage() {
@@ -18,6 +18,7 @@ export default function CreateLessonPage() {
   const [description, setDescription] = useState("");
   const [content, setContent] = useState("");
   const [videoUrl, setVideoUrl] = useState("");
+  const [timeLimit, setTimeLimit] = useState(0);
   const [materials, setMaterials] = useState<LessonMaterial[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -29,8 +30,8 @@ export default function CreateLessonPage() {
     const fetchCourse = async () => {
       try {
         setLoading(true);
-        const fetchedCourse = await courseService.getCourseById(courseId);
-        setCourse(fetchedCourse);
+        const data = await courseService.getCourseById(courseId);
+        setCourse(data as Course);
       } catch (err) {
         console.error("Error fetching course:", err);
         setError("Không thể tải thông tin khóa học. Vui lòng thử lại sau.");
@@ -92,12 +93,20 @@ export default function CreateLessonPage() {
       return;
     }
 
+    if (timeLimit <= 0) {
+      setError("Thời gian học phải lớn hơn 0 phút");
+      return;
+    }
+
     try {
       setError(null);
       setSubmitting(true);
 
       // Prepare material paths only - in a real app, these would be URLs to stored files
       const materialPaths = materials.map(m => m.path);
+
+      // Get current number of lessons to determine order
+      const currentLessons = course?.lessons?.length || 0;
 
       // Create the lesson
       await lessonService.createLesson({
@@ -106,7 +115,9 @@ export default function CreateLessonPage() {
         description,
         content,
         videoUrl,
-        materials: materialPaths 
+        materials: materialPaths,
+        timeLimit,
+        order: currentLessons + 1, // Add order field
       });
 
       setSuccess(true);
@@ -275,13 +286,31 @@ export default function CreateLessonPage() {
           </div>
 
           <div className="mb-6">
+            <label className="block text-gray-700 font-medium mb-2" htmlFor="timeLimit">
+              Thời gian học (phút) <span className="text-red-500">*</span>
+            </label>
+            <input
+              id="timeLimit"
+              type="number"
+              min="1"
+              required
+              className="w-full px-3 py-2 border rounded-md"
+              value={timeLimit}
+              onChange={(e) => setTimeLimit(Math.max(0, parseInt(e.target.value) || 0))}
+              placeholder="Nhập thời gian học (phút)"
+            />
+          </div>
+
+          <div className="mb-6">
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Tài liệu học tập
             </label>
             
             <div className="border-2 border-dashed border-gray-300 rounded-md p-6 mb-3">
               <div className="text-center">
-                <FileText className="mx-auto h-12 w-12 text-gray-400" />
+                <svg className="mx-auto h-12 w-12 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" />
+                </svg>
                 <div className="mt-2">
                   <label htmlFor="file-upload" className="cursor-pointer">
                     <span className="mt-2 block text-sm font-medium text-indigo-600 hover:text-indigo-500">
@@ -314,7 +343,9 @@ export default function CreateLessonPage() {
                   {materials.map((material, index) => (
                     <li key={index} className="flex items-center justify-between bg-white p-2 rounded-md border border-gray-200">
                       <div className="flex items-center">
-                        <FileText className="h-4 w-4 text-indigo-500 mr-2" />
+                        <svg className="h-4 w-4 text-indigo-500 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232L18 8M5.232 15.232L8 18M3 12a9 9 0 1118 0 9 9 0 01-18 0z" />
+                        </svg>
                         <span className="text-sm">{material.name}</span>
                       </div>
                       <button
@@ -350,7 +381,10 @@ export default function CreateLessonPage() {
                 </>
               ) : (
                 <>
-                  <Save className="w-4 h-4 mr-2" />
+                  <svg className="w-4 h-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0l3-3m-3 3l-3-3" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0l3-3m-3 3l-3-3" />
+                  </svg>
                   Tạo bài học
                 </>
               )}

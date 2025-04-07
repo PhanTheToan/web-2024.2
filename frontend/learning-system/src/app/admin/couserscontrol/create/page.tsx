@@ -27,8 +27,8 @@ export default function AdminCreateCoursePage() {
     title: '',
     description: '',
     price: 0,
-    duration: '',
-    category: '',
+    totalDuration: 0, // Total duration in minutes, calculated from lessons and quizzes timeLimit
+    categories: [] as string[], // Change from single category to array of categories
     thumbnail: '',
     teacherId: '',
   });
@@ -101,6 +101,10 @@ export default function AdminCreateCoursePage() {
     if (!formData.teacherId) {
       throw new Error('Vui lòng chọn giảng viên');
     }
+    
+    if (formData.categories.length === 0) {
+      throw new Error('Vui lòng chọn ít nhất một danh mục cho khóa học');
+    }
   };
   
   const prepareCourseData = () => {
@@ -110,7 +114,7 @@ export default function AdminCreateCoursePage() {
       quizzes: [],
       studentsEnrolled: [],
       reviews: [],
-      categories: formData.category ? [formData.category] : [],
+      totalDuration: 0, // Will be calculated as lessons and quizzes with timeLimit are added
       rating: 0,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -287,39 +291,109 @@ export default function AdminCreateCoursePage() {
             </div>
             
             <div>
-              <label className="block text-gray-700 font-medium mb-2" htmlFor="duration">
-                Thời lượng
+              <label className="block text-gray-700 font-medium mb-2" htmlFor="totalDuration">
+                Thời lượng (phút)
               </label>
               <input
-                id="duration"
-                name="duration"
-                type="text"
-                placeholder="Ví dụ: 2 giờ 30 phút"
-                className="w-full px-3 py-2 border rounded-md"
-                value={formData.duration}
-                onChange={handleChange}
+                id="totalDuration"
+                name="totalDuration"
+                type="number"
+                value="0"
+                className="w-full px-3 py-2 border rounded-md bg-gray-100 cursor-not-allowed"
+                disabled
               />
+              <p className="text-sm text-gray-500 mt-1">Sẽ được tự động tính từ thời gian của các bài học và bài kiểm tra</p>
             </div>
           </div>
           
           <div className="mb-6">
-            <label className="block text-gray-700 font-medium mb-2" htmlFor="category">
-              Danh mục
+            <label className="block text-gray-700 font-medium mb-2" htmlFor="categories">
+              Danh mục <span className="text-red-500">*</span>
             </label>
-            <select
-              id="category"
-              name="category"
-              className="w-full px-3 py-2 border rounded-md"
-              value={formData.category}
-              onChange={handleChange}
-            >
-              <option value="">-- Chọn danh mục --</option>
-              {categories.map(category => (
-                <option key={category.name} value={category.name}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
+            
+            <div className="border rounded-lg overflow-hidden">
+              <div className="p-4 bg-gray-50 border-b">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-medium text-gray-700">Chọn danh mục cho khóa học</h4>
+                  <span className="text-sm text-gray-500">Đã chọn: {formData.categories.length}</span>
+                </div>
+              </div>
+              
+              <div className="p-4 max-h-72 overflow-y-auto">
+                {categories.length === 0 ? (
+                  <p className="text-gray-500 text-sm italic">Không có danh mục nào</p>
+                ) : (
+                  <div className="space-y-3">
+                    {categories.map(cat => {
+                      const isSelected = formData.categories.includes(cat.name);
+                      return (
+                        <div 
+                          key={cat.name} 
+                          className={`flex items-center p-3 rounded-lg border cursor-pointer transition-all
+                            ${isSelected ? 'border-indigo-200 bg-indigo-50' : 'border-gray-200 hover:border-indigo-200 hover:bg-gray-50'}`}
+                          onClick={() => {
+                            const updatedCategories = isSelected 
+                              ? formData.categories.filter(c => c !== cat.name)
+                              : [...formData.categories, cat.name];
+                              
+                            setFormData({
+                              ...formData,
+                              categories: updatedCategories
+                            });
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => {}} // Controlled by the div onClick
+                            className="h-5 w-5 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
+                          />
+                          <div className="ml-3 flex-1">
+                            <span className="text-gray-800 font-medium">{cat.name}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+              
+              {formData.categories.length > 0 && (
+                <div className="p-4 border-t bg-white">
+                  <div className="text-sm font-medium text-gray-700 mb-2">Danh mục đã chọn:</div>
+                  <div className="flex flex-wrap gap-2">
+                    {formData.categories.map(categoryName => (
+                      <div 
+                        key={categoryName}
+                        className="flex items-center bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded-full text-sm"
+                      >
+                        {categoryName}
+                        <button
+                          type="button"
+                          className="ml-1.5 text-indigo-500 hover:text-indigo-700"
+                          onClick={() => {
+                            setFormData({
+                              ...formData,
+                              categories: formData.categories.filter(c => c !== categoryName)
+                            });
+                          }}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            {formData.categories.length === 0 && (
+              <div className="mt-1 text-sm text-red-500">
+                Vui lòng chọn ít nhất một danh mục cho khóa học
+              </div>
+            )}
           </div>
           
           <div className="mb-6">

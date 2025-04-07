@@ -66,7 +66,10 @@ export const mockCourses = [
     rating: 4.8,
     createdAt: new Date(),
     updatedAt: new Date(),
-    duration: '40 minutes',
+    totalDuration: 180, // 45 + 60 + 75 minutes from lessons plus 30 minutes quiz
+    registrations: 2,
+    isPopular: true,
+    isPublished: true
   },
   {
     _id: '2',
@@ -82,7 +85,10 @@ export const mockCourses = [
     rating: 4.5,
     createdAt: new Date(),
     updatedAt: new Date(),
-    duration: '20 minutes',
+    totalDuration: 40, // lesson timeLimit not specified but estimating 20 minutes + 20 minutes quiz
+    registrations: 0,
+    isPopular: false,
+    isPublished: true
   },
   {
     _id: '3',
@@ -98,7 +104,10 @@ export const mockCourses = [
     rating: 4.7,
     createdAt: new Date(),
     updatedAt: new Date(),
-    duration: '30 minutes',
+    totalDuration: 25, // lesson timeLimit not specified but estimating 0 minutes + 25 minutes quiz
+    registrations: 1,
+    isPopular: true,
+    isPublished: true
   }
 ];
 
@@ -123,6 +132,7 @@ export const mockLessons = [
       'https://example.com/prompt-engineering-cheatsheet.pdf'
     ],
     order: 1,
+    timeLimit: 45,
     createdAt: new Date(),
     description: 'Tìm hiểu cơ bản về prompt engineering và tầm quan trọng của nó'
   },
@@ -145,6 +155,7 @@ export const mockLessons = [
       'https://example.com/prompt-examples.zip'
     ],
     order: 2,
+    timeLimit: 60,
     createdAt: new Date(),
     description: 'Học các kỹ thuật cơ bản để tạo prompt hiệu quả'
   },
@@ -167,6 +178,7 @@ export const mockLessons = [
       'https://example.com/prompt-optimization-guide.pdf'
     ],
     order: 3,
+    timeLimit: 75,
     createdAt: new Date(),
     description: 'Khám phá các kỹ thuật prompt nâng cao và best practices'
   },
@@ -320,30 +332,21 @@ export const mockQuizzes = [
   {
     _id: 'quiz1',
     courseId: '1',
-    title: 'Kiểm tra kiến thức Prompt Engineering',
+    title: 'Kiểm tra Prompt Engineering',
     questions: [
       {
         question: 'Prompt Engineering là gì?',
         options: [
-          'Kỹ thuật tạo câu lệnh cho AI',
-          'Kỹ thuật lập trình web',
-          'Kỹ thuật thiết kế UI',
-          'Kỹ thuật marketing'
+          'Kỹ thuật thiết kế prompt cho AI',
+          'Ngôn ngữ lập trình mới',
+          'Công cụ thiết kế web',
+          'Phương pháp marketing'
         ],
-        correctAnswer: 'Kỹ thuật tạo câu lệnh cho AI'
-      },
-      {
-        question: 'Đâu là yếu tố quan trọng nhất trong Prompt Engineering?',
-        options: [
-          'Độ dài của prompt',
-          'Tính rõ ràng và cụ thể',
-          'Số lượng từ khóa',
-          'Ngôn ngữ sử dụng'
-        ],
-        correctAnswer: 'Tính rõ ràng và cụ thể'
+        correctAnswer: 'Kỹ thuật thiết kế prompt cho AI'
       }
     ],
-    passingScore: 70,
+    passingScore: 60,
+    timeLimit: 30,
     createdAt: new Date(),
   },
   {
@@ -363,6 +366,7 @@ export const mockQuizzes = [
       }
     ],
     passingScore: 60,
+    timeLimit: 20,
     createdAt: new Date(),
   },
   {
@@ -382,6 +386,7 @@ export const mockQuizzes = [
       }
     ],
     passingScore: 60,
+    timeLimit: 25,
     createdAt: new Date(),
   }
 ];

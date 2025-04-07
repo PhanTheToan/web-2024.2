@@ -1,4 +1,4 @@
-import { Lesson, Course } from '@/app/types';
+import { Lesson } from '@/app/types';
 import { mockLessons } from '@/data/mockData';
 import { mockCourses } from '@/data/mockCourses';
 
@@ -25,9 +25,14 @@ export const lessonService = {
     for (const course of mockCourses) {
       const courseLessons = course.lessons;
       if (Array.isArray(courseLessons)) {
-        const foundLesson = courseLessons.find((l: Lesson) => l._id === id);
+        const foundLesson = courseLessons.find((l: unknown) => {
+          if (typeof l === 'object' && l !== null && '_id' in l) {
+            return (l as { _id: string })._id === id;
+          }
+          return false;
+        });
         if (foundLesson) {
-          return foundLesson;
+          return foundLesson as Lesson;
         }
       }
     }
@@ -120,7 +125,7 @@ export const lessonService = {
     const description = lessonData.description || '';
     
     // Temporary mock implementation
-    const newLesson: Lesson = {
+    const newLesson: Omit<Lesson, 'description'> & { description: string } = {
       _id: lessonData._id || `lesson-${Date.now()}`,
       courseId: lessonData.courseId,
       title: lessonData.title,
@@ -128,6 +133,7 @@ export const lessonService = {
       videoUrl: lessonData.videoUrl || '',
       materials: lessonData.materials || [],
       order: lessonData.order || 1,
+      timeLimit: lessonData.timeLimit || 30, // Default to 30 minutes if not provided
       createdAt: new Date(),
       description,
     };

@@ -28,6 +28,7 @@ export default function EditLessonPage() {
     content: '',
     videoUrl: '',
     order: 0,
+    timeLimit: 0,
     materials: [] as {name: string, path: string, size: string}[],
   });
 
@@ -66,6 +67,7 @@ export default function EditLessonPage() {
           content: lessonData.content,
           videoUrl: lessonData.videoUrl || '',
           order: lessonData.order || 0,
+          timeLimit: lessonData.timeLimit || 0,
           materials: materialFiles,
         });
         
@@ -90,7 +92,7 @@ export default function EditLessonPage() {
     const { name, value } = e.target;
     setFormData({
       ...formData,
-      [name]: name === 'order' ? parseInt(value) || 0 : value,
+      [name]: name === 'order' ? parseInt(value) || 0 : name === 'timeLimit' ? parseInt(value) || 0 : value,
     });
   };
   
@@ -180,6 +182,10 @@ export default function EditLessonPage() {
       
       if (!formData.content.trim()) {
         throw new Error('Nội dung bài học không được để trống');
+      }
+      
+      if (formData.timeLimit <= 0) {
+        throw new Error('Thời gian hoàn thành phải lớn hơn 0 phút');
       }
       
       // Extract just the paths for API call
@@ -366,6 +372,24 @@ export default function EditLessonPage() {
               value={formData.order}
               onChange={handleChange}
             />
+          </div>
+          
+          <div className="mb-6">
+            <label className="block text-gray-700 font-medium mb-2" htmlFor="timeLimit">
+              Thời gian hoàn thành (phút) <span className="text-red-500">*</span>
+            </label>
+            <input
+              id="timeLimit"
+              name="timeLimit"
+              type="number"
+              min="1"
+              required
+              placeholder="Nhập thời gian hoàn thành bài học (phút)"
+              className="w-full px-3 py-2 border rounded-md"
+              value={formData.timeLimit}
+              onChange={handleChange}
+            />
+            <p className="text-gray-500 text-sm mt-1">Thời gian ước tính để hoàn thành bài học</p>
           </div>
           
           <div className="mb-6">
