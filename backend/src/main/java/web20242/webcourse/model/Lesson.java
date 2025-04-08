@@ -29,6 +29,9 @@ public class Lesson {
     @Field(name = "title")
     private String title;
 
+    @Field(name="shortTile")
+    private String shortTile;
+
     @Field(name = "content")
     private String content;
 

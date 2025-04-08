@@ -6,12 +6,19 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.parameters.P;
 import org.springframework.web.bind.annotation.*;
+import web20242.webcourse.model.Course;
 import web20242.webcourse.model.CourseFilterRequest;
+import web20242.webcourse.model.Enrollment;
+import web20242.webcourse.model.User;
+import web20242.webcourse.repository.CourseRepository;
+import web20242.webcourse.repository.EnrollmentRepository;
+import web20242.webcourse.repository.UserRepository;
 import web20242.webcourse.service.CourseService;
 import web20242.webcourse.service.UserService;
 
 import java.security.Principal;
 import java.util.Map;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/course")
@@ -20,6 +27,12 @@ public class CourseController {
     private UserService userService;
     @Autowired
     private CourseService courseService;
+    @Autowired
+    private CourseRepository courseRepository;
+    @Autowired
+    private EnrollmentRepository enrollmentRepository;
+    @Autowired
+    private UserRepository userRepository;
 
     @PreAuthorize("hasRole('ROLE_ADMIN') || hasRole('ROLE_TEACHER')")
     @DeleteMapping("/deleteUserCourse/{userId}/{courseId}")
@@ -120,6 +133,31 @@ public class CourseController {
     public ResponseEntity<?> getAllsForTeacher(Principal principal) {
         return ResponseEntity.ok(courseService.getAllCoursesForTeacher(principal));
     }
+    // ROLE USER GET LESSON AND QUIZ
+    @PreAuthorize("hasRole('ROLE_USER')")
+    @GetMapping("/lesson-quiz/{id}")        // id = Course id
+    public ResponseEntity<?> getLessonAndQuizForCourseUser(@PathVariable String id, Principal principal) {
+        Optional<User> userOptional = userRepository.findByUsername(principal.getName());
+        if(userOptional.isPresent()) {
+            Optional<Enrollment> enrollmentOptional = enrollmentRepository.findByUserIdAndCourseId( userOptional.get().getId(),new ObjectId(id));
+            if(enrollmentOptional.isPresent()){
+                return ResponseEntity.ok(courseService.getLessonAndQuizForCourseUser(enrollmentOptional.get().getId(), principal));
+            }
+            else return ResponseEntity.status(401).body("User not enrolled in this course");
+        }
+        else return ResponseEntity.status(401).body("User not found");
+    }
+
+    @GetMapping("/info/{id}")
+    public ResponseEntity<?> getInformationCourse(@PathVariable String id) {
+        return ResponseEntity.ok(courseService.getInformationCourse(id));
+    }
+    @GetMapping("/lesson_quiz/{id}")
+    public ResponseEntity<?> getLessonAndQuizForCourseUser(@PathVariable String id) {
+        return ResponseEntity.ok(courseService.getLessonAndQuizForCourseAnyone(id));
+    }
+
+
 
 //    @PutMapping("/cleanup-invalid-categories")
 //    public ResponseEntity<?> cleanupInvalidCategories() {

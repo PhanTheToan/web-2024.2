@@ -688,6 +688,8 @@ public class CourseService {
                 List<Map<String, Object>> lessonData = lessons.stream().map(lesson -> {
                     Map<String, Object> lessonMap = new HashMap<>();
                     lessonMap.put("lessonId", lesson.getId().toString());
+                    lessonMap.put("lessonTitle", lesson.getTitle());
+                    lessonMap.put("lessonShortTile",lesson.getShortTile());
                     lessonMap.put("orderLesson", lesson.getOrder());
                     return lessonMap;
                 }).collect(Collectors.toList());
@@ -695,6 +697,8 @@ public class CourseService {
                 List<Map<String, Object>> quizData = quizzes.stream().map(quiz -> {
                     Map<String, Object> quizMap = new HashMap<>();
                     quizMap.put("quizId", quiz.getId().toString());
+                    quizMap.put("passingScore", quiz.getPassingScore());
+                    quizMap.put("questionCount", quiz.getQuestions().size());
                     quizMap.put("orderQuiz", quiz.getOrder());
                     return quizMap;
                 }).collect(Collectors.toList());
@@ -709,6 +713,174 @@ public class CourseService {
         } else {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("User not authenticated");
         }
+    }
+
+    public ResponseEntity<?> getLessonAndQuizForCourseUser(ObjectId id, Principal principal) {
+        Optional<Enrollment> enrollmentOptional = enrollmentRepository.findById(id);
+        Optional<User> userOptional = userRepository.findByUsername(principal.getName());
+
+        if (userOptional.isPresent() && enrollmentOptional.isPresent()) {
+            User user = userOptional.get();
+            Enrollment enrollment = enrollmentOptional.get();
+
+            if (!user.getId().equals(enrollment.getUserId())) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body("You are not the owner of this course");
+            }
+
+            Optional<Course> courseOptional = courseRepository.findById(enrollment.getCourseId());
+            if (courseOptional.isPresent()) {
+                Course course = courseOptional.get();
+                List<Lesson> lessons = lessonRepository.findByCourseId(course.getId());
+                List<Quizzes> quizzes = quizzesRepository.findByCourseId(course.getId());
+
+                // Get the list of completed IDs from enrollment, ensuring it's never null
+                ArrayList<ObjectId> completedIds = new ArrayList<>();
+                if (enrollment.getLessonAndQuizId() != null) {
+                    completedIds.addAll(enrollment.getLessonAndQuizId());
+                }
+
+                // Process Lessons
+                List<Map<String, Object>> learnedLessons = new ArrayList<>();
+                List<Map<String, Object>> notLearnedLessons = new ArrayList<>();
+
+                lessons.forEach(lesson -> {
+                    Map<String, Object> lessonMap = new HashMap<>();
+                    lessonMap.put("lessonId", lesson.getId().toString());
+                    lessonMap.put("lessonTitle", lesson.getTitle());
+                    lessonMap.put("lessonShortTile",lesson.getShortTile());
+                    lessonMap.put("orderLesson", lesson.getOrder());
+
+                    if (completedIds.contains(lesson.getId())) {
+                        learnedLessons.add(lessonMap);
+                    } else {
+                        notLearnedLessons.add(lessonMap);
+                    }
+                });
+
+                // Process Quizzes
+                List<Map<String, Object>> learnedQuizzes = new ArrayList<>();
+                List<Map<String, Object>> notLearnedQuizzes = new ArrayList<>();
+
+                quizzes.forEach(quiz -> {
+                    Map<String, Object> quizMap = new HashMap<>();
+                    quizMap.put("quizId", quiz.getId().toString());
+                    quizMap.put("passingScore", quiz.getPassingScore());
+                    quizMap.put("questionCount", quiz.getQuestions().size());
+                    quizMap.put("orderQuiz", quiz.getOrder());
+
+                    if (completedIds.contains(quiz.getId())) {
+                        learnedQuizzes.add(quizMap);
+                    } else {
+                        notLearnedQuizzes.add(quizMap);
+                    }
+                });
+
+                // Sort all lists by order
+                Comparator<Map<String, Object>> orderComparator = Comparator.comparingInt(m ->
+                        (Integer) m.getOrDefault("orderLesson", m.getOrDefault("orderQuiz", 0)));
+
+                learnedLessons.sort(orderComparator);
+                notLearnedLessons.sort(orderComparator);
+                learnedQuizzes.sort(orderComparator);
+                notLearnedQuizzes.sort(orderComparator);
+
+                // Prepare response
+                Map<String, Object> result = new HashMap<>();
+                Map<String, Object> learned = new HashMap<>();
+                Map<String, Object> notLearned = new HashMap<>();
+
+                learned.put("lessons", learnedLessons);
+                learned.put("quizzes", learnedQuizzes);
+                notLearned.put("lessons", notLearnedLessons);
+                notLearned.put("quizzes", notLearnedQuizzes);
+
+                result.put("learned", learned);
+                result.put("notLearned", notLearned);
+
+                return ResponseEntity.ok(result);
+            }
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Course not found");
+        }
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("User not authenticated");
+    }
+
+    public ResponseEntity<?> getInformationCourse(String id) {
+        Optional<Course> courseOptional = courseRepository.findById(new ObjectId(id));
+        if (courseOptional.isPresent()) {
+            Course course = courseOptional.get();
+            if(course.getStatus() == EStatus.INACTIVE){
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Course is not available");
+            }
+            Map<String, Object> overview = new HashMap<>();
+            overview.put("id", String.valueOf(course.getId()));
+            overview.put("title", course.getTitle());
+            overview.put("description", course.getDescription());
+            overview.put("thumbnail", course.getThumbnail());
+            overview.put("categories", course.getCategories());
+            overview.put("price", course.getPrice());
+            overview.put("studentsCount", course.getStudentsEnrolled() != null ?
+                    course.getStudentsEnrolled().size() : 0);
+            overview.put("contentCount",
+                    (course.getLessons() != null ? course.getLessons().size() : 0) +
+                            (course.getQuizzes() != null ? course.getQuizzes().size() : 0));
+            overview.put("averageRating", course.getAverageRating());
+            String getTeacherName;
+            Optional<User> userTeacher = userService.findById(String.valueOf(course.getTeacherId()));
+            getTeacherName = userTeacher.map(value -> value.getFirstName() + " " + value.getLastName())
+                    .orElse("Unknown Teacher");
+            overview.put("teacherName", getTeacherName);
+            overview.put("totalTimeLimit", course.getTotalTimeLimit());
+            return ResponseEntity.ok(overview);
+        } else {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Course not found");
+        }
+
+    }
+
+    public ResponseEntity<?> getLessonAndQuizForCourseAnyone(String id) {
+        Optional<Course> courseOptional = courseRepository.findById(new ObjectId(id));
+
+        if (courseOptional.isPresent()) {
+            Course course = courseOptional.get();
+            List<Lesson> lessons = lessonRepository.findByCourseId(course.getId());
+            List<Quizzes> quizzes = quizzesRepository.findByCourseId(course.getId());
+
+            // Collect lessons into a list of maps
+            List<Map<String, Object>> lessonList = new ArrayList<>();
+            lessons.forEach(lesson -> {
+                Map<String, Object> lessonMap = new HashMap<>();
+                lessonMap.put("lessonId", lesson.getId().toString());
+                lessonMap.put("lessonTitle", lesson.getTitle());
+                lessonMap.put("lessonShortTitle", lesson.getShortTile()); // Fixed typo from "lessonShortTilte"
+                lessonMap.put("orderLesson", lesson.getOrder());
+                lessonList.add(lessonMap);
+            });
+
+            // Collect quizzes into a list of maps
+            List<Map<String, Object>> quizList = new ArrayList<>();
+            quizzes.forEach(quiz -> {
+                Map<String, Object> quizMap = new HashMap<>();
+                quizMap.put("quizId", quiz.getId().toString());
+                quizMap.put("passingScore", quiz.getPassingScore());
+                quizMap.put("questionCount", quiz.getQuestions() != null ? quiz.getQuestions().size() : 0);
+                quizMap.put("orderQuiz", quiz.getOrder());
+                quizList.add(quizMap);
+            });
+
+            // Sort both lists by order
+            Comparator<Map<String, Object>> orderComparator = Comparator.comparingInt(m ->
+                    (Integer) m.getOrDefault("orderLesson", m.getOrDefault("orderQuiz", 0)));
+            lessonList.sort(orderComparator);
+            quizList.sort(orderComparator);
+
+            // Prepare response
+            Map<String, Object> result = new HashMap<>();
+            result.put("lessons", lessonList);
+            result.put("quizzes", quizList);
+
+            return ResponseEntity.ok(result);
+        }
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Course not found");
     }
 
 //    public ResponseEntity<?> getCoursesByPage(int page) {

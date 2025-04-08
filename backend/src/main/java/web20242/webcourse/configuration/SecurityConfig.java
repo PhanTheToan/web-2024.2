@@ -47,7 +47,9 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/auth/**",
                                 "/api/course",
-                                "/api/courses/filter",
+                                "/api/course/filter",
+                                "/api/course/info/**",
+                                "/api/course/lesson_quiz/**",
                                 "/api/categories/featured-category",
                                 "/api/categories/featured-courses",
                                 "/api/categories/popular",
