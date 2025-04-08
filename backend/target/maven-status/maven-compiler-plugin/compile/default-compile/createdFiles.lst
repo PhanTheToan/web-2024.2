@@ -16,6 +16,7 @@ web20242/webcourse/model/Course$CourseBuilder.class
 web20242/webcourse/model/Lesson$LessonBuilder.class
 web20242/webcourse/controller/EnrollmentController.class
 web20242/webcourse/repository/PopularCategoryRepository.class
+web20242/webcourse/model/OrderableItem$OrderableItemBuilder.class
 web20242/webcourse/model/Image$ImageBuilder.class
 web20242/webcourse/controller/CourseController.class
 web20242/webcourse/model/constant/ERole.class
@@ -33,6 +34,7 @@ web20242/webcourse/model/OtpData.class
 web20242/webcourse/security/dto/ApiResponse.class
 web20242/webcourse/security/service/AuthenticationService.class
 web20242/webcourse/model/Review$ReviewBuilder.class
+web20242/webcourse/model/OrderableItem.class
 web20242/webcourse/model/Logo$LogoBuilder.class
 web20242/webcourse/model/Enrollment$QuizScore$QuizScoreBuilder.class
 web20242/webcourse/service/ReviewService.class

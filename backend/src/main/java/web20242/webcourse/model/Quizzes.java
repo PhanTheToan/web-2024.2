@@ -31,6 +31,9 @@ public class Quizzes {
     @Field(name = "questions")
     private ArrayList<Question> questions; // Danh sách câu hỏi
 
+    @Field(name = "order")
+    private Integer order; // Thứ tự bài quiz, dùng Integer thay cho Number
+
     @Field(name = "passingScore")
     private Double passingScore; // Điểm tối thiểu để qua, dùng Double thay cho Number
 

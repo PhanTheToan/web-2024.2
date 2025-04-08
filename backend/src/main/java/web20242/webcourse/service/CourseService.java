@@ -19,6 +19,7 @@ import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
+
 @Service
 public class CourseService {
     @Autowired
@@ -482,10 +483,233 @@ public class CourseService {
         } else {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Course not found");
         }
-
-
+    }
+    public ResponseEntity<?> getLessonAndQuizForCourse(String id){
+        Optional<Course> courseOptional = courseRepository.findById(new ObjectId(id));
+        if (courseOptional.isPresent()) {
+            Course course = courseOptional.get();
+            List<Lesson> lessons = lessonRepository.findByCourseId(course.getId());
+            List<Quizzes> quizzes = quizzesRepository.findByCourseId(course.getId());
+            Map<String, Object> result = new HashMap<>();
+            result.put("lessons", lessons);
+            result.put("quizzes", quizzes);
+            return ResponseEntity.ok(result);
+        } else {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Course not found");
+        }
     }
 
+    public ResponseEntity<?> getAllCoursesComplete(Principal principal) {
+        Optional<User> userOptional = userRepository.findByUsername(principal.getName());
+        if (userOptional.isPresent()) {
+            User user = userOptional.get();
+            List<Enrollment> enrollments = enrollmentRepository.findByUserId(user.getId());
+            List<Map<String, Object>> courseOverviews = enrollments.stream()
+                    .filter(enrollment -> EStatus.DONE.equals(enrollment.getStatus()))
+                    .map(enrollment -> {
+                        Map<String, Object> overview = new HashMap<>();
+                        Course course = courseRepository.findById(enrollment.getCourseId()).orElse(null);
+                        if (course != null) {
+                            overview.put("id", String.valueOf(course.getId()));
+                            overview.put("title", course.getTitle());
+                            overview.put("status", enrollment.getStatus());
+                            overview.put("thumbnail", course.getThumbnail());
+                            String teacherName;
+                            Optional<User> userTeacher = userService.findById(String.valueOf(course.getTeacherId()));
+                            teacherName = userTeacher.map(value -> value.getFirstName() + " " + value.getLastName())
+                                    .orElse("Unknown Teacher");
+                            overview.put("teacherName", teacherName);
+                            overview.put("completeDate", enrollment.getCompletedAt());
+                            return overview;
+                        }
+                        return null;
+                    })
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toList());
+            return ResponseEntity.ok(courseOverviews);
+        } else {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body("User not found");
+        }
+    }
+    public ResponseEntity<?> getAllCoursesInprocess(Principal principal) {
+        Optional<User> userOptional = userRepository.findByUsername(principal.getName());
+        if (userOptional.isPresent()) {
+            User user = userOptional.get();
+            List<Enrollment> enrollments = enrollmentRepository.findByUserId(user.getId());
+            List<Map<String, Object>> courseOverviews = enrollments.stream()
+                    .filter(enrollment -> EStatus.INPROGRESS.equals(enrollment.getStatus()))
+                    .map(enrollment -> {
+                        Map<String, Object> overview = new HashMap<>();
+                        Course course = courseRepository.findById(enrollment.getCourseId()).orElse(null);
+                        if (course != null) {
+                            overview.put("id", String.valueOf(course.getId()));
+                            overview.put("title", course.getTitle());
+                            overview.put("status", enrollment.getStatus());
+                            overview.put("thumbnail", course.getThumbnail());
+                            String teacherName;
+                            Optional<User> userTeacher = userService.findById(String.valueOf(course.getTeacherId()));
+                            teacherName = userTeacher.map(value -> value.getFirstName() + " " + value.getLastName())
+                                    .orElse("Unknown Teacher");
+                            overview.put("teacherName", teacherName);
+                            overview.put("process", enrollment.getProgress());
+                            overview.put("timeCurrent", enrollment.getTimeCurrent());
+                            overview.put("startDate", enrollment.getEnrolledAt());
+                            return overview;
+                        }
+                        return null;
+                    })
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toList());
+            return ResponseEntity.ok(courseOverviews);
+        } else {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body("User not found");
+        }
+    }
+
+    public ResponseEntity<?> updateOrder() {
+        List<Course> courseList = courseRepository.findAll();
+
+        for (Course course : courseList) {
+            List<Lesson> lessons = lessonRepository.findByCourseId(course.getId());
+            List<Quizzes> quizzes = quizzesRepository.findByCourseId(course.getId());
+
+            lessons.sort(Comparator.comparing(Lesson::getCreatedAt, Comparator.nullsLast(Comparator.naturalOrder())));
+            quizzes.sort(Comparator.comparing(Quizzes::getCreatedAt, Comparator.nullsLast(Comparator.naturalOrder())));
+
+            int lessonIndex = 0;
+            int quizIndex = 0;
+            int currentOrder = 1;
+
+            while (lessonIndex < lessons.size() || quizIndex < quizzes.size()) {
+                if (lessonIndex < lessons.size()) {
+                    Lesson lesson = lessons.get(lessonIndex);
+                    lesson.setOrder(currentOrder++);
+                    lessonRepository.save(lesson);
+                    lessonIndex++;
+                }
+
+                if (quizIndex < quizzes.size()) {
+                    Quizzes quiz = quizzes.get(quizIndex);
+                    quiz.setOrder(currentOrder++);
+                    quizzesRepository.save(quiz);
+                    quizIndex++;
+                }
+            }
+        }
+
+        return ResponseEntity.ok("Order updated successfully with interleaved lessons and quizzes!");
+    }
+
+    public ResponseEntity<?> updateOrderForItem(String itemType, ObjectId itemId, Integer newOrder, Principal principal) {
+        ObjectId courseId;
+        if ("LESSON".equalsIgnoreCase(itemType)) {
+            Lesson lesson = lessonRepository.findById(itemId).orElseThrow(() -> new RuntimeException("Lesson not found"));
+            courseId = lesson.getCourseId();
+        } else if ("QUIZ".equalsIgnoreCase(itemType)) {
+            Quizzes quiz = quizzesRepository.findById(itemId).orElseThrow(() -> new RuntimeException("Quiz not found"));
+            courseId = quiz.getCourseId();
+        } else {
+            return ResponseEntity.badRequest().body("Invalid item type. Must be 'LESSON' or 'QUIZ'.");
+        }
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> new RuntimeException("Course not found"));
+        Optional<User> userOptional = userRepository.findByUsername(principal.getName());
+        if(userOptional.isPresent()){
+            User user = userOptional.get();
+            if (!user.getId().equals(course.getTeacherId())) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body("You are not the owner of this course");
+            }
+        } else {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("User not authenticated");
+        }
+        List<Lesson> lessons = lessonRepository.findByCourseId(courseId);
+        List<Quizzes> quizzes = quizzesRepository.findByCourseId(courseId);
+
+        List<OrderableItem> items = new ArrayList<>();
+        for (Lesson lesson : lessons) {
+            items.add(new OrderableItem("LESSON", lesson.getId(), lesson.getOrder(), lesson));
+        }
+        for (Quizzes quiz : quizzes) {
+            items.add(new OrderableItem("QUIZ", quiz.getId(), quiz.getOrder(), quiz));
+        }
+
+        items.sort(Comparator.nullsLast(Comparator.comparingInt(OrderableItem::getOrder)));
+        OrderableItem targetItem = items.stream()
+                .filter(item -> item.getId().equals(itemId) && item.getType().equals(itemType))
+                .findFirst()
+                .orElseThrow(() -> new RuntimeException("Item not found in the list"));
+
+        items.remove(targetItem);
+
+        int insertIndex = 0;
+        for (OrderableItem orderableItem : items) {
+            if (orderableItem.getOrder() != null && orderableItem.getOrder() >= newOrder) {
+                break;
+            }
+            insertIndex++;
+        }
+
+        targetItem.setOrder(newOrder);
+        items.add(insertIndex, targetItem);
+
+        int currentOrder = 1;
+        for (OrderableItem item : items) {
+            item.setOrder(currentOrder++);
+        }
+        for (OrderableItem item : items) {
+            if ("LESSON".equals(item.getType())) {
+                Lesson lesson = (Lesson) item.getEntity();
+                lesson.setOrder(item.getOrder());
+                lessonRepository.save(lesson);
+            } else {
+                Quizzes quiz = (Quizzes) item.getEntity();
+                quiz.setOrder(item.getOrder());
+                quizzesRepository.save(quiz);
+            }
+        }
+
+        return ResponseEntity.ok("Order updated successfully with interleaved lessons and quizzes!");
+    }
+
+    public ResponseEntity<?> getLessonAndQuizForCourseTeacher(String id, Principal principal) {
+        Optional<Course> courseOptional = courseRepository.findById(new ObjectId(id));
+        Optional<User> userOptional = userRepository.findByUsername(principal.getName());
+        if(userOptional.isPresent() && courseOptional.isPresent()){
+            User user = userOptional.get();
+            Course course = courseOptional.get();
+            if (!user.getId().equals(course.getTeacherId())) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body("You are not the owner of this course");
+            }
+            else {
+                List<Lesson> lessons = lessonRepository.findByCourseId(course.getId());
+                List<Quizzes> quizzes = quizzesRepository.findByCourseId(course.getId());
+                List<Map<String, Object>> lessonData = lessons.stream().map(lesson -> {
+                    Map<String, Object> lessonMap = new HashMap<>();
+                    lessonMap.put("lessonId", lesson.getId().toString());
+                    lessonMap.put("orderLesson", lesson.getOrder());
+                    return lessonMap;
+                }).collect(Collectors.toList());
+
+                List<Map<String, Object>> quizData = quizzes.stream().map(quiz -> {
+                    Map<String, Object> quizMap = new HashMap<>();
+                    quizMap.put("quizId", quiz.getId().toString());
+                    quizMap.put("orderQuiz", quiz.getOrder());
+                    return quizMap;
+                }).collect(Collectors.toList());
+
+                Map<String, Object> result = new HashMap<>();
+                result.put("lessons", lessonData);
+                result.put("quizzes", quizData);
+
+
+                return ResponseEntity.ok(result);
+            }
+        } else {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("User not authenticated");
+        }
+    }
 
 //    public ResponseEntity<?> getCoursesByPage(int page) {
 //        int pageSize = 6;

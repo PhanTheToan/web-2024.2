@@ -36,6 +36,9 @@ public class Enrollment {
     @Field(name = "quizScores")
     private ArrayList<QuizScore> quizScores; // Danh sách điểm của các bài quiz
 
+    @Field(name="timeCurrent")
+    private Integer timeCurrent;
+
     @Field(name = "progress")
     private Double progress; // Tiến độ hoàn thành (%), dùng Double thay cho Number
 
