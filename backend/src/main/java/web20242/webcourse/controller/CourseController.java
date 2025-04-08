@@ -152,10 +152,19 @@ public class CourseController {
     public ResponseEntity<?> getInformationCourse(@PathVariable String id) {
         return ResponseEntity.ok(courseService.getInformationCourse(id));
     }
+    @GetMapping("/info/check/{id}")
+    public ResponseEntity<?> checkInfo(@PathVariable String id,Principal principal){
+        Optional<User> userOptional = userRepository.findByUsername(principal.getName());
+        if(userOptional.isPresent()){
+            return ResponseEntity.ok(courseService.checkInfo(id,userOptional.get().getId()));
+        }
+        else return ResponseEntity.status(401).body("User not found");
+    }
     @GetMapping("/lesson_quiz/{id}")
     public ResponseEntity<?> getLessonAndQuizForCourseUser(@PathVariable String id) {
         return ResponseEntity.ok(courseService.getLessonAndQuizForCourseAnyone(id));
     }
+
 
 
 

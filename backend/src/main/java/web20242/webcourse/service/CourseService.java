@@ -2,8 +2,6 @@ package web20242.webcourse.service;
 
 import org.bson.types.ObjectId;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -13,10 +11,10 @@ import web20242.webcourse.repository.*;
 import org.springframework.data.mongodb.core.MongoTemplate;
 
 
-import java.awt.print.Pageable;
 import java.security.Principal;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 
@@ -881,6 +879,52 @@ public class CourseService {
             return ResponseEntity.ok(result);
         }
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Course not found");
+    }
+
+    public ResponseEntity<?> checkInfo(String id,ObjectId userId) {
+        Optional<Course> courseOptional = courseRepository.findById(new ObjectId(id));
+        if (courseOptional.isPresent()) {
+            Course course = courseOptional.get();
+            List<Enrollment> enrollments = enrollmentRepository.findByCourseId(course.getId());
+            for (Enrollment enrollment : enrollments) {
+                if (enrollment.getUserId().equals(userId)) {
+                    Map<String, Object> map = new HashMap<>();
+                    map.put("courseId", course.getId().toHexString());
+                    map.put("userId", userId.toHexString());
+                    map.put("progress", enrollment.getProgress());
+                    return ResponseEntity.ok(map);
+                }
+            }
+            return ResponseEntity.ok("You are not enrolled in this course");
+        } else {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Course not found");
+        }
+
+    }
+
+    public void updateRating() {
+        List<Course> courseList = courseRepository.findAll();
+        for (Course course : courseList) {
+            Double avgRating;
+            int countReview = 0;
+            int sumRating = 0;
+            List<Review> reviews = reviewRepository.findByCourseId(course.getId());
+
+            if (reviews != null) {
+                for (Review review : reviews) {
+                    if (review.getRating() != null) {
+                        countReview++;
+                        sumRating += review.getRating();
+                    }
+                }
+                avgRating = countReview > 0 ? (double) sumRating / countReview : null;
+            } else {
+                avgRating = null; // Hoặc 0.0 nếu bạn muốn mặc định là 0
+            }
+
+            course.setAverageRating(avgRating);
+            courseRepository.save(course);
+        }
     }
 
 //    public ResponseEntity<?> getCoursesByPage(int page) {

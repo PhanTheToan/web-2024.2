@@ -3,6 +3,7 @@ package web20242.webcourse.controller;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mail.SimpleMailMessage;
@@ -19,6 +20,7 @@ import web20242.webcourse.security.dto.ApiResponse;
 import web20242.webcourse.security.dto.AuthenticationResponse;
 import web20242.webcourse.security.service.AuthenticationService;
 import web20242.webcourse.security.service.JwtService;
+import web20242.webcourse.service.CourseService;
 import web20242.webcourse.service.UserService;
 
 import java.time.LocalDateTime;
@@ -28,7 +30,7 @@ import java.util.Optional;
 import java.util.Random;
 
 @RestController
-@RequestMapping("api/admin")
+@RequestMapping("/api/admin")
 @RequiredArgsConstructor
 public class AdminController {
 
@@ -37,6 +39,9 @@ public class AdminController {
     private final JwtService jwtService;
     private final UserDetailsService userDetailsService;
     private final JavaMailSender javaMailSender;
+
+    @Autowired
+    private CourseService courseService;
 
     private final Map<String, OtpData> otpStorage = new HashMap<>();
 
@@ -174,5 +179,11 @@ public class AdminController {
     public ResponseEntity<?> deleteUserForever(@PathVariable String id){
         userService.removeUser(id);
         return ResponseEntity.ok("Xóa người dùng thành công");
+    }
+
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @PutMapping("/update-rating")
+    public void updateRating(){
+        courseService.updateRating();
     }
 }
