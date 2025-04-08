@@ -4,7 +4,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { courseService } from '@/services/courseService';
 import { ArrowLeft, Upload, X, Save } from 'lucide-react';
-import { CategoryItem } from '@/app/types';
+import { CategoryItem, Category } from '@/app/types';
 import Image from 'next/image';
 
 // Define the CourseData interface for the form
@@ -43,11 +43,9 @@ export default function EditCoursePage() {
   const [success, setSuccess] = useState(false);
   const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [availableTeachers, setAvailableTeachers] = useState<{_id: string; firstName: string; lastName: string}[]>([]);
-  // thumbnailFile is kept for future implementation when file uploading is enabled
+  const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
-  const [thumbnailPreview, setThumbnailPreview] = useState<string>('');
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [errors, setErrors] = useState<Record<string, boolean>>({});
   
   // Fetch course data on component mount
   useEffect(() => {
@@ -76,6 +74,16 @@ export default function EditCoursePage() {
           ? data.teacherId._id 
           : data.teacherId;
         
+        // Process categories with proper typing
+        const processedCategories = Array.isArray(data.categories) 
+          ? data.categories.map(cat => {
+              if (typeof cat === 'object' && cat !== null && 'name' in cat) {
+                return (cat as Category).name;
+              }
+              return cat as string;
+            }) 
+          : [];
+        
         // Set course data in the form
         setCourseData({
           title: data.title || '',
@@ -83,14 +91,14 @@ export default function EditCoursePage() {
           price: data.price || 0,
           thumbnail: data.thumbnail || '',
           totalDuration: data.totalDuration || 0,
-          categories: Array.isArray(data.categories) ? data.categories.map(cat => typeof cat === 'object' ? cat.name : cat) : [],
+          categories: processedCategories,
           teacherId: teacherId || '',
           isPopular: !!data.isPopular,
           isPublished: !!data.isPublished,
         });
         
         // Set selected categories to match course categories
-        setSelectedCategories(Array.isArray(data.categories) ? data.categories.map(cat => typeof cat === 'object' ? cat.name : cat) : []);
+        setSelectedCategories(processedCategories);
         
         // Set thumbnail preview
         if (data.thumbnail) {
@@ -185,17 +193,22 @@ export default function EditCoursePage() {
         throw new Error('Mô tả khóa học không được để trống');
       }
       
-      if (!courseData.teacherId) {
-        throw new Error('Vui lòng chọn giảng viên');
-      }
-      
       // Prepare the updated course data
       const updatedCourse = {
         ...courseData,
       };
       
+      // Handle file upload if there's a new thumbnail
+      if (thumbnailFile) {
+        // In a real implementation, you would upload the file here
+        console.log("Uploading thumbnail file:", thumbnailFile.name);
+        // For now, we're just simulating the upload
+        updatedCourse.thumbnail = URL.createObjectURL(thumbnailFile);
+      }
+      
       // Update the course
       console.log("Updating course with data:", updatedCourse);
+      await courseService.updateCourse(courseId, updatedCourse);
       
       // Show success message
       setSuccess(true);
@@ -204,9 +217,9 @@ export default function EditCoursePage() {
       setTimeout(() => {
         router.push(`/admin/couserscontrol/${courseId}`);
       }, 2000);
-    } catch (error) {
-      console.error("Error updating course:", error);
-      setError(error instanceof Error ? error.message : "Không thể cập nhật khóa học. Vui lòng thử lại sau.");
+    } catch (err) {
+      console.error("Error updating course:", err);
+      setError(err instanceof Error ? err.message : "Không thể cập nhật khóa học. Vui lòng thử lại sau.");
     } finally {
       setSaving(false);
     }
@@ -280,17 +293,16 @@ export default function EditCoursePage() {
           
           <div className="mb-6">
             <label className="block text-gray-700 font-medium mb-2" htmlFor="teacherId">
-              Giảng viên <span className="text-red-500">*</span>
+              Giảng viên
             </label>
             <select
               id="teacherId"
               name="teacherId"
               value={courseData.teacherId}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              required
+              disabled={true} // Make teacher non-editable
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-100" // Added bg-gray-100 to indicate disabled state
             >
-              <option value="">-- Chọn giảng viên --</option>
+              <option value="">Chọn giảng viên</option>
               {availableTeachers.map(teacher => (
                 <option key={teacher._id} value={teacher._id}>
                   {teacher.firstName} {teacher.lastName}
@@ -412,11 +424,7 @@ export default function EditCoursePage() {
                 )}
               </div>
               
-              {errors.category && (
-                <div className="mt-1 text-sm text-gray-500">
-                  Vui lòng chọn ít nhất một danh mục cho khóa học
-                </div>
-              )}
+              {/* Add any necessary error handling for category selection */}
             </div>
           </div>
           
@@ -461,8 +469,9 @@ export default function EditCoursePage() {
                     onChange={handleInputChange}
                     className="h-5 w-5 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded mr-2"
                   />
-                  <span className="text-gray-700">Công khai khóa học</span>
+                  <span className="text-gray-700">Đang hoạt động</span>
                 </label>
+                <p className="text-xs text-gray-500 ml-7">Khi được bật, khóa học đang hoạt động. Khi tắt, khóa học sẽ bị vô hiệu hóa.</p>
               </div>
             </div>
           </div>
@@ -488,7 +497,7 @@ export default function EditCoursePage() {
                   <button
                     type="button"
                     onClick={() => {
-                      setThumbnailPreview('');
+                      setThumbnailPreview(null);
                       setThumbnailFile(null);
                       setCourseData({
                         ...courseData,

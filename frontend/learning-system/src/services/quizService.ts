@@ -16,6 +16,7 @@ export interface Quiz {
   questions: QuizQuestion[];
   passingScore: number;
   timeLimit?: number;
+  order?: number;
   createdAt: Date;
 }
 
@@ -191,7 +192,8 @@ export const quizService = {
       passingScore: quizData.passingScore,
       createdAt: new Date(),
       description: quizData.description,
-      timeLimit: quizData.timeLimit
+      timeLimit: quizData.timeLimit,
+      order: quizData.order
     };
     
     // In a real application, this would update the database

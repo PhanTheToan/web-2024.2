@@ -113,6 +113,7 @@ export interface CourseData {
     questions: QuizQuestion[];
     passingScore: number;
     timeLimit?: number;
+    order?: number;
     createdAt: Date;
   }
 

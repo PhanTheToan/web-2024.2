@@ -6,18 +6,31 @@ import { courseService } from '@/services/courseService';
 import { 
   Edit, Eye, Plus, ArrowLeft, BookOpen, Users, 
   Calendar, Clock, Trash2, AlertTriangle, UserMinus, 
-  UserPlus, DollarSign, Star, FileText, BarChart2, ArrowUpDown, MoveUp, MoveDown
+  UserPlus, DollarSign, Star, FileText, BarChart2, ArrowUpDown, MoveUp, MoveDown,
+  Loader2, CheckCircle2
 } from 'lucide-react';
-import { Course, Lesson, User } from '@/app/types';
+import { Course, User } from '@/app/types';
 import { lessonService } from '@/services/lessonService';
 import { quizService } from '@/services/quizService';
+import { toast } from 'react-hot-toast';
+import { enrollmentService } from '@/services/enrollmentService';
 
 // Define extended interfaces to manage types until the backend is complete
-interface ExtendedUser extends User {
+interface ExtendedUser extends Omit<User, 'createdAt' | 'updatedAt'> {
+  _id: string;
+  firstName: string;
+  lastName: string;
+  username: string;
+  password: string;
+  role: 'TEACHER' | 'USER' | 'student';
+  email: string;
+  coursesEnrolled: string[];
+  enrolledAt?: string;
   progress?: number;
-  lastActive?: Date | string;
-  enrolledAt?: Date | string;
-  completedLessons?: number;
+  lastActive?: string;
+  createdAt: string | Date;
+  updatedAt: string | Date;
+  phone?: string;
 }
 
 interface ExtendedCourse extends Omit<Course, 'quizzes' | 'studentsEnrolled'> {
@@ -33,6 +46,17 @@ interface QuizItem {
   passingScore?: number;
 }
 
+// Add a new interface for combined course content items
+interface CourseContentItem {
+  _id: string;
+  courseId: string;
+  title: string;
+  description?: string;
+  order?: number;
+  type: 'lesson' | 'quiz';
+  [key: string]: string | number | boolean | undefined; // More specific than 'any'
+}
+
 export default function TeacherCourseDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -46,8 +70,8 @@ export default function TeacherCourseDetailPage() {
   const [itemToDelete, setItemToDelete] = useState<{ id: string; type: 'lesson' | 'quiz'; title: string } | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [isReorderingLessons, setIsReorderingLessons] = useState(false);
-  const [isReorderingQuizzes, setIsReorderingQuizzes] = useState(false);
+  const [isReorderingContent, setIsReorderingContent] = useState(false);
+  const [contentOrderSaving, setContentOrderSaving] = useState(false);
   const [analyticsData, setAnalyticsData] = useState<{
     totalViews: number;
     completionRate: number;
@@ -64,10 +88,13 @@ export default function TeacherCourseDetailPage() {
   const [newStudentName, setNewStudentName] = useState('');
   const [newStudentEmail, setNewStudentEmail] = useState('');
   const [addStudentLoading, setAddStudentLoading] = useState(false);
-  const [addStudentSuccess, setAddStudentSuccess] = useState(false);
-  const [addStudentError, setAddStudentError] = useState<string | null>(null);
+  const [showErrorMessage, setShowErrorMessage] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [studentSort, setStudentSort] = useState<'progress' | 'name' | 'date'>('progress');
   const [studentSortDirection, setStudentSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [courseContent, setCourseContent] = useState<CourseContentItem[]>([]);
 
   useEffect(() => {
     const fetchCourse = async () => {
@@ -106,6 +133,36 @@ export default function TeacherCourseDetailPage() {
       setLoading(false);
     }
   }, [courseId]);
+
+  useEffect(() => {
+    const loadCourseContent = async () => {
+      if (activeTab === 'content' && courseId) {
+        try {
+          const content = await courseService.getCourseContent(courseId);
+          // Cast each item to ensure it has all required properties
+          const typedContent = content.map(item => {
+            // Destructure to avoid duplicating and overwriting properties
+            const { _id = '', courseId = '', title = '', description, order, type, ...rest } = item;
+            return {
+              _id,
+              courseId,
+              title,
+              description,
+              order,
+              type: type as 'lesson' | 'quiz',
+              ...rest // Include remaining properties
+            };
+          }) as CourseContentItem[];
+          
+          setCourseContent(typedContent);
+        } catch (error) {
+          console.error("Error loading course content:", error);
+        }
+      }
+    };
+
+    loadCourseContent();
+  }, [activeTab, courseId]);
 
   const handleDelete = async () => {
     if (!itemToDelete) return;
@@ -235,12 +292,25 @@ export default function TeacherCourseDetailPage() {
           setCourse(prev => {
             if (!prev) return prev;
             
-            // Create a new student object
-            const newStudent = {
+            // Create a new student object with all required fields
+            const nameArray = approvedStudent.name.split(' ');
+            const firstName = nameArray.pop() || '';
+            const lastName = nameArray.join(' ') || '';
+            
+            const newStudent: ExtendedUser = {
               _id: approvedStudent._id,
-              firstName: approvedStudent.name.split(' ').pop() || '',
-              lastName: approvedStudent.name.split(' ').slice(0, -1).join(' ') || '',
-              email: approvedStudent.email
+              firstName: firstName,
+              lastName: lastName,
+              email: approvedStudent.email,
+              username: approvedStudent.email,
+              password: '',
+              role: 'student',
+              coursesEnrolled: [],
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              enrolledAt: new Date().toISOString(),
+              progress: 0,
+              lastActive: new Date().toISOString()
             };
             
             // Add to students enrolled list
@@ -262,190 +332,146 @@ export default function TeacherCourseDetailPage() {
     }
   };
 
-  // Add function to handle adding a student
+  // Function to handle the addition of a student
   const handleAddStudent = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!newStudentName || !newStudentEmail) {
-      setAddStudentError('Vui lòng nhập đầy đủ thông tin học viên');
-      return;
-    }
-    
     setAddStudentLoading(true);
-    setAddStudentError(null);
-    
+
     try {
-      // In a real app, call an API to add the student
-      // await courseService.addStudentToCourse(courseId, { name: newStudentName, email: newStudentEmail });
+      // Check if the student email already exists in the course
+      const emailExists = course?.studentsEnrolled?.some(
+        (student) => {
+          if (typeof student === 'string') return false;
+          return student.email?.toLowerCase() === newStudentEmail.toLowerCase();
+        }
+      );
       
-      // Simulate API call with timeout
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Update the course state to add the student
-      const nameParts = newStudentName.split(' ');
-      const firstName = nameParts.pop() || '';
-      const lastName = nameParts.join(' ');
-      
-      const newStudent = {
-        _id: `student-${Date.now()}`,
-        firstName,
-        lastName,
-        email: newStudentEmail,
-        enrolledAt: new Date(),
-        progress: 0
-      };
-      
-      setCourse(prev => {
-        if (!prev) return prev;
-        
-        const updatedStudents = Array.isArray(prev.studentsEnrolled) 
-          ? [...prev.studentsEnrolled, newStudent]
-          : [newStudent];
+      if (emailExists) {
+        setErrorMessage("Email này đã được đăng ký trong khóa học.");
+        setShowErrorMessage(true);
+        setAddStudentLoading(false);
+        return;
+      }
+
+      const result = await enrollmentService.enrollCourse(
+        newStudentEmail, // userId (using email as a substitute for now)
+        course?._id || '' // courseId
+      );
+
+      if (result) {
+        // Add the new student to the studentsEnrolled array if it exists
+        if (course?.studentsEnrolled) {
+          const nameArray = newStudentName.split(' ');
+          const firstName = nameArray.pop() || '';
+          const lastName = nameArray.join(' ') || '';
           
-        return {
-          ...prev,
-          studentsEnrolled: updatedStudents
-        } as ExtendedCourse;
-      });
-      
-      // Show success message
-      setAddStudentSuccess(true);
-      
-      // Reset form
-      setNewStudentName('');
-      setNewStudentEmail('');
-      
-      // Close modal after a delay
-      setTimeout(() => {
+          const newStudent: ExtendedUser = {
+            _id: `user-${Date.now()}`, // Generate a temp ID
+            email: newStudentEmail,
+            username: newStudentEmail,
+            firstName: firstName,
+            lastName: lastName,
+            password: '',
+            role: 'student',
+            coursesEnrolled: [],
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            progress: 0,
+            lastActive: new Date().toISOString(),
+            enrolledAt: new Date().toISOString()
+          };
+          
+          setCourse(prev => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              studentsEnrolled: [...prev.studentsEnrolled, newStudent]
+            };
+          });
+        }
+
+        setNewStudentName('');
+        setNewStudentEmail('');
         setAddStudentModalOpen(false);
-        setAddStudentSuccess(false);
-      }, 2000);
-    } catch (err) {
-      console.error('Error adding student:', err);
-      setAddStudentError('Không thể thêm học viên. Vui lòng thử lại sau.');
+        setSuccessMessage('Học viên đã được thêm thành công!');
+        setShowSuccessMessage(true);
+      }
+    } catch (error) {
+      console.error('Failed to add student:', error);
+      setErrorMessage('Có lỗi xảy ra khi thêm học viên. Vui lòng thử lại.');
+      setShowErrorMessage(true);
     } finally {
       setAddStudentLoading(false);
     }
   };
 
-  // Add functions for reordering lessons
-  const toggleReorderingLessons = () => {
-    setIsReorderingLessons(!isReorderingLessons);
+  // Add functions for reordering content
+  const toggleReorderingContent = () => {
+    setIsReorderingContent(!isReorderingContent);
   };
   
-  const moveLessonUp = (index: number) => {
-    if (index <= 0 || !course || !course.lessons) return;
+  const moveContentItemUp = (index: number) => {
+    if (index <= 0 || courseContent.length < 2) return;
     
-    const updatedLessons = [...course.lessons];
-    const temp = updatedLessons[index];
-    updatedLessons[index] = updatedLessons[index - 1];
-    updatedLessons[index - 1] = temp;
+    const updatedContent = [...courseContent];
+    const temp = updatedContent[index];
+    updatedContent[index] = updatedContent[index - 1];
+    updatedContent[index - 1] = temp;
     
-    setCourse({
-      ...course,
-      lessons: updatedLessons
-    } as ExtendedCourse);
+    setCourseContent(updatedContent);
   };
   
-  const moveLessonDown = (index: number) => {
-    if (!course || !course.lessons || index >= course.lessons.length - 1) return;
+  const moveContentItemDown = (index: number) => {
+    if (index >= courseContent.length - 1) return;
     
-    const updatedLessons = [...course.lessons];
-    const temp = updatedLessons[index];
-    updatedLessons[index] = updatedLessons[index + 1];
-    updatedLessons[index + 1] = temp;
+    const updatedContent = [...courseContent];
+    const temp = updatedContent[index];
+    updatedContent[index] = updatedContent[index + 1];
+    updatedContent[index + 1] = temp;
     
-    setCourse({
-      ...course,
-      lessons: updatedLessons
-    } as ExtendedCourse);
+    setCourseContent(updatedContent);
   };
   
-  const saveLessonOrder = async () => {
-    if (!course) return;
-    
-    setDeleteLoading(true);
+  const saveContentOrder = async () => {
+    setContentOrderSaving(true);
     
     try {
-      // Get the lesson IDs
-      const lessonIds = course.lessons.map(lesson => 
-        typeof lesson === 'object' ? lesson._id : lesson
-      );
+      // Separate lesson IDs and quiz IDs while preserving the overall order
+      const lessonIds: string[] = [];
+      const quizIds: string[] = [];
       
-      // Call the service to update the order
-      await courseService.updateLessonOrder(courseId, lessonIds);
+      // Add each item to the appropriate array based on type
+      courseContent.forEach(item => {
+        if (item.type === 'lesson') {
+          lessonIds.push(item._id);
+        } else if (item.type === 'quiz') {
+          quizIds.push(item._id);
+        }
+      });
       
-      setIsReorderingLessons(false);
+      // Update both lessons and quizzes order
+      if (lessonIds.length > 0) {
+        await courseService.updateLessonOrder(courseId, lessonIds);
+      }
+      
+      if (quizIds.length > 0) {
+        await courseService.updateQuizOrder(courseId, quizIds);
+      }
+      
+      // Exit reordering mode
+      setIsReorderingContent(false);
       
       // Show success message
-      alert('Thứ tự bài học đã được cập nhật thành công');
+      toast.success('Thứ tự nội dung khóa học đã được cập nhật thành công');
     } catch (error) {
-      console.error('Failed to save lesson order:', error);
-      alert('Không thể cập nhật thứ tự bài học. Vui lòng thử lại sau.');
+      console.error('Failed to save content order:', error);
+      toast.error('Không thể cập nhật thứ tự nội dung khóa học. Vui lòng thử lại sau.');
     } finally {
-      setDeleteLoading(false);
+      setContentOrderSaving(false);
     }
   };
 
-  // Quizzes reordering
-  const toggleReorderingQuizzes = () => {
-    setIsReorderingQuizzes(!isReorderingQuizzes);
-  };
-  
-  const moveQuizUp = (index: number) => {
-    if (index <= 0 || !course || !course.quizzes) return;
-    
-    const updatedQuizzes = [...course.quizzes];
-    const temp = updatedQuizzes[index];
-    updatedQuizzes[index] = updatedQuizzes[index - 1];
-    updatedQuizzes[index - 1] = temp;
-    
-    setCourse({
-      ...course,
-      quizzes: updatedQuizzes
-    } as ExtendedCourse);
-  };
-  
-  const moveQuizDown = (index: number) => {
-    if (!course || !course.quizzes || index >= course.quizzes.length - 1) return;
-    
-    const updatedQuizzes = [...course.quizzes];
-    const temp = updatedQuizzes[index];
-    updatedQuizzes[index] = updatedQuizzes[index + 1];
-    updatedQuizzes[index + 1] = temp;
-    
-    setCourse({
-      ...course,
-      quizzes: updatedQuizzes
-    } as ExtendedCourse);
-  };
-  
-  const saveQuizOrder = async () => {
-    if (!course) return;
-    
-    setDeleteLoading(true);
-    
-    try {
-      // Get the quiz IDs
-      const quizIds = course.quizzes?.map(quiz => 
-        typeof quiz === 'object' ? quiz._id : quiz
-      ) || [];
-      
-      // Call the service to update the order
-      await courseService.updateQuizOrder(courseId, quizIds);
-      
-      setIsReorderingQuizzes(false);
-      
-      // Show success message
-      alert('Thứ tự bài kiểm tra đã được cập nhật thành công');
-    } catch (error) {
-      console.error('Failed to save quiz order:', error);
-      alert('Không thể cập nhật thứ tự bài kiểm tra. Vui lòng thử lại sau.');
-    } finally {
-      setDeleteLoading(false);
-    }
-  };
-
+  // Render components based on current state
   if (loading) {
     return (
       <div className="p-6 max-w-7xl mx-auto">
@@ -490,25 +516,25 @@ export default function TeacherCourseDetailPage() {
     );
   }
   
-  // Ensure lessons and quizzes are always arrays and properly typed
-  const lessons = Array.isArray(course.lessons) 
-    ? course.lessons.map(lesson => {
-        if (typeof lesson === 'string') {
-          // Properly type assert string to avoid 'never' type errors
-          const lessonId = lesson as string;
-          return { 
-            _id: lessonId, 
-            title: `Bài học ${lessonId.length >= 4 ? lessonId.slice(-4) : ''}`, 
-            courseId: courseId 
-          } as Lesson;
-        }
-        return lesson;
-      }) 
-    : [];
+  // Comment out unused variables to fix linter errors
+  // const lessons = Array.isArray(course.lessons) 
+  //   ? course.lessons.map(lesson => {
+  //       if (typeof lesson === 'string') {
+  //         // Properly type assert string to avoid 'never' type errors
+  //         const lessonId = lesson as string;
+  //         return { 
+  //           _id: lessonId, 
+  //           title: `Bài học ${lessonId.length >= 4 ? lessonId.slice(-4) : ''}`, 
+  //           courseId: courseId 
+  //         } as Lesson;
+  //       }
+  //       return lesson;
+  //     }) 
+  //   : [];
     
-  const quizzes = Array.isArray(course.quizzes) 
-    ? course.quizzes.map((quiz, index) => typeof quiz === 'string' ? { _id: quiz, title: `Bài kiểm tra ${index + 1}`, questions: [] } as QuizItem : quiz) 
-    : [];
+  // const quizzes = Array.isArray(course.quizzes) 
+  //   ? course.quizzes.map((quiz, index) => typeof quiz === 'string' ? { _id: quiz, title: `Bài kiểm tra ${index + 1}`, questions: [] } as QuizItem : quiz) 
+  //   : [];
     
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -684,14 +710,7 @@ export default function TeacherCourseDetailPage() {
       <div className="bg-white rounded-lg shadow-md overflow-hidden mb-6">
         <div className="border-b">
           <nav className="flex">
-            <button 
-              className={`px-6 py-4 font-medium ${activeTab === 'overview' 
-                ? 'border-b-2 border-indigo-500 text-indigo-600' 
-                : 'text-gray-500 hover:text-gray-700'}`}
-              onClick={() => setActiveTab('overview')}
-            >
-              Tổng quan
-            </button>
+           
             <button 
               className={`px-6 py-4 font-medium ${activeTab === 'lessons' 
                 ? 'border-b-2 border-indigo-500 text-indigo-600' 
@@ -709,6 +728,14 @@ export default function TeacherCourseDetailPage() {
               Bài kiểm tra ({course?.quizzes?.length || 0})
             </button>
             <button 
+              className={`px-6 py-4 font-medium ${activeTab === 'content' 
+                ? 'border-b-2 border-indigo-500 text-indigo-600' 
+                : 'text-gray-500 hover:text-gray-700'}`}
+              onClick={() => setActiveTab('content')}
+            >
+              Nội dung khóa học
+            </button>
+            <button 
               className={`px-6 py-4 font-medium ${activeTab === 'students' 
                 ? 'border-b-2 border-indigo-500 text-indigo-600' 
                 : 'text-gray-500 hover:text-gray-700'}`}
@@ -719,73 +746,20 @@ export default function TeacherCourseDetailPage() {
           </nav>
         </div>
         <div className="p-6">
-          {activeTab === 'overview' && (
-            <div>
-              <h3 className="text-lg font-bold mb-4">Tổng quan khóa học</h3>
-              {analyticsData && (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <div className="text-sm text-gray-500 mb-1">Lượt đăng ký</div>
-                    <div className="text-xl font-bold">{course.registrations || course.studentsEnrolled.length}</div>
-                  </div>
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <div className="text-sm text-gray-500 mb-1">Tỷ lệ hoàn thành</div>
-                    <div className="text-xl font-bold">{analyticsData.completionRate}%</div>
-                  </div>
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <div className="text-sm text-gray-500 mb-1">Tiến độ trung bình</div>
-                    <div className="text-xl font-bold">{analyticsData.averageProgress}%</div>
-                  </div>
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <div className="text-sm text-gray-500 mb-1">Doanh thu</div>
-                    <div className="text-xl font-bold">${analyticsData.revenueGenerated}</div>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
+          
           
           {activeTab === 'lessons' && (
             <div>
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-medium">Danh sách bài học</h3>
                 <div className="flex space-x-2">
-                  {isReorderingLessons ? (
-                    <div className="flex space-x-2">
-                      <button 
-                        className="bg-green-600 text-white px-3 py-1.5 rounded-md text-sm flex items-center"
-                        onClick={saveLessonOrder}
-                        disabled={deleteLoading}
-                      >
-                        <Plus className="w-4 h-4 mr-1" />
-                        {deleteLoading ? 'Đang lưu...' : 'Lưu thứ tự'}
-                      </button>
-                      <button 
-                        className="bg-gray-500 text-white px-3 py-1.5 rounded-md text-sm flex items-center"
-                        onClick={() => setIsReorderingLessons(false)}
-                        disabled={deleteLoading}
-                      >
-                        Hủy
-                      </button>
-                    </div>
-                  ) : (
-                    <>
-                      <button 
-                        className="bg-gray-100 text-gray-700 px-3 py-1.5 rounded-md text-sm flex items-center mr-2"
-                        onClick={() => setIsReorderingLessons(true)}
-                      >
-                        <ArrowUpDown className="w-4 h-4 mr-1" />
-                        Sắp xếp lại
-                      </button>
-                      <Link 
-                        href={`/teacher/courses/${course?._id}/lessons/create`}
-                        className="bg-indigo-600 text-white px-3 py-1.5 rounded-md text-sm flex items-center"
-                      >
-                        <Plus className="w-4 h-4 mr-1" />
-                        Thêm bài học
-                      </Link>
-                    </>
-                  )}
+                  <Link 
+                    href={`/teacher/courses/${course?._id}/lessons/create`}
+                    className="bg-indigo-600 text-white px-3 py-1.5 rounded-md text-sm flex items-center"
+                  >
+                    <Plus className="w-4 h-4 mr-1" />
+                    Thêm bài học
+                  </Link>
                 </div>
               </div>
               
@@ -810,24 +784,6 @@ export default function TeacherCourseDetailPage() {
                     
                     return (
                       <div key={index} className="flex items-start p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                        {isReorderingLessons && (
-                          <div className="flex flex-col mr-2">
-                            <button 
-                              onClick={() => moveLessonUp(index)}
-                              disabled={index === 0}
-                              className={`p-1 ${index === 0 ? 'text-gray-300' : 'text-gray-600 hover:text-indigo-600'}`}
-                            >
-                              <MoveUp className="w-4 h-4" />
-                            </button>
-                            <button 
-                              onClick={() => moveLessonDown(index)}
-                              disabled={index === (course.lessons?.length || 0) - 1}
-                              className={`p-1 ${index === (course.lessons?.length || 0) - 1 ? 'text-gray-300' : 'text-gray-600 hover:text-indigo-600'}`}
-                            >
-                              <MoveDown className="w-4 h-4" />
-                            </button>
-                          </div>
-                        )}
                         <div className="flex-shrink-0 w-8 h-8 bg-indigo-100 text-indigo-700 rounded-full flex items-center justify-center mr-4">
                           {index + 1}
                         </div>
@@ -871,42 +827,13 @@ export default function TeacherCourseDetailPage() {
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-medium">Danh sách bài kiểm tra</h3>
                 <div className="flex space-x-2">
-                  {isReorderingQuizzes ? (
-                    <div className="flex space-x-2">
-                      <button 
-                        className="bg-green-600 text-white px-3 py-1.5 rounded-md text-sm flex items-center"
-                        onClick={saveQuizOrder}
-                        disabled={deleteLoading}
-                      >
-                        <Plus className="w-4 h-4 mr-1" />
-                        {deleteLoading ? 'Đang lưu...' : 'Lưu thứ tự'}
-                      </button>
-                      <button 
-                        className="bg-gray-500 text-white px-3 py-1.5 rounded-md text-sm flex items-center"
-                        onClick={() => setIsReorderingQuizzes(false)}
-                        disabled={deleteLoading}
-                      >
-                        Hủy
-                      </button>
-                    </div>
-                  ) : (
-                    <>
-                      <button 
-                        className="bg-gray-100 text-gray-700 px-3 py-1.5 rounded-md text-sm flex items-center mr-2"
-                        onClick={() => setIsReorderingQuizzes(true)}
-                      >
-                        <ArrowUpDown className="w-4 h-4 mr-1" />
-                        Sắp xếp lại
-                      </button>
-                      <Link 
-                        href={`/teacher/courses/${course?._id}/quizzes/create`}
-                        className="bg-indigo-600 text-white px-3 py-1.5 rounded-md text-sm flex items-center"
-                      >
-                        <Plus className="w-4 h-4 mr-1" />
-                        Thêm bài kiểm tra
-                      </Link>
-                    </>
-                  )}
+                  <Link 
+                    href={`/teacher/courses/${course?._id}/quizzes/create`}
+                    className="bg-indigo-600 text-white px-3 py-1.5 rounded-md text-sm flex items-center"
+                  >
+                    <Plus className="w-4 h-4 mr-1" />
+                    Thêm bài kiểm tra
+                  </Link>
                 </div>
               </div>
               
@@ -927,27 +854,8 @@ export default function TeacherCourseDetailPage() {
                   course.quizzes.map((quiz, index) => {
                     const quizId = typeof quiz === 'string' ? quiz : quiz._id;
                     const quizTitle = typeof quiz === 'object' ? quiz.title : `Bài kiểm tra ${index + 1}`;
-                    
                     return (
                       <div key={index} className="flex items-start p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                        {isReorderingQuizzes && (
-                          <div className="flex flex-col mr-2">
-                            <button 
-                              onClick={() => moveQuizUp(index)}
-                              disabled={index === 0}
-                              className={`p-1 ${index === 0 ? 'text-gray-300' : 'text-gray-600 hover:text-indigo-600'}`}
-                            >
-                              <MoveUp className="w-4 h-4" />
-                            </button>
-                            <button 
-                              onClick={() => moveQuizDown(index)}
-                              disabled={index === (course.quizzes?.length || 0) - 1}
-                              className={`p-1 ${index === (course.quizzes?.length || 0) - 1 ? 'text-gray-300' : 'text-gray-600 hover:text-indigo-600'}`}
-                            >
-                              <MoveDown className="w-4 h-4" />
-                            </button>
-                          </div>
-                        )}
                         <div className="flex-shrink-0 w-8 h-8 bg-indigo-100 text-indigo-700 rounded-full flex items-center justify-center mr-4">
                           {index + 1}
                         </div>
@@ -978,6 +886,144 @@ export default function TeacherCourseDetailPage() {
                             onClick={() => confirmDelete(quizId, 'quiz', quizTitle)}
                             className="text-red-600 hover:text-red-800"
                             title="Xóa bài kiểm tra"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          )}
+          
+          {activeTab === 'content' && (
+            <div>
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-medium">Nội dung khóa học (theo thứ tự)</h3>
+                <div className="flex space-x-2">
+                  {isReorderingContent ? (
+                    <div className="flex space-x-2">
+                      <button 
+                        className="bg-green-600 text-white px-3 py-1.5 rounded-md text-sm flex items-center"
+                        onClick={saveContentOrder}
+                        disabled={contentOrderSaving}
+                      >
+                        {contentOrderSaving ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                            Đang lưu...
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle2 className="w-4 h-4 mr-1" />
+                            Lưu thứ tự
+                          </>
+                        )}
+                      </button>
+                      <button 
+                        className="bg-gray-500 text-white px-3 py-1.5 rounded-md text-sm flex items-center"
+                        onClick={() => setIsReorderingContent(false)}
+                        disabled={contentOrderSaving}
+                      >
+                        Hủy
+                      </button>
+                    </div>
+                  ) : (
+                    <button 
+                      className="bg-gray-100 text-gray-700 px-3 py-1.5 rounded-md text-sm flex items-center mr-2"
+                      onClick={toggleReorderingContent}
+                    >
+                      <ArrowUpDown className="w-4 h-4 mr-1" />
+                      Sắp xếp lại
+                    </button>
+                  )}
+                </div>
+              </div>
+              
+              <div className="space-y-4">
+                {courseContent.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg">
+                    <FileText className="w-12 h-12 mx-auto text-gray-400 mb-2" />
+                    <p>Khóa học chưa có nội dung nào</p>
+                    <div className="flex justify-center mt-4 space-x-4">
+                      <Link 
+                        href={`/teacher/courses/${course?._id}/lessons/create`}
+                        className="inline-flex items-center text-indigo-600 hover:text-indigo-800"
+                      >
+                        <Plus className="w-4 h-4 mr-1" />
+                        Thêm bài học
+                      </Link>
+                      <Link 
+                        href={`/teacher/courses/${course?._id}/quizzes/create`}
+                        className="inline-flex items-center text-indigo-600 hover:text-indigo-800"
+                      >
+                        <Plus className="w-4 h-4 mr-1" />
+                        Thêm bài kiểm tra
+                      </Link>
+                    </div>
+                  </div>
+                ) : (
+                  courseContent.map((item, index) => {
+                    const itemId = item._id;
+                    const isLesson = item.type === 'lesson';
+                    const itemTitle = item.title;
+                    const itemDescription = item.description || '';
+                    const order = item.order || 999;
+                    
+                    return (
+                      <div key={item._id} className="flex items-start p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                        {isReorderingContent && (
+                          <div className="flex flex-col mr-2">
+                            <button 
+                              onClick={() => moveContentItemUp(index)}
+                              disabled={index === 0}
+                              className={`p-1 ${index === 0 ? 'text-gray-300' : 'text-gray-600 hover:text-indigo-600'}`}
+                            >
+                              <MoveUp className="w-4 h-4" />
+                            </button>
+                            <button 
+                              onClick={() => moveContentItemDown(index)}
+                              disabled={index === courseContent.length - 1}
+                              className={`p-1 ${index === courseContent.length - 1 ? 'text-gray-300' : 'text-gray-600 hover:text-indigo-600'}`}
+                            >
+                              <MoveDown className="w-4 h-4" />
+                            </button>
+                          </div>
+                        )}
+                        <div className={`flex-shrink-0 w-8 h-8 ${isLesson ? 'bg-indigo-100 text-indigo-700' : 'bg-purple-100 text-purple-700'} rounded-full flex items-center justify-center mr-4`}>
+                          {index + 1}
+                        </div>
+                        <div className="flex-grow">
+                          <div className="flex items-center">
+                            <span className={`text-xs px-2 py-1 rounded mr-2 ${isLesson ? 'bg-indigo-100 text-indigo-800' : 'bg-purple-100 text-purple-800'}`}>
+                              {isLesson ? 'Bài học' : 'Bài kiểm tra'}
+                            </span>
+                            <h4 className="font-medium text-gray-900">{itemTitle}</h4>
+                          </div>
+                          {itemDescription && <p className="text-sm text-gray-500 mt-1">{itemDescription}</p>}
+                          <div className="text-xs text-gray-400 mt-1">Thứ tự: {order}</div>
+                        </div>
+                        <div className="flex items-center ml-4">
+                          <Link 
+                            href={`/teacher/courses/${courseId}/${isLesson ? 'lessons' : 'quizzes'}/${itemId}`}
+                            className="text-blue-600 hover:text-blue-800 mr-2"
+                            title="Xem chi tiết"
+                          >
+                            <Eye className="w-5 h-5" />
+                          </Link>
+                          <Link 
+                            href={`/teacher/courses/${courseId}/${isLesson ? 'lessons' : 'quizzes'}/${itemId}/edit`}
+                            className="text-indigo-600 hover:text-indigo-800 mr-2"
+                            title="Chỉnh sửa"
+                          >
+                            <Edit className="w-5 h-5" />
+                          </Link>
+                          <button 
+                            onClick={() => confirmDelete(itemId, isLesson ? 'lesson' : 'quiz', itemTitle)}
+                            className="text-red-600 hover:text-red-800"
+                            title={`Xóa ${isLesson ? 'bài học' : 'bài kiểm tra'}`}
                           >
                             <Trash2 className="w-5 h-5" />
                           </button>
@@ -1275,71 +1321,59 @@ export default function TeacherCourseDetailPage() {
 
       {/* Add Student Modal */}
       {addStudentModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center">
-                <UserPlus className="text-green-500 w-6 h-6 mr-2" />
-                <h3 className="text-lg font-medium">Thêm học viên mới</h3>
-              </div>
-              <button
-                onClick={() => setAddStudentModalOpen(false)}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                &times;
-              </button>
-            </div>
-            
-            {addStudentError && (
-              <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4">
-                <div className="flex">
-                  <div className="ml-3">
-                    <p className="text-sm text-red-700">{addStudentError}</p>
-                  </div>
-                </div>
-              </div>
-            )}
-            
-            {addStudentSuccess && (
-              <div className="bg-green-50 border-l-4 border-green-500 p-4 mb-4">
-                <div className="flex">
-                  <div className="ml-3">
-                    <p className="text-sm text-green-700">Thêm học viên thành công!</p>
-                  </div>
-                </div>
-              </div>
-            )}
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg w-full max-w-md">
+            <h3 className="text-xl font-bold mb-4">Thêm học viên mới</h3>
             
             <form onSubmit={handleAddStudent}>
               <div className="mb-4">
                 <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="studentName">
-                  Họ và tên
+                  Tên học viên
                 </label>
                 <input
-                  type="text"
                   id="studentName"
-                  className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                  type="text"
                   value={newStudentName}
                   onChange={(e) => setNewStudentName(e.target.value)}
-                  placeholder="Nguyễn Văn A"
+                  className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
                   required
                 />
               </div>
               
-              <div className="mb-6">
+              <div className="mb-4">
                 <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="studentEmail">
                   Email
                 </label>
                 <input
-                  type="email"
                   id="studentEmail"
-                  className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                  type="email"
                   value={newStudentEmail}
                   onChange={(e) => setNewStudentEmail(e.target.value)}
-                  placeholder="email@example.com"
+                  className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
                   required
                 />
+                <p className="text-sm text-gray-500 mt-1 italic">Hệ thống sẽ kiểm tra email trùng lặp để tránh thêm một học viên nhiều lần.</p>
               </div>
+              
+              {showErrorMessage && (
+                <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4">
+                  <div className="flex">
+                    <div className="ml-3">
+                      <p className="text-sm text-red-700">{errorMessage}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {showSuccessMessage && (
+                <div className="bg-green-50 border-l-4 border-green-500 p-4 mb-4">
+                  <div className="flex">
+                    <div className="ml-3">
+                      <p className="text-sm text-green-700">{successMessage}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
               
               <div className="flex justify-end">
                 <button

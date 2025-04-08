@@ -516,4 +516,52 @@ export const courseService = {
     
     return { success: true, course: updatedCourse };
   },
+
+  // Lấy nội dung kết hợp (bài học và bài kiểm tra) của khóa học đã sắp xếp theo order
+  getCourseContent: async (courseId: string) => {
+    // TODO: Implement API call when backend is ready
+    // const response = await fetch(`${API_BASE_URL}/courses/${courseId}/content`);
+    // if (!response.ok) {
+    //   throw new Error('Failed to fetch course content');
+    // }
+    // return response.json();
+
+    // Temporary mock implementation
+    const course = await courseService.getCourseById(courseId);
+    
+    // Ensure we work with the full Lesson and Quiz objects
+    const lessonsArray = Array.isArray(course.lessons) 
+      ? course.lessons.map(lesson => typeof lesson === 'string' 
+          ? mockLessons.find(l => l._id === lesson) 
+          : lesson).filter(Boolean)
+      : [];
+      
+    const quizzesArray = Array.isArray(course.quizzes) 
+      ? course.quizzes.map(quiz => typeof quiz === 'string' 
+          ? mockQuizzes.find(q => q._id === quiz) 
+          : quiz).filter(Boolean)
+      : [];
+    
+    // Combine lessons and quizzes
+    const combinedContent = [
+      ...lessonsArray.map(lesson => ({ 
+        ...lesson, 
+        type: 'lesson',
+        order: lesson.order || 999 // Default high order if not specified
+      })),
+      ...quizzesArray.map(quiz => ({ 
+        ...quiz, 
+        type: 'quiz',
+        order: quiz.order || 999 // Default high order if not specified
+      }))
+    ];
+    
+    // Sort by order field
+    return combinedContent.sort((a, b) => {
+      if (a.order === undefined && b.order === undefined) return 0;
+      if (a.order === undefined) return 1;
+      if (b.order === undefined) return -1;
+      return a.order - b.order;
+    });
+  },
 };

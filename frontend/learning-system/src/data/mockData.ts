@@ -132,7 +132,7 @@ export const mockLessons = [
       'https://example.com/prompt-engineering-cheatsheet.pdf'
     ],
     order: 1,
-    timeLimit: 45,
+    timeLimit: 2,
     createdAt: new Date(),
     description: 'Tìm hiểu cơ bản về prompt engineering và tầm quan trọng của nó'
   },
@@ -155,7 +155,7 @@ export const mockLessons = [
       'https://example.com/prompt-examples.zip'
     ],
     order: 2,
-    timeLimit: 60,
+    timeLimit: 0.2,
     createdAt: new Date(),
     description: 'Học các kỹ thuật cơ bản để tạo prompt hiệu quả'
   },
@@ -177,8 +177,8 @@ export const mockLessons = [
       'https://example.com/advanced-prompt-techniques.pdf',
       'https://example.com/prompt-optimization-guide.pdf'
     ],
-    order: 3,
-    timeLimit: 75,
+    order: 6,
+    timeLimit: 0.2,
     createdAt: new Date(),
     description: 'Khám phá các kỹ thuật prompt nâng cao và best practices'
   },
@@ -203,7 +203,8 @@ export const mockLessons = [
     ],
     order: 4,
     createdAt: new Date(),
-    description: 'Áp dụng kiến thức vào các dự án thực tế'
+    description: 'Áp dụng kiến thức vào các dự án thực tế',
+    timeLimit: 0.2,
   },
   
   // Course 2: Introduction to Web Development
@@ -228,7 +229,8 @@ export const mockLessons = [
     ],
     order: 1,
     createdAt: new Date(),
-    description: 'Tìm hiểu về HTML và cấu trúc trang web'
+    description: 'Tìm hiểu về HTML và cấu trúc trang web',
+    timeLimit: 0.2,
   },
   {
     _id: 'lesson6',
@@ -251,7 +253,8 @@ export const mockLessons = [
     ],
     order: 2,
     createdAt: new Date(),
-    description: 'Học cách tạo style cho trang web với CSS'
+    description: 'Học cách tạo style cho trang web với CSS',
+    timeLimit: 0.2,
   },
   
   // Course 3: Data Science Fundamentals
@@ -276,7 +279,8 @@ export const mockLessons = [
     ],
     order: 1,
     createdAt: new Date(),
-    description: 'Tổng quan về khoa học dữ liệu'
+    description: 'Tổng quan về khoa học dữ liệu',
+    timeLimit: 0.2,
   },
   {
     _id: 'lesson8',
@@ -300,7 +304,8 @@ export const mockLessons = [
     ],
     order: 2,
     createdAt: new Date(),
-    description: 'Các kỹ thuật phân tích dữ liệu cơ bản'
+    description: 'Các kỹ thuật phân tích dữ liệu cơ bản',
+    timeLimit: 0.2,
   },
   {
     _id: 'lesson9',
@@ -323,7 +328,8 @@ export const mockLessons = [
     ],
     order: 3,
     createdAt: new Date(),
-    description: 'Học cách tạo biểu đồ và trực quan hóa dữ liệu'
+    description: 'Học cách tạo biểu đồ và trực quan hóa dữ liệu',
+    timeLimit: 0.2,
   }
 ];
 
@@ -343,11 +349,33 @@ export const mockQuizzes = [
           'Phương pháp marketing'
         ],
         correctAnswer: 'Kỹ thuật thiết kế prompt cho AI'
+      },
+      {
+        question: 'Zero-shot prompting là gì?',
+        options: [
+          'Yêu cầu AI thực hiện nhiệm vụ mà không cung cấp ví dụ',
+          'Yêu cầu AI hoàn thành nhiệm vụ với 0 token',
+          'Phương pháp sử dụng AI mà không cần internet',
+          'Kỹ thuật tạo hình ảnh từ văn bản không cần ví dụ'
+        ],
+        correctAnswer: 'Yêu cầu AI thực hiện nhiệm vụ mà không cung cấp ví dụ'
+      },
+      {
+        question: 'Chain-of-thought prompting giúp ích trong trường hợp nào?',
+        options: [
+          'Khi cần AI giải quyết các vấn đề phức tạp từng bước một',
+          'Khi muốn AI viết câu chuyện dài',
+          'Khi muốn nối nhiều AI với nhau',
+          'Khi cần AI trả lời ngắn gọn'
+        ],
+        correctAnswer: 'Khi cần AI giải quyết các vấn đề phức tạp từng bước một'
       }
     ],
     passingScore: 60,
-    timeLimit: 30,
+    timeLimit: 1,
+    order: 5,
     createdAt: new Date(),
+    description: 'Kiểm tra kiến thức về Prompt Engineering cơ bản'
   },
   {
     _id: 'quiz2',
@@ -363,11 +391,33 @@ export const mockQuizzes = [
           'Home Tool Markup Language'
         ],
         correctAnswer: 'Hyper Text Markup Language'
+      },
+      {
+        question: 'Thẻ nào được sử dụng để tạo tiêu đề lớn nhất trong HTML?',
+        options: [
+          '<h1>',
+          '<heading>',
+          '<head>',
+          '<title>'
+        ],
+        correctAnswer: '<h1>'
+      },
+      {
+        question: 'Thuộc tính nào được sử dụng để xác định URL của liên kết?',
+        options: [
+          'href',
+          'src',
+          'link',
+          'url'
+        ],
+        correctAnswer: 'href'
       }
     ],
     passingScore: 60,
-    timeLimit: 20,
+    timeLimit: 1,
+    order: 3,
     createdAt: new Date(),
+    description: 'Kiểm tra kiến thức HTML cơ bản'
   },
   {
     _id: 'quiz3',
@@ -383,11 +433,75 @@ export const mockQuizzes = [
           'Marketing'
         ],
         correctAnswer: 'Khoa học dữ liệu'
+      },
+      {
+        question: 'Ngôn ngữ lập trình nào được sử dụng phổ biến trong Data Science?',
+        options: [
+          'Python',
+          'HTML',
+          'Swift',
+          'C#'
+        ],
+        correctAnswer: 'Python'
+      },
+      {
+        question: 'Thư viện nào được sử dụng cho Visualization dữ liệu trong Python?',
+        options: [
+          'Matplotlib',
+          'React',
+          'TensorFlow',
+          'jQuery'
+        ],
+        correctAnswer: 'Matplotlib'
+      },
+      {
+        question: 'EDA là viết tắt của?',
+        options: [
+          'Exploratory Data Analysis',
+          'Electronic Data Analysis',
+          'Extended Data Architecture',
+          'Expert Data Acquisition'
+        ],
+        correctAnswer: 'Exploratory Data Analysis'
       }
     ],
     passingScore: 60,
-    timeLimit: 25,
+    timeLimit: 1,
+    order: 4,
     createdAt: new Date(),
+    description: 'Kiểm tra kiến thức cơ bản về khoa học dữ liệu'
+  },
+  {
+    _id: 'quiz4',
+    courseId: '1',
+    title: 'Kiểm tra Prompt nâng cao',
+    questions: [
+      {
+        question: 'Template-based prompting dùng để làm gì?',
+        options: [
+          'Sử dụng template để tạo prompt có cấu trúc nhất quán',
+          'Tạo template cho website',
+          'Tạo mẫu code tự động',
+          'Tự động hóa quy trình làm việc với AI'
+        ],
+        correctAnswer: 'Sử dụng template để tạo prompt có cấu trúc nhất quán'
+      },
+      {
+        question: 'Multimodal prompting là gì?',
+        options: [
+          'Kết hợp văn bản và hình ảnh trong prompt',
+          'Sử dụng nhiều ngôn ngữ trong prompt',
+          'Tạo nhiều prompt cùng lúc',
+          'Sử dụng nhiều AI cùng lúc'
+        ],
+        correctAnswer: 'Kết hợp văn bản và hình ảnh trong prompt'
+      }
+    ],
+    passingScore: 70,
+    timeLimit: 1,
+    order: 3,
+    createdAt: new Date(),
+    description: 'Kiểm tra kiến thức nâng cao về Prompt Engineering'
   }
 ];
 
@@ -397,7 +511,7 @@ export const mockEnrollments = [
     _id: 'enrollment1',
     userId: 'student1',
     courseId: '1',
-    progress: 75,
+    progress: 67,
     status: 'INPROGESS',
     score: 85,
     completedAt: null,

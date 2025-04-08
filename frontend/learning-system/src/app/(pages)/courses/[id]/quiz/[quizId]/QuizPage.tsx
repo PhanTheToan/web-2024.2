@@ -22,6 +22,7 @@ interface Quiz {
   title: string;
   questions: QuizQuestion[];
   passingScore: number;
+  timeLimit?: number;
   createdAt: Date;
 }
 
@@ -165,6 +166,7 @@ const QuizPage: React.FC = () => {
   const [remainingTime, setRemainingTime] = useState<number>(0);
   const [activeQuestionIndex, setActiveQuestionIndex] = useState<number>(0);
   const [isTimeWarning, setIsTimeWarning] = useState<boolean>(false);
+  const [isConfirmed, setIsConfirmed] = useState<boolean>(false);
 
   // Mock user ID for demonstration - in a real app, this would come from authentication
   const currentUserId = 'student1';
@@ -188,11 +190,24 @@ const QuizPage: React.FC = () => {
           courseService.getCourseById(courseId)
         ]);
         
+        // Debug: log the quiz data to verify timeLimit
+        console.log('Quiz data loaded:', {
+          quizId: quizData._id,
+          title: quizData.title,
+          timeLimit: quizData.timeLimit,
+          questions: quizData.questions.length
+        });
+        
         setQuiz(quizData);
         setCourse(courseData);
         
-        // Set timer - 2 minutes per question
-        const timeInSeconds = quizData.questions.length * 120;
+        // Use the actual timeLimit from quiz data (in minutes), converted to seconds
+        // If timeLimit is not available, use 2 minutes per question as fallback
+        const timeInSeconds = quizData.timeLimit 
+          ? quizData.timeLimit * 60 
+          : quizData.questions.length * 120;
+        
+        console.log(`Quiz timeLimit: ${quizData.timeLimit || 'N/A'} minutes, setting timer to ${timeInSeconds} seconds`);
         setRemainingTime(timeInSeconds);
       } catch (err) {
         console.error('Error loading quiz:', err);
@@ -208,7 +223,7 @@ const QuizPage: React.FC = () => {
 
   // Timer effect
   useEffect(() => {
-    if (remainingTime <= 0 || quizResult) return;
+    if (!isConfirmed || remainingTime <= 0 || quizResult) return;
     
     // Check time warning
     if (remainingTime <= 60 && !isTimeWarning) {
@@ -230,7 +245,7 @@ const QuizPage: React.FC = () => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [remainingTime, quizResult, isTimeWarning]);
+  }, [remainingTime, quizResult, isTimeWarning, isConfirmed]);
 
   const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
@@ -335,7 +350,7 @@ const QuizPage: React.FC = () => {
           </h2>
           <Link 
             href={`/courses/${courseId}`}
-            className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+            className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-primary-700"
           >
             Quay lại khóa học
           </Link>
@@ -364,304 +379,337 @@ const QuizPage: React.FC = () => {
 
         {/* Quiz title */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <h1 className="text-2xl font-bold mb-2">{quiz.title}</h1>
-          <p className="text-gray-600 mb-4">Khóa học: {course.title}</p>
+          <h1 className="text-2xl font-bold mb-2">{quiz?.title}</h1>
+          <p className="text-gray-600 mb-4">Khóa học: {course?.title}</p>
           <div className="flex items-center text-sm text-gray-500">
             <span className="mr-4 flex items-center">
-              {quiz.questions.length} câu hỏi
+              {quiz?.questions.length} câu hỏi
             </span>
             <span className="mr-4 flex items-center">
-              Điểm đạt: {quiz.passingScore}%
+              Điểm đạt: {quiz?.passingScore}%
+            </span>
+            <span className="flex items-center">
+              <Clock className="w-4 h-4 mr-1" />
+              Thời gian: {quiz?.timeLimit ? `${quiz?.timeLimit} phút` : "2 phút mỗi câu"}
             </span>
           </div>
         </div>
 
-        {/* Main content wrapper */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Left column - Quiz questions */}
-          <div className="lg:col-span-3">
-            {/* Quiz result panel */}
-            {quizResult && (
-              <div className={`p-6 rounded-lg shadow-md mb-6 ${
-                quizResult.passed ? 'bg-green-50 border-l-4 border-green-500' : 'bg-red-50 border-l-4 border-red-500'
-              }`}>
-                <div className="flex items-start">
-                  {quizResult.passed ? (
-                    <CheckCircle className="text-green-500 w-6 h-6 mr-3 flex-shrink-0" />
-                  ) : (
-                    <AlertCircle className="text-red-500 w-6 h-6 mr-3 flex-shrink-0" />
-                  )}
-                  <div>
-                    <h2 className="text-xl font-bold mb-2">
-                      {quizResult.passed ? 'Chúc mừng! Bạn đã vượt qua bài kiểm tra!' : 'Bạn chưa vượt qua bài kiểm tra!'}
-                    </h2>
-                    <p className="mb-2">
-                      Điểm số: <span className="font-bold">{quizResult.score.toFixed(1)}%</span> 
-                      (Đúng {quizResult.correctAnswers}/{quizResult.totalQuestions} câu)
-                    </p>
-                    <div className="mt-4 flex">
-                      <Link
-                        href={`/courses/${courseId}`}
-                        className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 mr-3"
-                      >
-                        Quay lại khóa học
-                      </Link>
-                      {!quizResult.passed && (
-                        <button
-                          onClick={() => {
-                            setQuizResult(null);
-                            setSelectedAnswers({});
-                            setRemainingTime(quiz.questions.length * 120);
-                            setIsTimeWarning(false);
-                          }}
-                          className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600"
+        {/* Quiz confirmation dialog */}
+        {!isConfirmed && !quizResult && quiz && !isLoading && (
+          <div className="bg-white rounded-lg shadow-md p-8 mb-6 max-w-2xl mx-auto">
+            <h2 className="text-xl font-bold mb-4 text-center">Bạn đã sẵn sàng làm bài kiểm tra?</h2>
+            <p className="text-gray-600 mb-6 text-center">
+              Bài kiểm tra có {quiz.questions.length} câu hỏi và kéo dài 
+              {quiz.timeLimit ? ` ${quiz.timeLimit} phút` : ` ${quiz.questions.length * 2} phút`}.
+              Bạn cần hoàn thành trong thời gian quy định.
+            </p>
+            <div className="flex justify-center space-x-4">
+              <button
+                onClick={() => router.push(`/courses/${courseId}`)}
+                className="px-6 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300"
+              >
+                Quay lại
+              </button>
+              <button
+                onClick={() => setIsConfirmed(true)}
+                className="px-6 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600"
+              >
+                Bắt đầu làm bài
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Main content wrapper - Only show if confirmed */}
+        {(isConfirmed || quizResult) && (
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            {/* Left column - Quiz questions */}
+            <div className="lg:col-span-3">
+              {/* Quiz result panel */}
+              {quizResult && (
+                <div className={`p-6 rounded-lg shadow-md mb-6 ${
+                  quizResult.passed ? 'bg-green-50 border-l-4 border-green-500' : 'bg-red-50 border-l-4 border-red-500'
+                }`}>
+                  <div className="flex items-start">
+                    {quizResult.passed ? (
+                      <CheckCircle className="text-green-500 w-6 h-6 mr-3 flex-shrink-0" />
+                    ) : (
+                      <AlertCircle className="text-red-500 w-6 h-6 mr-3 flex-shrink-0" />
+                    )}
+                    <div>
+                      <h2 className="text-xl font-bold mb-2">
+                        {quizResult.passed ? 'Chúc mừng! Bạn đã vượt qua bài kiểm tra!' : 'Bạn chưa vượt qua bài kiểm tra!'}
+                      </h2>
+                      <p className="mb-2">
+                        Điểm số: <span className="font-bold">{quizResult.score.toFixed(1)}%</span> 
+                        (Đúng {quizResult.correctAnswers}/{quizResult.totalQuestions} câu)
+                      </p>
+                      <div className="mt-4 flex">
+                        <Link
+                          href={`/courses/${courseId}`}
+                          className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-primary-700 mr-3"
                         >
-                          Làm lại bài kiểm tra
+                          Quay lại khóa học
+                        </Link>
+                        {!quizResult.passed && (
+                          <button
+                            onClick={() => {
+                              setQuizResult(null);
+                              setSelectedAnswers({});
+                              setRemainingTime(quiz.questions.length * 120);
+                              setIsTimeWarning(false);
+                              setIsConfirmed(false); // Reset confirmation state to show the dialog again
+                            }}
+                            className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600"
+                          >
+                            Làm lại bài kiểm tra
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Timer notification at top of questions */}
+              {!quizResult && (
+                <div className={`mb-6 p-4 rounded-lg border-2 ${
+                  remainingTime < 60 
+                    ? 'border-red-500 bg-red-50 animate-pulse' 
+                    : remainingTime < 300 
+                      ? 'border-yellow-500 bg-yellow-50' 
+                      : 'border-blue-500 bg-blue-50'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center">
+                      <Clock className={`w-6 h-6 mr-3 ${
+                        remainingTime < 60 
+                          ? 'text-red-600' 
+                          : remainingTime < 300 
+                            ? 'text-yellow-600' 
+                            : 'text-blue-600'
+                      }`} />
+                      <div>
+                        <div className="font-semibold">
+                          {remainingTime < 60 
+                            ? 'SẮP HẾT THỜI GIAN!' 
+                            : remainingTime < 300 
+                              ? 'Thời gian còn ít' 
+                              : 'Thời gian làm bài'
+                          }
+                        </div>
+                        <p className="text-sm text-gray-600">
+                          {remainingTime < 60 
+                            ? 'Vui lòng nộp bài ngay!' 
+                            : remainingTime < 300 
+                              ? 'Hãy nhanh chóng hoàn thành bài làm' 
+                              : 'Hãy cân nhắc thời gian để hoàn thành tất cả câu hỏi'
+                          }
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-2xl font-bold">
+                      {formatTime(remainingTime)}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Quiz questions */}
+              {!quizResult && (
+                <div className="space-y-6">
+                  {quiz.questions.map((question, index) => (
+                    <div key={index} className="quiz-question">
+                      <QuizQuestion
+                        question={question.question}
+                        options={question.options}
+                        questionIndex={index}
+                        selectedAnswer={selectedAnswers[index] || null}
+                        onSelectAnswer={(answer) => handleSelectAnswer(index, answer)}
+                        isSubmitted={false}
+                      />
+                    </div>
+                  ))}
+                  
+                  {/* Submit button - now at the bottom of the page, not sticky */}
+                  <div className="py-4 mt-10">
+                    <div className="p-6 bg-white rounded-lg shadow-md">
+                      <div className="text-center mb-6">
+                        <h3 className="text-xl font-bold mb-1">Nộp bài kiểm tra</h3>
+                        <p className="text-gray-600">
+                          Bạn đã trả lời {questionStats.answered}/{questionStats.total} câu hỏi
+                          {questionStats.unanswered > 0 ? ` (còn ${questionStats.unanswered} câu chưa trả lời)` : ''}
+                        </p>
+                        <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2">
+                          <div 
+                            className="bg-blue-600 h-2.5 rounded-full" 
+                            style={{ width: `${(questionStats.answered / questionStats.total) * 100}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                      
+                      <div className="flex justify-center">
+                        <button
+                          onClick={handleSubmit}
+                          disabled={isSubmitting || questionStats.answered === 0}
+                          className="px-8 py-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white text-lg font-semibold rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all shadow-lg disabled:opacity-70 disabled:shadow-none flex items-center justify-center min-w-[200px]"
+                        >
+                          {isSubmitting ? (
+                            <>
+                              <span className="animate-spin mr-2">⏳</span>
+                              Đang nộp bài...
+                            </>
+                          ) : (
+                            <>
+                              <span className="mr-2">📝</span>
+                              Nộp bài
+                            </>
+                          )}
                         </button>
+                      </div>
+                      
+                      {questionStats.unanswered > 0 && (
+                        <div className="flex items-center justify-center mt-4 text-sm text-yellow-700">
+                          <AlertTriangle className="w-4 h-4 mr-2" />
+                          Bạn vẫn còn câu hỏi chưa trả lời. Hãy kiểm tra lại!
+                        </div>
                       )}
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
-
-            {/* Timer notification at top of questions */}
-            {!quizResult && (
-              <div className={`mb-6 p-4 rounded-lg border-2 ${
-                remainingTime < 60 
-                  ? 'border-red-500 bg-red-50 animate-pulse' 
-                  : remainingTime < 300 
-                    ? 'border-yellow-500 bg-yellow-50' 
-                    : 'border-blue-500 bg-blue-50'
-              }`}>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <Clock className={`w-6 h-6 mr-3 ${
-                      remainingTime < 60 
-                        ? 'text-red-600' 
-                        : remainingTime < 300 
-                          ? 'text-yellow-600' 
-                          : 'text-blue-600'
-                    }`} />
-                    <div>
-                      <div className="font-semibold">
-                        {remainingTime < 60 
-                          ? 'SẮP HẾT THỜI GIAN!' 
-                          : remainingTime < 300 
-                            ? 'Thời gian còn ít' 
-                            : 'Thời gian làm bài'
-                        }
-                      </div>
-                      <p className="text-sm text-gray-600">
-                        {remainingTime < 60 
-                          ? 'Vui lòng nộp bài ngay!' 
-                          : remainingTime < 300 
-                            ? 'Hãy nhanh chóng hoàn thành bài làm' 
-                            : 'Hãy cân nhắc thời gian để hoàn thành tất cả câu hỏi'
-                        }
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-2xl font-bold">
-                    {formatTime(remainingTime)}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Quiz questions */}
-            {!quizResult && (
-              <div className="space-y-6">
-                {quiz.questions.map((question, index) => (
-                  <div key={index} className="quiz-question">
+              )}
+              
+              {/* Quiz result details */}
+              {quizResult && (
+                <div className="bg-white rounded-lg shadow-md p-6 mt-6">
+                  <h2 className="text-xl font-bold mb-4">Chi tiết kết quả</h2>
+                  {quiz.questions.map((question, index) => (
                     <QuizQuestion
+                      key={index}
                       question={question.question}
                       options={question.options}
                       questionIndex={index}
                       selectedAnswer={selectedAnswers[index] || null}
-                      onSelectAnswer={(answer) => handleSelectAnswer(index, answer)}
-                      isSubmitted={false}
-                    />
-                  </div>
-                ))}
-                
-                {/* Submit button - now at the bottom of the page, not sticky */}
-                <div className="py-4 mt-10">
-                  <div className="p-6 bg-white rounded-lg shadow-md">
-                    <div className="text-center mb-6">
-                      <h3 className="text-xl font-bold mb-1">Nộp bài kiểm tra</h3>
-                      <p className="text-gray-600">
-                        Bạn đã trả lời {questionStats.answered}/{questionStats.total} câu hỏi
-                        {questionStats.unanswered > 0 ? ` (còn ${questionStats.unanswered} câu chưa trả lời)` : ''}
-                      </p>
-                      <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2">
-                        <div 
-                          className="bg-blue-600 h-2.5 rounded-full" 
-                          style={{ width: `${(questionStats.answered / questionStats.total) * 100}%` }}
-                        ></div>
-                      </div>
-                    </div>
-                    
-                    <div className="flex justify-center">
-                      <button
-                        onClick={handleSubmit}
-                        disabled={isSubmitting || questionStats.answered === 0}
-                        className="px-8 py-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white text-lg font-semibold rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all shadow-lg disabled:opacity-70 disabled:shadow-none flex items-center justify-center min-w-[200px]"
-                      >
-                        {isSubmitting ? (
-                          <>
-                            <span className="animate-spin mr-2">⏳</span>
-                            Đang nộp bài...
-                          </>
-                        ) : (
-                          <>
-                            <span className="mr-2">📝</span>
-                            Nộp bài
-                          </>
-                        )}
-                      </button>
-                    </div>
-                    
-                    {questionStats.unanswered > 0 && (
-                      <div className="flex items-center justify-center mt-4 text-sm text-yellow-700">
-                        <AlertTriangle className="w-4 h-4 mr-2" />
-                        Bạn vẫn còn câu hỏi chưa trả lời. Hãy kiểm tra lại!
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-            
-            {/* Quiz result details */}
-            {quizResult && (
-              <div className="bg-white rounded-lg shadow-md p-6 mt-6">
-                <h2 className="text-xl font-bold mb-4">Chi tiết kết quả</h2>
-                {quiz.questions.map((question, index) => (
-                  <QuizQuestion
-                    key={index}
-                    question={question.question}
-                    options={question.options}
-                    questionIndex={index}
-                    selectedAnswer={selectedAnswers[index] || null}
-                    onSelectAnswer={() => {}}
-                    isSubmitted={true}
-                    correctAnswer={question.correctAnswer}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-          
-          {/* Right column - Quiz summary and navigation */}
-          <div className="lg:col-span-1">
-            {/* Quiz progress panel */}
-            {!quizResult && (
-              <div className="bg-white rounded-lg shadow-md p-4 mb-6">
-                <h3 className="font-semibold text-lg mb-3">Tiến trình bài làm</h3>
-                
-                <div className="flex justify-between mb-2">
-                  <div className="text-sm text-gray-600">Đã trả lời</div>
-                  <div className="font-medium">{questionStats.answered}/{questionStats.total}</div>
-                </div>
-                
-                <div className="w-full bg-gray-200 rounded-full h-2.5 mb-4">
-                  <div 
-                    className="bg-blue-600 h-2.5 rounded-full" 
-                    style={{ width: `${(questionStats.answered / questionStats.total) * 100}%` }}
-                  ></div>
-                </div>
-                
-                {questionStats.unanswered > 0 && (
-                  <div className="flex items-start p-2 bg-yellow-50 rounded-lg text-sm">
-                    <AlertTriangle className="text-yellow-500 w-4 h-4 mr-2 flex-shrink-0 mt-0.5" />
-                    <div>
-                      Bạn còn {questionStats.unanswered} câu hỏi chưa trả lời.
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-            
-            {/* Question navigation */}
-            {!quizResult && quiz.questions.length > 1 && (
-              <div className="bg-white rounded-lg shadow-md p-4">
-                <h3 className="font-semibold text-lg mb-3">Danh sách câu hỏi</h3>
-                
-                <div className="grid grid-cols-4 gap-2">
-                  {quiz.questions.map((_, index) => (
-                    <QuestionNavItem 
-                      key={index}
-                      index={index}
-                      isAnswered={selectedAnswers[index] !== undefined}
-                      isActive={activeQuestionIndex === index}
-                      onClick={() => scrollToQuestion(index)}
+                      onSelectAnswer={() => {}}
+                      isSubmitted={true}
+                      correctAnswer={question.correctAnswer}
                     />
                   ))}
                 </div>
-                
-                <div className="mt-4 flex text-sm text-gray-500 justify-center space-x-4">
-                  <div className="flex items-center">
-                    <div className="w-3 h-3 bg-green-100 border border-green-300 rounded-full mr-1"></div>
-                    <span>Đã trả lời</span>
-                  </div>
-                  <div className="flex items-center">
-                    <div className="w-3 h-3 bg-gray-100 border border-gray-300 rounded-full mr-1"></div>
-                    <span>Chưa trả lời</span>
-                  </div>
-                </div>
-              </div>
-            )}
+              )}
+            </div>
             
-            {/* Result summary panel */}
-            {quizResult && (
-              <div className="bg-white rounded-lg shadow-md p-4">
-                <h3 className="font-semibold text-lg mb-3">Tổng kết kết quả</h3>
-                
-                <div className="space-y-4">
-                  <div className="flex justify-between border-b pb-2">
-                    <span className="text-gray-600">Tổng số câu hỏi</span>
-                    <span className="font-medium">{quizResult.totalQuestions}</span>
+            {/* Right column - Quiz summary and navigation */}
+            <div className="lg:col-span-1">
+              {/* Quiz progress panel */}
+              {!quizResult && (
+                <div className="bg-white rounded-lg shadow-md p-4 mb-6">
+                  <h3 className="font-semibold text-lg mb-3">Tiến trình bài làm</h3>
+                  
+                  <div className="flex justify-between mb-2">
+                    <div className="text-sm text-gray-600">Đã trả lời</div>
+                    <div className="font-medium">{questionStats.answered}/{questionStats.total}</div>
                   </div>
                   
-                  <div className="flex justify-between border-b pb-2">
-                    <span className="text-gray-600">Số câu trả lời đúng</span>
-                    <span className="font-medium text-green-600">{quizResult.correctAnswers}</span>
+                  <div className="w-full bg-gray-200 rounded-full h-2.5 mb-4">
+                    <div 
+                      className="bg-blue-600 h-2.5 rounded-full" 
+                      style={{ width: `${(questionStats.answered / questionStats.total) * 100}%` }}
+                    ></div>
                   </div>
                   
-                  <div className="flex justify-between border-b pb-2">
-                    <span className="text-gray-600">Số câu trả lời sai</span>
-                    <span className="font-medium text-red-600">
-                      {quizResult.totalQuestions - quizResult.correctAnswers}
-                    </span>
+                  {questionStats.unanswered > 0 && (
+                    <div className="flex items-start p-2 bg-yellow-50 rounded-lg text-sm">
+                      <AlertTriangle className="text-yellow-500 w-4 h-4 mr-2 flex-shrink-0 mt-0.5" />
+                      <div>
+                        Bạn còn {questionStats.unanswered} câu hỏi chưa trả lời.
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              {/* Question navigation */}
+              {!quizResult && quiz.questions.length > 1 && (
+                <div className="bg-white rounded-lg shadow-md p-4">
+                  <h3 className="font-semibold text-lg mb-3">Danh sách câu hỏi</h3>
+                  
+                  <div className="grid grid-cols-4 gap-2">
+                    {quiz.questions.map((_, index) => (
+                      <QuestionNavItem 
+                        key={index}
+                        index={index}
+                        isAnswered={selectedAnswers[index] !== undefined}
+                        isActive={activeQuestionIndex === index}
+                        onClick={() => scrollToQuestion(index)}
+                      />
+                    ))}
                   </div>
                   
-                  <div className="flex justify-between border-b pb-2">
-                    <span className="text-gray-600">Điểm đạt yêu cầu</span>
-                    <span className="font-medium">{quiz.passingScore}%</span>
-                  </div>
-                  
-                  <div className="flex justify-between font-semibold text-lg">
-                    <span>Điểm của bạn</span>
-                    <span className={quizResult.passed ? "text-green-600" : "text-red-600"}>
-                      {quizResult.score.toFixed(1)}%
-                    </span>
-                  </div>
-                  
-                  <div className={`mt-4 p-3 rounded-lg text-center font-medium ${
-                    quizResult.passed 
-                      ? "bg-green-50 text-green-700" 
-                      : "bg-red-50 text-red-700"
-                  }`}>
-                    {quizResult.passed 
-                      ? "Chúc mừng! Bạn đã hoàn thành bài kiểm tra." 
-                      : "Bạn chưa đạt yêu cầu. Hãy thử lại!"}
+                  <div className="mt-4 flex text-sm text-gray-500 justify-center space-x-4">
+                    <div className="flex items-center">
+                      <div className="w-3 h-3 bg-green-100 border border-green-300 rounded-full mr-1"></div>
+                      <span>Đã trả lời</span>
+                    </div>
+                    <div className="flex items-center">
+                      <div className="w-3 h-3 bg-gray-100 border border-gray-300 rounded-full mr-1"></div>
+                      <span>Chưa trả lời</span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
+              
+              {/* Result summary panel */}
+              {quizResult && (
+                <div className="bg-white rounded-lg shadow-md p-4">
+                  <h3 className="font-semibold text-lg mb-3">Tổng kết kết quả</h3>
+                  
+                  <div className="space-y-4">
+                    <div className="flex justify-between border-b pb-2">
+                      <span className="text-gray-600">Tổng số câu hỏi</span>
+                      <span className="font-medium">{quizResult.totalQuestions}</span>
+                    </div>
+                    
+                    <div className="flex justify-between border-b pb-2">
+                      <span className="text-gray-600">Số câu trả lời đúng</span>
+                      <span className="font-medium text-green-600">{quizResult.correctAnswers}</span>
+                    </div>
+                    
+                    <div className="flex justify-between border-b pb-2">
+                      <span className="text-gray-600">Số câu trả lời sai</span>
+                      <span className="font-medium text-red-600">
+                        {quizResult.totalQuestions - quizResult.correctAnswers}
+                      </span>
+                    </div>
+                    
+                    <div className="flex justify-between border-b pb-2">
+                      <span className="text-gray-600">Điểm đạt yêu cầu</span>
+                      <span className="font-medium">{quiz.passingScore}%</span>
+                    </div>
+                    
+                    <div className="flex justify-between font-semibold text-lg">
+                      <span>Điểm của bạn</span>
+                      <span className={quizResult.passed ? "text-green-600" : "text-red-600"}>
+                        {quizResult.score.toFixed(1)}%
+                      </span>
+                    </div>
+                    
+                    <div className={`mt-4 p-3 rounded-lg text-center font-medium ${
+                      quizResult.passed 
+                        ? "bg-green-50 text-green-700" 
+                        : "bg-red-50 text-red-700"
+                    }`}>
+                      {quizResult.passed 
+                        ? "Chúc mừng! Bạn đã hoàn thành bài kiểm tra." 
+                        : "Bạn chưa đạt yêu cầu. Hãy thử lại!"}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

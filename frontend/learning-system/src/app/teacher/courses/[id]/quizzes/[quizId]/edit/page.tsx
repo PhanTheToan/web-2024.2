@@ -6,7 +6,7 @@ import { courseService } from '@/services/courseService';
 import { quizService } from '@/services/quizService';
 import { 
   ArrowLeft, AlertCircle, CheckCircle, Loader2, 
-  Plus, Trash, Save
+  Plus, Trash, Save, Edit
 } from 'lucide-react';
 import { Course } from '@/app/types';
 import { toast } from 'react-hot-toast';
@@ -58,6 +58,10 @@ export default function EditQuizPage() {
     options: ['', '', '', ''],
     correctAnswer: '',
   });
+  
+  // Track if we're editing an existing question
+  const [editingQuestionIndex, setEditingQuestionIndex] = useState<number | null>(null);
+  const [isEditMode, setIsEditMode] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -136,8 +140,43 @@ export default function EditQuizPage() {
     });
   };
 
-  // Add a new question
-  const addQuestion = () => {
+  // Load a question for editing
+  const editQuestion = (index: number) => {
+    const questionToEdit = questions[index];
+    
+    // Make sure we have 4 options, filling empty ones as needed
+    const options = [...questionToEdit.options];
+    while (options.length < 4) {
+      options.push('');
+    }
+    
+    setCurrentQuestion({
+      question: questionToEdit.question,
+      options: options,
+      correctAnswer: questionToEdit.correctAnswer,
+    });
+    
+    setEditingQuestionIndex(index);
+    setIsEditMode(true);
+    
+    // Scroll to the question form
+    document.getElementById('question-form')?.scrollIntoView({ behavior: 'smooth' });
+  };
+  
+  // Cancel editing and reset form
+  const cancelEditing = () => {
+    setCurrentQuestion({
+      question: '',
+      options: ['', '', '', ''],
+      correctAnswer: '',
+    });
+    
+    setEditingQuestionIndex(null);
+    setIsEditMode(false);
+  };
+
+  // Add a new question or update existing one
+  const addOrUpdateQuestion = () => {
     // Validate the question
     if (!currentQuestion.question.trim()) {
       toast.error('Vui lòng nhập câu hỏi');
@@ -156,18 +195,31 @@ export default function EditQuizPage() {
       return;
     }
 
-    // Add the question to the questions array
-    setQuestions([...questions, {
+    const updatedQuestion = {
       ...currentQuestion,
       options: validOptions,
-    }]);
-
-    // Reset the current question form
-    setCurrentQuestion({
-      question: '',
-      options: ['', '', '', ''],
-      correctAnswer: '',
-    });
+    };
+    
+    if (isEditMode && editingQuestionIndex !== null) {
+      // Update existing question
+      const updatedQuestions = [...questions];
+      updatedQuestions[editingQuestionIndex] = updatedQuestion;
+      setQuestions(updatedQuestions);
+      toast.success('Cập nhật câu hỏi thành công');
+      
+      // Reset form
+      cancelEditing();
+    } else {
+      // Add new question
+      setQuestions([...questions, updatedQuestion]);
+      
+      // Reset form after adding
+      setCurrentQuestion({
+        question: '',
+        options: ['', '', '', ''],
+        correctAnswer: '',
+      });
+    }
   };
 
   // Remove a question from the list
@@ -175,6 +227,14 @@ export default function EditQuizPage() {
     const updatedQuestions = [...questions];
     updatedQuestions.splice(index, 1);
     setQuestions(updatedQuestions);
+    
+    // If we're editing this question, reset the form
+    if (editingQuestionIndex === index) {
+      cancelEditing();
+    } else if (editingQuestionIndex !== null && editingQuestionIndex > index) {
+      // Adjust the index if we're editing a question after the removed one
+      setEditingQuestionIndex(editingQuestionIndex - 1);
+    }
   };
 
   // Handle form submission
@@ -387,13 +447,22 @@ export default function EditQuizPage() {
                       </div>
                     </div>
                     
-                    <button 
-                      type="button"
-                      onClick={() => removeQuestion(index)}
-                      className="text-red-600 hover:text-red-800"
-                    >
-                      <Trash className="w-5 h-5" />
-                    </button>
+                    <div className="flex space-x-2">
+                      <button 
+                        type="button"
+                        onClick={() => editQuestion(index)}
+                        className="text-blue-600 hover:text-blue-800"
+                      >
+                        <Edit className="w-5 h-5" />
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={() => removeQuestion(index)}
+                        className="text-red-600 hover:text-red-800"
+                      >
+                        <Trash className="w-5 h-5" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -404,9 +473,11 @@ export default function EditQuizPage() {
             </div>
           )}
           
-          {/* Add Question Form */}
-          <div className="border rounded-md p-6 bg-white">
-            <h4 className="font-medium mb-4 text-lg">Thêm câu hỏi mới</h4>
+          {/* Add/Edit Question Form */}
+          <div id="question-form" className="border rounded-md p-6 bg-white">
+            <h4 className="font-medium mb-4 text-lg">
+              {isEditMode ? 'Chỉnh sửa câu hỏi' : 'Thêm câu hỏi mới'}
+            </h4>
             
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -452,14 +523,26 @@ export default function EditQuizPage() {
               <p className="text-sm text-gray-500 mt-2">Chọn phương án đúng bằng cách nhấp vào nút tròn bên trái.</p>
             </div>
             
-            <button
-              type="button"
-              onClick={addQuestion}
-              className="mt-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 flex items-center"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Thêm câu hỏi
-            </button>
+            <div className="flex space-x-3">
+              {isEditMode && (
+                <button
+                  type="button"
+                  onClick={cancelEditing}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-100"
+                >
+                  Hủy
+                </button>
+              )}
+              
+              <button
+                type="button"
+                onClick={addOrUpdateQuestion}
+                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 flex items-center"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                {isEditMode ? 'Cập nhật' : 'Thêm câu hỏi'}
+              </button>
+            </div>
           </div>
         </div>
         

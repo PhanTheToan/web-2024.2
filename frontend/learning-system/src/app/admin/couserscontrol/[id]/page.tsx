@@ -7,10 +7,19 @@ import {
   ArrowLeft, Edit, Trash, BookOpen, DollarSign, 
   BarChart2, Star, Calendar, Users, Clock, FileText, 
   Eye, MoveUp, MoveDown, AlertCircle, CheckCircle2, 
-  ArrowUpDown, Plus, UserMinus, UserCheck, UserX, UserPlus
+  ArrowUpDown, Plus, UserMinus, UserCheck, UserX, UserPlus,
+  Loader2, Trash2
 } from 'lucide-react';
-import { Course } from '@/app/types';
+import { Course, Lesson, Quiz, User } from '@/app/types';
 import { toast } from 'react-hot-toast';
+
+interface ContentItem {
+  _id: string;
+  title: string;
+  description?: string;
+  type: 'lesson' | 'quiz';
+  order?: number;
+}
 
 export default function CourseDetailPage() {
   const params = useParams();
@@ -46,6 +55,9 @@ export default function CourseDetailPage() {
   const [addStudentLoading, setAddStudentLoading] = useState(false);
   const [addStudentSuccess, setAddStudentSuccess] = useState(false);
   const [addStudentError, setAddStudentError] = useState<string | null>(null);
+  const [courseContent, setCourseContent] = useState<ContentItem[]>([]);
+  const [isReorderingContent, setIsReorderingContent] = useState(false);
+  const [contentOrderSaving, setContentOrderSaving] = useState(false);
   
   const courseId = params.id as string;
 
@@ -54,7 +66,7 @@ export default function CourseDetailPage() {
       try {
         setLoading(true);
         const data = await courseService.getCourseById(courseId);
-        setCourse(data);
+        setCourse(data as Course);
         
         // Fetch some basic analytics
         // In a real app, this would be a separate API call
@@ -72,6 +84,9 @@ export default function CourseDetailPage() {
           { _id: 'req2', name: 'Trần Thị B', email: 'tranthib@example.com' },
         ];
         setEnrollmentRequests(mockRequests);
+
+        // Load course content for the content tab
+        loadCourseContent(data);
       } catch (error) {
         console.error('Failed to fetch course:', error);
         setError('Không thể tải thông tin khóa học');
@@ -80,10 +95,89 @@ export default function CourseDetailPage() {
       }
     };
 
+    // Function to load and merge lessons and quizzes for content tab
+    const loadCourseContent = (courseData: any) => {
+      if (!courseData) return;
+
+      const contentItems: ContentItem[] = [];
+
+      // Add lessons to content
+      if (Array.isArray(courseData.lessons)) {
+        courseData.lessons.forEach((lesson: string | Lesson, index: number) => {
+          // Skip if lesson is just a string ID
+          if (typeof lesson === 'string') return;
+          
+          // Only process lesson objects
+          contentItems.push({
+            _id: lesson._id,
+            title: lesson.title,
+            description: lesson.description,
+            type: 'lesson',
+            order: lesson.order || index + 1
+          });
+        });
+      }
+
+      // Add quizzes to content
+      if (Array.isArray(courseData.quizzes)) {
+        courseData.quizzes.forEach((quiz: string | Quiz, index: number) => {
+          // Skip if quiz is just a string ID
+          if (typeof quiz === 'string') return;
+          
+          // Only process quiz objects
+          contentItems.push({
+            _id: quiz._id,
+            title: quiz.title,
+            description: quiz.description,
+            type: 'quiz',
+            order: quiz.order || index + 1
+          });
+        });
+      }
+
+      // Sort by order property
+      contentItems.sort((a, b) => (a.order || 999) - (b.order || 999));
+      setCourseContent(contentItems);
+    };
+
     if (courseId) {
       fetchCourse();
     }
   }, [courseId]);
+
+  useEffect(() => {
+    const loadCourseContent = async () => {
+      if (activeTab === 'content' && courseId) {
+        try {
+          const content = await courseService.getCourseContent(courseId);
+          
+          // Convert the content items to the proper format
+          const typedContent = content.map(item => {
+            // Destructure to avoid duplicating properties
+            const { _id = '', courseId = '', title = '', description, order, type, ...rest } = item;
+            return {
+              _id,
+              courseId,
+              title, 
+              description,
+              order,
+              type: type as 'lesson' | 'quiz',
+              ...rest
+            };
+          }) as ContentItem[];
+          
+          setCourseContent(typedContent);
+        } catch (error) {
+          console.error("Error loading course content:", error);
+          toast.error("Không thể tải nội dung khóa học");
+        }
+      }
+    };
+
+    if (course) {
+      loadCourseContent();
+    }
+  }, [activeTab, courseId, course]);
 
   const handleDeleteCourse = async () => {
     try {
@@ -457,6 +551,72 @@ export default function CourseDetailPage() {
     }
   };
 
+  // Add functions for reordering content
+  const toggleReorderingContent = () => {
+    setIsReorderingContent(!isReorderingContent);
+  };
+  
+  const moveContentItemUp = (index: number) => {
+    if (index <= 0 || courseContent.length < 2) return;
+    
+    const updatedContent = [...courseContent];
+    const temp = updatedContent[index];
+    updatedContent[index] = updatedContent[index - 1];
+    updatedContent[index - 1] = temp;
+    
+    setCourseContent(updatedContent);
+  };
+  
+  const moveContentItemDown = (index: number) => {
+    if (index >= courseContent.length - 1) return;
+    
+    const updatedContent = [...courseContent];
+    const temp = updatedContent[index];
+    updatedContent[index] = updatedContent[index + 1];
+    updatedContent[index + 1] = temp;
+    
+    setCourseContent(updatedContent);
+  };
+  
+  const saveContentOrder = async () => {
+    setContentOrderSaving(true);
+    
+    try {
+      // Separate lesson IDs and quiz IDs while preserving the overall order
+      const lessonIds: string[] = [];
+      const quizIds: string[] = [];
+      
+      // Add each item to the appropriate array based on type
+      courseContent.forEach(item => {
+        if (item.type === 'lesson') {
+          lessonIds.push(item._id);
+        } else if (item.type === 'quiz') {
+          quizIds.push(item._id);
+        }
+      });
+      
+      // Update both lessons and quizzes order
+      if (lessonIds.length > 0) {
+        await courseService.updateLessonOrder(courseId, lessonIds);
+      }
+      
+      if (quizIds.length > 0) {
+        await courseService.updateQuizOrder(courseId, quizIds);
+      }
+      
+      // Exit reordering mode
+      setIsReorderingContent(false);
+      
+      // Show success message
+      toast.success('Thứ tự nội dung khóa học đã được cập nhật thành công');
+    } catch (error) {
+      console.error('Failed to save content order:', error);
+      toast.error('Không thể cập nhật thứ tự nội dung khóa học. Vui lòng thử lại sau.');
+    } finally {
+      setContentOrderSaving(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="p-6">
@@ -699,6 +859,14 @@ export default function CourseDetailPage() {
               Bài kiểm tra ({course.quizzes.length})
             </button>
             <button 
+              className={`px-6 py-4 font-medium ${activeTab === 'content' 
+                ? 'border-b-2 border-primary-500 text-primary-600' 
+                : 'text-gray-500 hover:text-gray-700'}`}
+              onClick={() => setActiveTab('content')}
+            >
+              Nội dung khóa học
+            </button>
+            <button 
               className={`px-6 py-4 font-medium ${activeTab === 'students' 
                 ? 'border-b-2 border-primary-500 text-primary-600' 
                 : 'text-gray-500 hover:text-gray-700'}`}
@@ -938,6 +1106,145 @@ export default function CourseDetailPage() {
                             onClick={() => setQuizToDelete(quizId)}
                             className="text-red-600 hover:text-red-800"
                             title="Xóa bài kiểm tra"
+                          >
+                            <Trash className="w-5 h-5" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Content tab */}
+          {activeTab === 'content' && (
+            <div>
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-medium">Nội dung khóa học (theo thứ tự)</h3>
+                <div className="flex space-x-2">
+                  {isReorderingContent ? (
+                    <div className="flex space-x-2">
+                      <button 
+                        className="bg-green-600 text-white px-3 py-1.5 rounded-md text-sm flex items-center"
+                        onClick={saveContentOrder}
+                        disabled={contentOrderSaving}
+                      >
+                        {contentOrderSaving ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                            Đang lưu...
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle2 className="w-4 h-4 mr-1" />
+                            Lưu thứ tự
+                          </>
+                        )}
+                      </button>
+                      <button 
+                        className="bg-gray-500 text-white px-3 py-1.5 rounded-md text-sm flex items-center"
+                        onClick={() => setIsReorderingContent(false)}
+                        disabled={contentOrderSaving}
+                      >
+                        Hủy
+                      </button>
+                    </div>
+                  ) : (
+                    <button 
+                      className="bg-gray-100 text-gray-700 px-3 py-1.5 rounded-md text-sm flex items-center mr-2"
+                      onClick={toggleReorderingContent}
+                    >
+                      <ArrowUpDown className="w-4 h-4 mr-1" />
+                      Sắp xếp lại
+                    </button>
+                  )}
+                </div>
+              </div>
+              
+              <div className="space-y-4">
+                {courseContent.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg">
+                    <FileText className="w-12 h-12 mx-auto text-gray-400 mb-2" />
+                    <p>Khóa học chưa có nội dung nào</p>
+                    <div className="flex justify-center mt-4 space-x-4">
+                      <Link 
+                        href={`/admin/couserscontrol/${course?._id}/lessons/create`}
+                        className="inline-flex items-center text-primary-600 hover:text-primary-800"
+                      >
+                        <Plus className="w-4 h-4 mr-1" />
+                        Thêm bài học
+                      </Link>
+                      <Link 
+                        href={`/admin/couserscontrol/${course?._id}/quizzes/create`}
+                        className="inline-flex items-center text-primary-600 hover:text-primary-800"
+                      >
+                        <Plus className="w-4 h-4 mr-1" />
+                        Thêm bài kiểm tra
+                      </Link>
+                    </div>
+                  </div>
+                ) : (
+                  courseContent.map((item, index) => {
+                    const itemId = item._id;
+                    const isLesson = item.type === 'lesson';
+                    const itemTitle = item.title;
+                    const itemDescription = item.description || '';
+                    const order = item.order || 999;
+                    
+                    return (
+                      <div key={item._id} className="flex items-start p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                        {isReorderingContent && (
+                          <div className="flex flex-col mr-2">
+                            <button 
+                              onClick={() => moveContentItemUp(index)}
+                              disabled={index === 0}
+                              className={`p-1 ${index === 0 ? 'text-gray-300' : 'text-gray-600 hover:text-primary-600'}`}
+                            >
+                              <MoveUp className="w-4 h-4" />
+                            </button>
+                            <button 
+                              onClick={() => moveContentItemDown(index)}
+                              disabled={index === courseContent.length - 1}
+                              className={`p-1 ${index === courseContent.length - 1 ? 'text-gray-300' : 'text-gray-600 hover:text-primary-600'}`}
+                            >
+                              <MoveDown className="w-4 h-4" />
+                            </button>
+                          </div>
+                        )}
+                        <div className={`flex-shrink-0 w-8 h-8 ${isLesson ? 'bg-primary-100 text-primary-700' : 'bg-purple-100 text-purple-700'} rounded-full flex items-center justify-center mr-4`}>
+                          {index + 1}
+                        </div>
+                        <div className="flex-grow">
+                          <div className="flex items-center">
+                            <span className={`text-xs px-2 py-1 rounded mr-2 ${isLesson ? 'bg-primary-100 text-primary-800' : 'bg-purple-100 text-purple-800'}`}>
+                              {isLesson ? 'Bài học' : 'Bài kiểm tra'}
+                            </span>
+                            <h4 className="font-medium text-gray-900">{itemTitle}</h4>
+                          </div>
+                          {itemDescription && <p className="text-sm text-gray-500 mt-1">{itemDescription}</p>}
+                          <div className="text-xs text-gray-400 mt-1">Thứ tự: {order}</div>
+                        </div>
+                        <div className="flex items-center ml-4">
+                          <Link 
+                            href={`/admin/couserscontrol/${courseId}/${isLesson ? 'lessons' : 'quizzes'}/${itemId}`}
+                            className="text-blue-600 hover:text-blue-800 mr-2"
+                            title="Xem chi tiết"
+                          >
+                            <Eye className="w-5 h-5" />
+                          </Link>
+                          <Link 
+                            href={`/admin/couserscontrol/${courseId}/${isLesson ? 'lessons' : 'quizzes'}/${itemId}/edit`}
+                            className="text-primary-600 hover:text-primary-800 mr-2"
+                            title="Chỉnh sửa"
+                          >
+                            <Edit className="w-5 h-5" />
+                          </Link>
+                          <button 
+                            onClick={() => isLesson ? setLessonToDelete(itemId) : setQuizToDelete(itemId)}
+                            className="text-red-600 hover:text-red-800"
+                            title={`Xóa ${isLesson ? 'bài học' : 'bài kiểm tra'}`}
                           >
                             <Trash className="w-5 h-5" />
                           </button>

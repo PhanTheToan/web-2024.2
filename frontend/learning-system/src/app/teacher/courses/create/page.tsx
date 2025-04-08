@@ -21,8 +21,13 @@ export default function CreateCoursePage() {
     categories: [] as string[],
     thumbnail: '',
     isPublished: false,
-    registrations: 0, // This will be managed by the system
-    totalDuration: 0, // Total duration in minutes, calculated from lessons and quizzes timeLimit
+    isPopular: false, // Added for admin control (teacher can't toggle this)
+    lessons: [] as string[],
+    quizzes: [] as string[],
+    studentsEnrolled: [] as string[],
+    registrations: 0,
+    rating: 0,
+    totalDuration: 0,
   });
   
   // Preview image
@@ -84,7 +89,7 @@ export default function CreateCoursePage() {
       }
       
       // Get current user ID from authentication context
-      const teacherId = 'current_user_id'; // This should come from auth context
+      const teacherId = 'teacher1'; // This should come from auth context in a real app
       
       const courseData = {
         ...formData,
@@ -92,23 +97,23 @@ export default function CreateCoursePage() {
         lessons: [],
         quizzes: [],
         studentsEnrolled: [],
-        reviews: [],
         registrations: 0,
-        totalDuration: 0, // Will be calculated as lessons and quizzes with timeLimit are added
+        rating: 0,
+        totalDuration: 0,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         _id: 'new-' + Date.now().toString(), // Temporary ID for mock data
       };
       
-      // Add to mock courses
-      // In real implementation, this would be an API call
-      const newCourse = courseData;
+      // In a real implementation, this would be an API call
+      // await courseService.createCourse(courseData);
+      console.log('Creating course:', courseData);
       
       setSuccess('Khóa học đã được tạo thành công!');
       
       // Redirect to course detail page after 1 second
       setTimeout(() => {
-        router.push(`/teacher/courses/${newCourse._id}`);
+        router.push(`/teacher/courses/${courseData._id}`);
       }, 1000);
       
     } catch (error) {

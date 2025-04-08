@@ -8,79 +8,195 @@ import { quizService } from "@/services/quizService";
 import { toast } from "react-hot-toast";
 import BreadcrumbContainer from "@/app/components/breadcrumb/BreadcrumbContainer";
 import CourseItem from '@/app/components/courseitem/courseItem';
-import { BookOpen, Clock, Users, Star, CheckCircle, ClipboardCheck } from 'lucide-react';
+import { BookOpen, Clock, Users, Star, CheckCircle, ClipboardCheck, PlayCircle, Lock } from 'lucide-react';
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-// Define Quiz interface
-interface Quiz {
+// Extended Course interface with additional optional properties
+interface ExtendedCourse extends Omit<Course, 'totalDuration'> {
+  requirements?: string[];
+  totalDuration?: number;
+}
+
+// Combined content item interface to handle both lessons and quizzes
+interface ContentItem {
   _id: string;
-  courseId: string;
+  type: 'lesson' | 'quiz';
   title: string;
-  questions: Array<{
+  description?: string;
+  timeLimit?: number;
+  order?: number;
+  questions?: Array<{
     question: string;
     options: string[];
     correctAnswer: string;
   }>;
-  passingScore: number;
-  createdAt: Date;
+  passingScore?: number;
+}
+
+// Last accessed content interface to track user's progress
+interface LastAccessedContent {
+  type: 'lesson' | 'quiz';
+  id: string;
+  title: string;
 }
 
 const DetailCoursePage: React.FC = () => {
   const params = useParams();
-  const [course, setCourse] = useState<Course | null>(null);
+  const router = useRouter();
+  const [course, setCourse] = useState<ExtendedCourse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isEnrolled, setIsEnrolled] = useState(false);
   const [enrollmentStatus, setEnrollmentStatus] = useState<string | null>(null);
   const [enrollmentProgress, setEnrollmentProgress] = useState<number>(0);
   const [isEnrolling, setIsEnrolling] = useState(false);
-  const [quizzes, setQuizzes] = useState<Quiz[]>([]);
-  const [loadingQuizzes, setLoadingQuizzes] = useState(false);
-  const router = useRouter();
+  const [contentItems, setContentItems] = useState<ContentItem[]>([]);
+  const [loadingContent, setLoadingContent] = useState(false);
+  const [lastAccessedContent, setLastAccessedContent] = useState<LastAccessedContent | null>(null);
 
-  // Mock user ID for demonstration - in a real app, this would come from authentication
+  // Mock user ID for demonstration
   const currentUserId = 'student1';
 
-  useEffect(() => {
-    const fetchCourse = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const courseId = params.id as string;
-        const courseData = await courseService.getCourseById(courseId);
-        setCourse(courseData);
+  const fetchCourse = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const courseId = params.id as string;
+      const courseData = await courseService.getCourseById(courseId) as ExtendedCourse;
+      setCourse(courseData);
+      
+      // Check if user is enrolled
+      const enrollment = await enrollmentService.getEnrollment(currentUserId, courseId);
+      if (enrollment) {
+        setIsEnrolled(true);
+        setEnrollmentStatus(enrollment.status);
+        setEnrollmentProgress(enrollment.progress);
         
-        // Check if user is enrolled
-        const enrollment = await enrollmentService.getEnrollment(currentUserId, courseId);
-        if (enrollment) {
-          setIsEnrolled(true);
-          setEnrollmentStatus(enrollment.status);
-          setEnrollmentProgress(enrollment.progress);
-        }
+        // Try to determine the last accessed content
+        await checkUserProgress(courseId, enrollment.progress);
+      }
 
-        // Fetch quiz details if the course has quizzes
+      // Load course content - combines lessons and quizzes
+      setLoadingContent(true);
+      
+      try {
+        // First try to get ordered content from the API
+        const orderedContent = await courseService.getCourseContent(courseId);
+        setContentItems(orderedContent as ContentItem[]);
+      } catch (contentError) {
+        console.error('Error loading ordered content:', contentError);
+        
+        // Fallback: Create our own content list
+        const items: ContentItem[] = [];
+        
+        // Process lessons
+        if (courseData.lessons && courseData.lessons.length > 0) {
+          courseData.lessons.forEach(lesson => {
+            const lessonItem: ContentItem = {
+              _id: typeof lesson === 'string' ? lesson : lesson._id,
+              type: 'lesson',
+              title: typeof lesson === 'string' ? 'Lesson' : lesson.title,
+              description: typeof lesson === 'string' ? '' : lesson.description,
+              timeLimit: typeof lesson === 'string' ? undefined : lesson.timeLimit,
+              order: typeof lesson === 'string' ? undefined : lesson.order
+            };
+            items.push(lessonItem);
+          });
+        }
+        
+        // Process quizzes
         if (courseData.quizzes && courseData.quizzes.length > 0) {
-          setLoadingQuizzes(true);
           try {
-            const quizzesData = await quizService.getQuizzesByCourseId(courseId);
-            setQuizzes(quizzesData);
+            const quizData = await quizService.getQuizzesByCourseId(courseId);
+            quizData.forEach(quiz => {
+              items.push({
+                _id: quiz._id,
+                type: 'quiz',
+                title: quiz.title,
+                questions: quiz.questions,
+                passingScore: quiz.passingScore,
+                order: quiz.order || 999 // Default order for quizzes
+              });
+            });
           } catch (quizError) {
-            console.error('Error fetching quizzes:', quizError);
-          } finally {
-            setLoadingQuizzes(false);
+            console.error('Error loading quizzes:', quizError);
           }
         }
-      } catch {
-        setError('Không thể tải thông tin khóa học');
-        toast.error('Không thể tải thông tin khóa học');
+        
+        // Sort by order if available
+        items.sort((a, b) => {
+          if (a.order === undefined && b.order === undefined) return 0;
+          if (a.order === undefined) return 1;
+          if (b.order === undefined) return -1;
+          return a.order - b.order;
+        });
+        
+        setContentItems(items);
       } finally {
-        setIsLoading(false);
+        setLoadingContent(false);
       }
-    };
+    } catch (err) {
+      console.error('Error loading course:', err);
+      setError('Không thể tải thông tin khóa học');
+      toast.error('Không thể tải thông tin khóa học');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  // Check for user's progress and determine continuing point
+  const checkUserProgress = async (courseId: string, progress: number) => {
+    try {
+      // Get ordered content
+      const orderedContent = await courseService.getCourseContent(courseId);
+      const contentArray = orderedContent as ContentItem[];
+      
+      if (contentArray.length === 0) return;
+      
+      // If progress is 0, return the first item
+      if (progress === 0) {
+        const firstItem = contentArray[0];
+        setLastAccessedContent({
+          type: firstItem.type,
+          id: firstItem._id,
+          title: firstItem.title || 'Bài học'
+        });
+        return;
+      }
+      
+      // If progress is 100, all content is completed
+      if (progress === 100) {
+        // Return the last item for review
+        const lastItem = contentArray[contentArray.length - 1];
+        setLastAccessedContent({
+          type: lastItem.type,
+          id: lastItem._id,
+          title: lastItem.title || 'Bài học'
+        });
+        return;
+      }
+      
+      // Calculate which item corresponds to the progress percentage
+      const progressIndex = Math.floor((progress / 100) * contentArray.length);
+      const nextItem = contentArray[Math.min(progressIndex, contentArray.length - 1)];
+      
+      setLastAccessedContent({
+        type: nextItem.type,
+        id: nextItem._id,
+        title: nextItem.title || 'Bài học'
+      });
+      
+      console.log(`User progress: ${progress}%, continuing from item: ${nextItem.title}`);
+      
+    } catch (err) {
+      console.error('Error determining continue point:', err);
+    }
+  };
 
+  useEffect(() => {
     fetchCourse();
-  }, [params.id]);
+  }, [params.id, currentUserId]);
 
   const handleEnroll = async () => {
     if (!course) return;
@@ -92,6 +208,9 @@ const DetailCoursePage: React.FC = () => {
       setEnrollmentStatus('ENROLLED');
       setEnrollmentProgress(0);
       toast.success('Đăng ký khóa học thành công!');
+      
+      // Refresh the page to show updated UI
+      await fetchCourse();
     } catch (err) {
       console.error('Enrollment error:', err);
       toast.error('Không thể đăng ký khóa học. Vui lòng thử lại sau.');
@@ -104,7 +223,55 @@ const DetailCoursePage: React.FC = () => {
     if (!course || !course.lessons || course.lessons.length === 0) {
       return null;
     }
-    return `/courses/${course._id}/lesson/${course.lessons[0]._id}`;
+    
+    // Access course.lessons safely - check if it's array of objects or strings
+    const firstLesson = course.lessons[0];
+    const lessonId = typeof firstLesson === 'string' ? firstLesson : firstLesson._id;
+    
+    return `/courses/${course._id}/lesson/${lessonId}`;
+  };
+  
+  const getContinueLearningUrl = () => {
+    if (!lastAccessedContent) {
+      return getFirstLessonUrl();
+    }
+    
+    return `/courses/${course?._id}/${lastAccessedContent.type}/${lastAccessedContent.id}`;
+  };
+
+  // Add a helper function to calculate the number of completed items
+  const getCompletedItemCount = (totalItems: number, progressPercentage: number): number => {
+    return Math.floor((progressPercentage / 100) * totalItems);
+  };
+
+  // Add a function to determine if a content item is accessible
+  const isContentItemAccessible = (
+    item: ContentItem, 
+    index: number, 
+    contentItems: ContentItem[], 
+    isEnrolled: boolean,
+    completedItemsCount: number,
+    lastAccessedContent: LastAccessedContent | null
+  ): boolean => {
+    // If user is not enrolled, no items are accessible
+    if (!isEnrolled) return false;
+    
+    // First item is always accessible to enrolled users
+    if (index === 0) return true;
+    
+    // Completed items are always accessible
+    const isCompleted = index < completedItemsCount;
+    if (isCompleted) return true;
+    
+    // Currently accessed item is accessible
+    if (lastAccessedContent && lastAccessedContent.id === item._id) return true;
+    
+    // Check if all previous items are completed
+    const previousItemsCompleted = contentItems
+      .slice(0, index)
+      .every((_, i) => i < completedItemsCount);
+    
+    return previousItemsCompleted;
   };
 
   if (error) {
@@ -148,15 +315,25 @@ const DetailCoursePage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <BreadcrumbContainer />
+        <BreadcrumbContainer />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <CourseItem course={course} />
+        <CourseItem course={course as Course} />
         
         {/* Call to Action Section */}
         <div className="mt-6 bg-white rounded-lg shadow-md p-6 flex flex-col md:flex-row items-center justify-between">
           <div>
-            <h3 className="text-2xl font-bold mb-2">Bắt đầu hành trình học tập của bạn ngay hôm nay!</h3>
-            <p className="text-gray-600">Đăng ký khóa học này để truy cập vào toàn bộ nội dung.</p>
+            <h3 className="text-2xl font-bold mb-2">
+              {isEnrolled 
+                ? 'Tiếp tục hành trình học tập của bạn!' 
+                : 'Bắt đầu hành trình học tập của bạn ngay hôm nay!'}
+            </h3>
+            <p className="text-gray-600">
+              {isEnrolled 
+                ? lastAccessedContent 
+                  ? `Tiếp tục học: ${lastAccessedContent.title}` 
+                  : 'Tiếp tục khóa học của bạn từ đúng nơi bạn đã dừng lại.'
+                : 'Đăng ký khóa học này để truy cập vào toàn bộ nội dung.'}
+            </p>
           </div>
           
           {!isEnrolled ? (
@@ -180,10 +357,15 @@ const DetailCoursePage: React.FC = () => {
                 </div>
               )}
               <Link 
-                href={getFirstLessonUrl() || '#'} 
-                className="px-6 py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition"
+                href={getContinueLearningUrl() || '#'} 
+                className="px-6 py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition flex items-center"
               >
-                {enrollmentStatus === 'ENROLLED' ? 'Bắt đầu học' : 'Tiếp tục học'}
+                <PlayCircle className="w-5 h-5 mr-2" />
+                {enrollmentStatus === 'DONE' 
+                  ? 'Xem lại khóa học' 
+                  : enrollmentProgress > 0 
+                    ? 'Tiếp tục học' 
+                    : 'Bắt đầu học'}
               </Link>
             </div>
           )}
@@ -199,94 +381,115 @@ const DetailCoursePage: React.FC = () => {
               <p className="text-gray-600">{course.description}</p>
             </div>
 
-            {/* Course content */}
+            {/* Course content - unified list */}
             <div className="bg-white rounded-lg shadow-md p-6 mb-6">
               <h2 className="text-xl font-bold mb-4">Nội dung khóa học</h2>
               
-              {/* Lessons section */}
-              <div className="mb-8">
-                <h3 className="text-lg font-semibold mb-4">Bài học</h3>
-                <div className="space-y-2">
-                  {course.lessons.map((lesson, index) => (
-                    <div
-                      key={index}
-                      className={`flex items-center p-4 rounded-lg border ${
-                        isEnrolled 
-                          ? 'hover:bg-gray-50 cursor-pointer' 
-                          : 'bg-gray-50 cursor-not-allowed opacity-70'
-                      }`}
-                      onClick={() => {
-                        if (isEnrolled) {
-                          router.push(`/courses/${course._id}/lesson/${lesson._id}`);
-                        } else {
-                          toast.error('Bạn cần đăng ký khóa học để truy cập bài học');
-                        }
-                      }}
-                    >
-                      <div className="mr-4">
-                        <BookOpen className="w-6 h-6 text-primary-600" />
-                      </div>
-                      <div className="flex-grow">
-                        <h4 className="font-medium">{lesson.title}</h4>
-                        <p className="text-sm text-gray-500">{lesson.description}</p>
-                      </div>
-                      {!isEnrolled && (
-                        <div className="ml-4 text-sm text-red-600">
-                          Cần đăng ký
-                        </div>
-                      )}
-                    </div>
-                  ))}
+              {loadingContent ? (
+                <div className="p-4 text-center">
+                  <div className="animate-pulse space-y-4">
+                    <div className="h-4 bg-gray-200 rounded w-3/4 mx-auto"></div>
+                    <div className="h-4 bg-gray-200 rounded w-1/2 mx-auto"></div>
+                    <div className="h-4 bg-gray-200 rounded w-3/4 mx-auto"></div>
+                  </div>
                 </div>
-              </div>
-
-              {/* Quizzes section */}
-              {quizzes.length > 0 && (
-                <div>
-                  <h3 className="text-lg font-semibold mb-4">Bài kiểm tra</h3>
-                  <div className="space-y-2">
-                    {loadingQuizzes ? (
-                      <div className="p-4 text-center">
-                        <div className="animate-pulse">
-                          <div className="h-4 bg-gray-200 rounded w-3/4 mb-4"></div>
-                          <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-                        </div>
-                      </div>
-                    ) : (
-                      quizzes.map((quiz, index) => (
-                        <div
-                          key={index}
-                          className={`flex items-center p-4 rounded-lg border ${
-                            isEnrolled 
-                              ? 'hover:bg-gray-50 cursor-pointer' 
-                              : 'bg-gray-50 cursor-not-allowed opacity-70'
-                          }`}
-                          onClick={() => {
-                            if (isEnrolled) {
-                              router.push(`/courses/${course?._id}/quiz/${quiz._id}`);
-                            } else {
-                              toast.error('Bạn cần đăng ký khóa học để làm bài kiểm tra');
-                            }
-                          }}
-                        >
-                          <div className="mr-4">
+              ) : contentItems.length === 0 ? (
+                <div className="text-center p-6 text-gray-500">
+                  Khóa học chưa có nội dung
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {contentItems.map((item, index) => {
+                    // Calculate if this item should be marked as completed based on progress
+                    const completedItemsCount = isEnrolled ? getCompletedItemCount(contentItems.length, enrollmentProgress) : 0;
+                    const isCompleted = isEnrolled && index < completedItemsCount;
+                    const isCurrentItem = lastAccessedContent && lastAccessedContent.id === item._id;
+                    const isAccessible = isContentItemAccessible(
+                      item,
+                      index,
+                      contentItems,
+                      isEnrolled,
+                      completedItemsCount,
+                      lastAccessedContent
+                    );
+                    
+                    return (
+                      <div
+                        key={index}
+                        className={`flex items-center p-4 rounded-lg border ${
+                          isEnrolled && isAccessible
+                            ? 'hover:bg-gray-50 cursor-pointer' 
+                            : 'bg-gray-50 cursor-not-allowed opacity-70'
+                        }`}
+                        onClick={() => {
+                          if (!isEnrolled) {
+                            toast.error('Bạn cần đăng ký khóa học để truy cập nội dung');
+                            return;
+                          }
+                          
+                          if (!isAccessible) {
+                            toast.error('Bạn cần hoàn thành các nội dung trước để mở khóa nội dung này');
+                            return;
+                          }
+                          
+                          if (item.type === 'lesson') {
+                            router.push(`/courses/${course?._id}/lesson/${item._id}`);
+                          } else {
+                            router.push(`/courses/${course?._id}/quiz/${item._id}`);
+                          }
+                        }}
+                      >
+                        <div className="mr-4">
+                          {item.type === 'lesson' ? (
+                            <BookOpen className="w-6 h-6 text-primary-600" />
+                          ) : (
                             <ClipboardCheck className="w-6 h-6 text-primary-600" />
-                          </div>
-                          <div className="flex-grow">
-                            <h4 className="font-medium">{quiz.title}</h4>
-                            <p className="text-sm text-gray-500">
-                              {quiz.questions.length} câu hỏi • Điểm đạt: {quiz.passingScore}%
-                            </p>
-                          </div>
-                          {!isEnrolled && (
-                            <div className="ml-4 text-sm text-red-600">
-                              Cần đăng ký
-                            </div>
                           )}
                         </div>
-                      ))
-                    )}
-                  </div>
+                        <div className="flex-grow">
+                          <h4 className="font-medium">{item.title}</h4>
+                          {item.type === 'lesson' ? (
+                            <p className="text-sm text-gray-500">{item.description || 'Nội dung bài học'}</p>
+                          ) : (
+                            <p className="text-sm text-gray-500">
+                              {item.questions?.length || 0} câu hỏi • Điểm đạt: {item.passingScore || 70}%
+                            </p>
+                          )}
+                        </div>
+                        
+                        {!isEnrolled && (
+                          <div className="ml-4 text-sm text-red-600">
+                            Cần đăng ký
+                          </div>
+                        )}
+                        
+                        {/* Show item status */}
+                        {isEnrolled && (
+                          <>
+                            {isCompleted && (
+                              <div className="ml-4 text-sm text-green-600 bg-green-50 px-2 py-1 rounded flex items-center">
+                                <CheckCircle className="w-4 h-4 mr-1" />
+                                Đã hoàn thành
+                              </div>
+                            )}
+                            
+                            {isCurrentItem && !isCompleted && (
+                              <div className="ml-4 text-sm text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                                Đang học
+                              </div>
+                            )}
+                            
+                            {isEnrolled && !isAccessible && !isCompleted && !isCurrentItem && (
+                              <div className="ml-4 text-sm text-gray-600 bg-gray-50 px-2 py-1 rounded flex items-center">
+                                <Lock className="w-4 h-4 mr-1" />
+                                Chưa mở khóa
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -300,7 +503,7 @@ const DetailCoursePage: React.FC = () => {
               <div className="space-y-4">
                 <div className="flex items-center">
                   <Clock className="text-orange-500 mr-3" />
-                  <span>Thời lượng: {course.duration}</span>
+                  <span>Thời lượng: {course.totalDuration ? course.totalDuration : "Không xác định"}</span>
                 </div>
                 <div className="flex items-center">
                   <Users className="text-orange-500 mr-3" />
@@ -325,11 +528,40 @@ const DetailCoursePage: React.FC = () => {
                 ))}
               </ul>
             </div>
+            
+            {/* Progress section for enrolled users */}
+            {isEnrolled && (
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <h3 className="text-xl font-bold mb-4">Tiến độ của bạn</h3>
+                <div className="flex items-center justify-between mb-2">
+                  <span>Hoàn thành:</span>
+                  <span className="font-semibold">{enrollmentProgress}%</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2.5 mb-4">
+                  <div 
+                    className="bg-green-600 h-2.5 rounded-full" 
+                    style={{ width: `${enrollmentProgress}%` }}
+                  ></div>
+                </div>
+                <div className="text-center">
+                  <Link
+                    href={getContinueLearningUrl() || '#'}
+                    className="inline-block px-4 py-2 bg-orange-500 text-white rounded hover:bg-orange-600 transition"
+                  >
+                    {enrollmentStatus === 'DONE' 
+                      ? 'Xem lại khóa học' 
+                      : enrollmentProgress > 0 
+                        ? 'Tiếp tục học' 
+                        : 'Bắt đầu học'}
+                  </Link>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
-    </div>
-  );
+      </div>
+    );
 };
 
 export default DetailCoursePage;

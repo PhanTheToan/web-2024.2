@@ -27,10 +27,17 @@ export default function AdminCreateCoursePage() {
     title: '',
     description: '',
     price: 0,
-    totalDuration: 0, // Total duration in minutes, calculated from lessons and quizzes timeLimit
-    categories: [] as string[], // Change from single category to array of categories
+    totalDuration: 0,
+    categories: [] as string[],
     thumbnail: '',
     teacherId: '',
+    isPublished: true,
+    isPopular: false,
+    lessons: [] as string[],
+    quizzes: [] as string[],
+    studentsEnrolled: [] as string[],
+    registrations: 0,
+    rating: 0,
   });
   
   // Preview image
@@ -60,11 +67,19 @@ export default function AdminCreateCoursePage() {
   }, []);
   
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFormData({
-      ...formData,
-      [name]: name === 'price' ? parseFloat(value) || 0 : value,
-    });
+    const { name, value, type } = e.target;
+    
+    if (type === 'checkbox') {
+      setFormData({
+        ...formData,
+        [name]: (e.target as HTMLInputElement).checked,
+      });
+    } else {
+      setFormData({
+        ...formData,
+        [name]: name === 'price' ? parseFloat(value) || 0 : value,
+      });
+    }
   };
   
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -113,9 +128,9 @@ export default function AdminCreateCoursePage() {
       lessons: [],
       quizzes: [],
       studentsEnrolled: [],
-      reviews: [],
-      totalDuration: 0, // Will be calculated as lessons and quizzes with timeLimit are added
+      registrations: 0,
       rating: 0,
+      totalDuration: 0,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -303,6 +318,38 @@ export default function AdminCreateCoursePage() {
                 disabled
               />
               <p className="text-sm text-gray-500 mt-1">Sẽ được tự động tính từ thời gian của các bài học và bài kiểm tra</p>
+            </div>
+          </div>
+          
+          <div className="mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    name="isPublished"
+                    checked={formData.isPublished}
+                    onChange={handleChange}
+                    className="form-checkbox h-5 w-5 text-indigo-600 rounded"
+                  />
+                  <span className="text-gray-700 font-medium">Công khai khóa học</span>
+                </label>
+                <p className="text-sm text-gray-500 ml-7">Khi được bật, khóa học sẽ hiển thị cho học viên</p>
+              </div>
+              
+              <div>
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    name="isPopular"
+                    checked={formData.isPopular}
+                    onChange={handleChange}
+                    className="form-checkbox h-5 w-5 text-indigo-600 rounded"
+                  />
+                  <span className="text-gray-700 font-medium">Đánh dấu là khóa học phổ biến</span>
+                </label>
+                <p className="text-sm text-gray-500 ml-7">Khi được bật, khóa học sẽ được hiển thị nổi bật</p>
+              </div>
             </div>
           </div>
           

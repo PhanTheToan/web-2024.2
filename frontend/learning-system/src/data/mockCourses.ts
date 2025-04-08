@@ -65,11 +65,11 @@ export const mockCourses: Course[] = [
       }
     ],
     lessons: getLessonsForCourse('1'),
-    quizzes: ['quiz1'],
+    quizzes: ['quiz1', 'quiz4'],
     rating: 4.8,
     createdAt: new Date(),
     updatedAt: new Date(),
-    totalDuration: 180, // 45 + 60 + 75 minutes from lessons plus 30 minutes quiz
+    totalDuration: 210, // 45 + 60 + 75 minutes from lessons plus 30 minutes quiz
     registrations: 2,
     isPopular: true,
     isPublished: true

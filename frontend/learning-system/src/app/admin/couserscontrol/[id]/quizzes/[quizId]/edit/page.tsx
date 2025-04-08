@@ -6,7 +6,7 @@ import { courseService } from '@/services/courseService';
 import { quizService } from '@/services/quizService';
 import { 
   ArrowLeft, AlertCircle, CheckCircle, Loader2, 
-  Plus, Trash, Save
+  Plus, Trash, Save, Edit
 } from 'lucide-react';
 import { Course } from '@/app/types';
 import { toast } from 'react-hot-toast';
@@ -40,7 +40,7 @@ export default function EditQuizPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  // Basic quiz information
+  // Quiz information state
   const [quizInfo, setQuizInfo] = useState({
     title: '',
     description: '',
@@ -57,6 +57,10 @@ export default function EditQuizPage() {
     options: ['', '', '', ''],
     correctAnswer: '',
   });
+
+  // Track if we're editing an existing question
+  const [editingQuestionIndex, setEditingQuestionIndex] = useState<number | null>(null);
+  const [isEditMode, setIsEditMode] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -136,45 +140,102 @@ export default function EditQuizPage() {
     });
   };
 
-  // Add question to quiz
-  const addQuestion = () => {
-    // Validate question
-    if (!currentQuestion.question.trim()) {
-      setError('Vui lòng nhập câu hỏi');
-      return;
-    }
-
-    // Validate options (at least 2 non-empty options)
-    const nonEmptyOptions = currentQuestion.options.filter(option => option.trim() !== '');
-    if (nonEmptyOptions.length < 2) {
-      setError('Vui lòng nhập ít nhất 2 phương án trả lời');
-      return;
-    }
-
-    // Validate correct answer
-    if (!currentQuestion.correctAnswer) {
-      setError('Vui lòng chọn đáp án đúng');
-      return;
-    }
-
-    // Add question to list
-    setQuestions([...questions, { ...currentQuestion }]);
+  // Load a question for editing
+  const editQuestion = (index: number) => {
+    const questionToEdit = questions[index];
     
-    // Reset current question
+    // Make sure we have 4 options, filling empty ones as needed
+    const options = [...questionToEdit.options];
+    while (options.length < 4) {
+      options.push('');
+    }
+    
+    setCurrentQuestion({
+      question: questionToEdit.question,
+      options: options,
+      correctAnswer: questionToEdit.correctAnswer,
+    });
+    
+    setEditingQuestionIndex(index);
+    setIsEditMode(true);
+    
+    // Scroll to the question form
+    document.getElementById('question-form')?.scrollIntoView({ behavior: 'smooth' });
+  };
+  
+  // Cancel editing and reset form
+  const cancelEditing = () => {
     setCurrentQuestion({
       question: '',
       options: ['', '', '', ''],
       correctAnswer: '',
     });
     
-    setError(null);
+    setEditingQuestionIndex(null);
+    setIsEditMode(false);
   };
 
-  // Remove question from quiz
+  // Add a new question or update existing one
+  const addOrUpdateQuestion = () => {
+    // Validate the question
+    if (!currentQuestion.question.trim()) {
+      toast.error('Vui lòng nhập câu hỏi');
+      return;
+    }
+
+    // Ensure we have at least 2 valid options
+    const validOptions = currentQuestion.options.filter(opt => opt.trim() !== '');
+    if (validOptions.length < 2) {
+      toast.error('Vui lòng nhập ít nhất 2 phương án trả lời');
+      return;
+    }
+
+    // Ensure a correct answer is selected
+    if (!currentQuestion.correctAnswer) {
+      toast.error('Vui lòng chọn đáp án đúng');
+      return;
+    }
+
+    const updatedQuestion = {
+      ...currentQuestion,
+      options: validOptions,
+    };
+    
+    if (isEditMode && editingQuestionIndex !== null) {
+      // Update existing question
+      const updatedQuestions = [...questions];
+      updatedQuestions[editingQuestionIndex] = updatedQuestion;
+      setQuestions(updatedQuestions);
+      toast.success('Cập nhật câu hỏi thành công');
+      
+      // Reset form
+      cancelEditing();
+    } else {
+      // Add new question
+      setQuestions([...questions, updatedQuestion]);
+      
+      // Reset form after adding
+      setCurrentQuestion({
+        question: '',
+        options: ['', '', '', ''],
+        correctAnswer: '',
+      });
+    }
+  };
+
+  // Remove a question from the list
   const removeQuestion = (index: number) => {
-    const newQuestions = [...questions];
-    newQuestions.splice(index, 1);
-    setQuestions(newQuestions);
+    const updatedQuestions = [...questions];
+    updatedQuestions.splice(index, 1);
+    setQuestions(updatedQuestions);
+    
+    // If we're editing this question, reset the form
+    if (editingQuestionIndex === index) {
+      cancelEditing();
+    } else if (editingQuestionIndex !== null && editingQuestionIndex > index) {
+      // Adjust the index if we're editing a question after the removed one
+      setEditingQuestionIndex(editingQuestionIndex - 1);
+    }
   };
 
   // Handle form submission
@@ -400,13 +461,22 @@ export default function EditQuizPage() {
                       </div>
                     </div>
                     
-                    <button 
-                      type="button"
-                      onClick={() => removeQuestion(index)}
-                      className="text-red-600 hover:text-red-800"
-                    >
-                      <Trash className="w-5 h-5" />
-                    </button>
+                    <div className="flex space-x-2">
+                      <button 
+                        type="button"
+                        onClick={() => editQuestion(index)}
+                        className="text-blue-600 hover:text-blue-800"
+                      >
+                        <Edit className="w-5 h-5" />
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={() => removeQuestion(index)}
+                        className="text-red-600 hover:text-red-800"
+                      >
+                        <Trash className="w-5 h-5" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -417,9 +487,11 @@ export default function EditQuizPage() {
             </div>
           )}
           
-          {/* Add New Question */}
-          <div className="bg-gray-50 p-4 rounded-md">
-            <h4 className="text-md font-medium mb-4">Thêm câu hỏi mới</h4>
+          {/* Add/Edit New Question */}
+          <div id="question-form" className="bg-gray-50 p-4 rounded-md">
+            <h4 className="text-md font-medium mb-4">
+              {isEditMode ? 'Chỉnh sửa câu hỏi' : 'Thêm câu hỏi mới'}
+            </h4>
             
             <div className="space-y-4">
               <div>
@@ -478,14 +550,24 @@ export default function EditQuizPage() {
                 </select>
               </div>
               
-              <div className="text-right">
+              <div className="flex justify-end space-x-3">
+                {isEditMode && (
+                  <button
+                    type="button"
+                    onClick={cancelEditing}
+                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-100"
+                  >
+                    Hủy
+                  </button>
+                )}
+                
                 <button
                   type="button"
-                  onClick={addQuestion}
-                  className="bg-primary-600 text-white px-4 py-2 rounded-md hover:bg-primary-700 flex items-center ml-auto"
+                  onClick={addOrUpdateQuestion}
+                  className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-primary-700 flex items-center"
                 >
                   <Plus className="w-4 h-4 mr-2" />
-                  Thêm câu hỏi
+                  {isEditMode ? 'Cập nhật câu hỏi' : 'Thêm câu hỏi'}
                 </button>
               </div>
             </div>
