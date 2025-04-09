@@ -147,6 +147,7 @@ public class EnrollmentService {
                 ArrayList<Enrollment.QuizScore> quizScores = existingEnrollment.getQuizScores();
                 if (quizScores == null) {
                     quizScores = new ArrayList<>();
+                    quizScores.add(Enrollment.QuizScore.builder().quizId(new ObjectId(itemId)).score(newScore).build());
                     existingEnrollment.setQuizScores(quizScores);
                 }
 
@@ -222,25 +223,33 @@ public class EnrollmentService {
         return ResponseEntity.status(401).body("Người dùng không tồn tại");
     }
 
-    public ResponseEntity<?> deleteEnrollment(String id, Principal principal) {
-        Optional<User> userOptional = userRepository.findByUsername(principal.getName());
-        if (userOptional.isPresent()) {
-            User user = userOptional.get();
-            Optional<Enrollment> enrollmentOptional = enrollmentRepository.findById(new ObjectId(id));
-            if (enrollmentOptional.isPresent()) {
-                Enrollment enrollment = enrollmentOptional.get();
-                if (enrollment.getUserId().equals(user.getId())) {
-                    enrollmentRepository.delete(enrollment);
-                    return ResponseEntity.ok("Xóa enrollment thành công");
-                } else {
-                    return ResponseEntity.status(403).body("Người dùng không có quyền xóa enrollment này");
-                }
+    public void deleteEnrollment(String id, User user) {
+        Optional<Enrollment> enrollmentOptional = enrollmentRepository.findByUserIdAndCourseId(user.getId(), new ObjectId(id));
+        Course course = courseRepository.findById(new ObjectId(id)).orElse(null);
+        ArrayList<ObjectId> studentsEnrolled = course.getStudentsEnrolled();
+        if (studentsEnrolled != null) {
+            studentsEnrolled.remove(user.getId());
+            course.setStudentsEnrolled(studentsEnrolled);
+            courseRepository.save(course);
+        }
+        ArrayList<ObjectId> coursesEnrolled = user.getCoursesEnrolled();
+        if (coursesEnrolled != null) {
+            coursesEnrolled.remove(new ObjectId(id));
+            user.setCoursesEnrolled(coursesEnrolled);
+            userRepository.save(user);
+        }
+        if (enrollmentOptional.isPresent()) {
+            Enrollment enrollment = enrollmentOptional.get();
+            if (enrollment.getUserId().equals(user.getId())) {
+                enrollmentRepository.delete(enrollment);
+                ResponseEntity.ok("Xóa thành công");
             } else {
-                return ResponseEntity.status(404).body("Không tìm thấy enrollment với ID: " + id);
+                ResponseEntity.status(401).body("Người dùng không có quyền xóa enrollment này");
             }
         } else {
-            return ResponseEntity.status(401).body("Người dùng không tồn tại");
+            ResponseEntity.status(404).body("Không tìm thấy enrollment với ID: " + id);
         }
+
     }
 
     public ResponseEntity<?> getAllRequestForUser(User user){

@@ -2,11 +2,14 @@ package web20242.webcourse.controller;
 
 import org.bson.types.ObjectId;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.parameters.P;
 import org.springframework.web.bind.annotation.*;
 import web20242.webcourse.model.*;
 import web20242.webcourse.model.createRequest.CourseCreateRequest;
+import web20242.webcourse.model.createRequest.QuizSubmissionRequestDto;
 import web20242.webcourse.repository.*;
 import web20242.webcourse.service.CourseService;
 import web20242.webcourse.service.UserService;
@@ -169,7 +172,7 @@ public class CourseController {
         return ResponseEntity.ok(courseService.updateLesson(course, existingLesson, updatedLesson));
     }
     @PreAuthorize("hasRole('ROLE_TEACHER') || hasRole('ROLE_ADMIN')")
-    @GetMapping("/edit-quiz/{quizId}")
+    @GetMapping("/get-quiz/{quizId}")
     public ResponseEntity<?> getQuizForEdit(@PathVariable String quizId) {
         Optional<Quizzes> quizOptional = quizzesRepository.findById(new ObjectId(quizId));
         if (quizOptional.isEmpty()) {
@@ -186,7 +189,7 @@ public class CourseController {
         return ResponseEntity.ok(quiz);
     }
     @PreAuthorize("hasRole('ROLE_TEACHER') || hasRole('ROLE_ADMIN')")
-    @GetMapping("/edit-lesson/{lessonId}")
+    @GetMapping("/get-lesson/{lessonId}")
     public ResponseEntity<?> getLessonForEdit(@PathVariable String lessonId) {
         Optional<Lesson> lessonOptional = lessonRepository.findById(new ObjectId(lessonId));
         if (lessonOptional.isEmpty()) {
@@ -312,6 +315,24 @@ public class CourseController {
     public ResponseEntity<?> getAllsForTeacher(Principal principal) {
         return ResponseEntity.ok(courseService.getAllCoursesForTeacher(principal));
     }
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @GetMapping("/admin/all-user/{id}")
+    public ResponseEntity<?> getAllsForTeacherByIdForAdmin(@PathVariable String id) {
+        return ResponseEntity.ok(courseService.getAllUserPerCousrseByAdmin(id));
+    }
+    @PreAuthorize("hasRole('ROLE_TEACHER')")
+    @GetMapping("/teacher/all-user/{id}")
+    public ResponseEntity<?> getAllsForTeacherByIdForTeacher(@PathVariable String id, Principal principal) {
+        Optional<User> userOptional = userRepository.findByUsername(principal.getName());
+        Course course = courseRepository.findById(new ObjectId(id)).orElse(null);
+        if(course!=null && userOptional.    isPresent()){
+            if(course.getTeacherId().equals(userOptional.get().getId())){
+                return ResponseEntity.ok(courseService.getAllUserPerCousrseByAdmin(id));
+            }
+            else return ResponseEntity.status(401).body("You are not the teacher of this course");
+        }
+        else return ResponseEntity.status(401).body("Course not found or User not found");
+    }
     // ROLE USER GET LESSON AND QUIZ
     @PreAuthorize("hasRole('ROLE_USER')")
     @GetMapping("/lesson-quiz/{id}")        // id = Course id
@@ -342,6 +363,39 @@ public class CourseController {
     @GetMapping("/lesson_quiz/{id}")
     public ResponseEntity<?> getLessonAndQuizForCourseUser(@PathVariable String id) {
         return ResponseEntity.ok(courseService.getLessonAndQuizForCourseAnyone(id));
+    }
+
+    @PreAuthorize("hasRole('ROLE_USER')")
+    @GetMapping("/lesson/{id}")
+    public ResponseEntity<?> getLessonForCourseUser(@PathVariable String id, Principal principal) {
+        Optional<User> userOptional = userRepository.findByUsername(principal.getName());
+        if(userOptional.isPresent()) {
+            return ResponseEntity.ok(courseService.getLessonForCourseUser(id, userOptional.get()));
+        }
+        else return ResponseEntity.status(401).body("User not found");
+    }
+    @PreAuthorize("hasRole('ROLE_USER')")
+    @GetMapping("/quiz/{id}")
+    public ResponseEntity<?> getQuizForCourseUser(@PathVariable String id, Principal principal) {
+        Optional<User> userOptional = userRepository.findByUsername(principal.getName());
+        if(userOptional.isPresent()) {
+            return ResponseEntity.ok(courseService.getQuizForCourseUser(id, userOptional.get()));
+        }
+        else return ResponseEntity.status(401).body("User not found");
+    }
+    @PreAuthorize("hasRole('ROLE_USER')")
+    @PostMapping("/quiz/{id}/submit")
+    public ResponseEntity<?> submitQuiz(
+            @PathVariable String id,
+            @RequestBody QuizSubmissionRequestDto submission,
+            Principal principal
+    ) {
+        Optional<User> userOptional = userRepository.findByUsername(principal.getName());
+        if (!userOptional.isPresent()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("User not found");
+        }
+
+        return courseService.gradeQuiz(id, submission, userOptional.get());
     }
 
 

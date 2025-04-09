@@ -9,7 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 import web20242.webcourse.model.*;
 import web20242.webcourse.model.constant.ERole;
 import web20242.webcourse.model.constant.EStatus;
-import web20242.webcourse.model.createRequest.CourseCreateRequest;
+import web20242.webcourse.model.createRequest.*;
 import web20242.webcourse.repository.*;
 import org.springframework.data.mongodb.core.MongoTemplate;
 
@@ -1140,6 +1140,121 @@ public class CourseService {
         courseRepository.save(course);
 
         return ResponseEntity.ok("Lesson deleted successfully");
+    }
+
+    public ResponseEntity<?> getLessonForCourseUser(String id, User user) {
+        if(user == null){
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("User not authenticated");
+        }else {
+            return ResponseEntity.ok(lessonRepository.findById(new ObjectId(id)).orElse(null));
+        }
+    }
+
+    public ResponseEntity<?> getQuizForCourseUser(String id, User user) {
+        if (user == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("User not authenticated");
+        }
+
+        Quizzes quizzes = quizzesRepository.findById(new ObjectId(id)).orElse(null);
+        if (quizzes == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Quiz not found");
+        }
+
+        QuizResponseDto quizDto = new QuizResponseDto();
+        quizDto.setId(quizzes.getId().toHexString());
+        quizDto.setCourseId(quizzes.getCourseId().toHexString());
+        quizDto.setTitle(quizzes.getTitle());
+        quizDto.setDescription(quizzes.getDescription());
+        quizDto.setOrder(quizzes.getOrder());
+        quizDto.setPassingScore(quizzes.getPassingScore());
+        quizDto.setTimeLimit(quizzes.getTimeLimit());
+        quizDto.setCreatedAt(quizzes.getCreatedAt());
+        quizDto.setUpdateAt(quizzes.getUpdateAt());
+
+        List<QuizResponseDto.QuestionResponseDto> questionDtos = new ArrayList<>();
+        for (Question question : quizzes.getQuestions()) {
+            QuizResponseDto.QuestionResponseDto questionDto = new QuizResponseDto.QuestionResponseDto();
+            questionDto.setQuestion(question.getQuestion());
+            questionDto.setMaterial(question.getMaterial());
+            questionDto.setOptions(question.getOptions());
+            questionDtos.add(questionDto);
+        }
+        quizDto.setQuestions(questionDtos);
+
+        return ResponseEntity.ok(quizDto);
+    }
+
+    public ResponseEntity<?> gradeQuiz(String id, QuizSubmissionRequestDto submission, User user) {
+        Optional<Quizzes> quizOptional = quizzesRepository.findById(new ObjectId(id));
+        if (!quizOptional.isPresent()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Quiz not found");
+        }
+
+        Quizzes quiz = quizOptional.get();
+
+        if (!user.getCoursesEnrolled().contains(quiz.getCourseId())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("User not enrolled in this course");
+        }
+
+        List<Question> quizQuestions = quiz.getQuestions();
+        List<QuizSubmissionRequestDto.UserAnswer> userAnswers = submission.getAnswers();
+
+        if (userAnswers.size() != quizQuestions.size()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Number of answers does not match number of questions");
+        }
+
+        int correctCount = 0;
+        for (int i = 0; i < quizQuestions.size(); i++) {
+            Question question = quizQuestions.get(i);
+            QuizSubmissionRequestDto.UserAnswer userAnswer = userAnswers.get(i);
+
+            if (question.getQuestion().equals(userAnswer.getQuestion()) &&
+                    question.getCorrectAnswer().equals(userAnswer.getSelectedAnswer())) {
+                correctCount++;
+            }
+        }
+
+        double totalQuestions = quizQuestions.size();
+        double score = (correctCount / totalQuestions) * 100;
+
+        double passingScore = quiz.getPassingScore() != null ? quiz.getPassingScore() : 0;
+        boolean passed = score >= passingScore;
+
+        QuizSubmissionResponseDto response = new QuizSubmissionResponseDto();
+        response.setScore(score);
+        response.setPassingScore(passingScore);
+        response.setPassed(passed);
+        response.setMessage(passed ? "Congratulations, you passed the quiz!" : "Sorry, you did not pass the quiz.");
+
+        return ResponseEntity.ok(response);
+    }
+
+    public ResponseEntity<?> getAllUserPerCousrseByAdmin(String id) {
+        Optional<Course> courseOptional = courseRepository.findById(new ObjectId(id));
+        if (courseOptional.isPresent()) {
+            Course course = courseOptional.get();
+            List<Enrollment> enrollments = enrollmentRepository.findByCourseId(course.getId());
+            List<Map<String, Object>> userOverviews = enrollments.stream()
+                    .map(enrollment -> {
+                        Map<String, Object> overview = new HashMap<>();
+                        User user = userService.findById(enrollment.getUserId().toHexString()).orElse(null);
+                        if (user != null) {
+                            overview.put("id", String.valueOf(user.getId()));
+                            overview.put("username", user.getUsername());
+                            overview.put("firstName", user.getFirstName());
+                            overview.put("lastName", user.getLastName());
+                            overview.put("progress", enrollment.getProgress());
+                            overview.put("status", enrollment.getStatus());
+                            return overview;
+                        }
+                        return null;
+                    })
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toList());
+            return ResponseEntity.ok(userOverviews);
+        } else {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Course not found");
+        }
     }
 //    public ResponseEntity<?> getCoursesByPage(int page) {
 //        int pageSize = 6;

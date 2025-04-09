@@ -4,11 +4,14 @@ import org.bson.types.ObjectId;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.parameters.P;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
+import web20242.webcourse.model.Course;
 import web20242.webcourse.model.Enrollment;
 import web20242.webcourse.model.User;
 import web20242.webcourse.model.constant.EStatus;
+import web20242.webcourse.repository.CourseRepository;
 import web20242.webcourse.repository.UserRepository;
 import web20242.webcourse.service.EnrollmentService;
 import web20242.webcourse.service.UserService;
@@ -25,6 +28,8 @@ public class EnrollmentController {
     private UserService userService;
     @Autowired
     private UserRepository userRepository;
+    @Autowired
+    private CourseRepository courseRepository;
 
     @PreAuthorize("hasRole('ROLE_USER')")
     @GetMapping()
@@ -130,7 +135,7 @@ public class EnrollmentController {
         }
         return ResponseEntity.status(401).body("User not found");
     }
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @PreAuthorize("hasRole('ROLE_TEACHER')")
     @PutMapping("/teacher/add")
     public ResponseEntity<?> addEnrollmentForTeacher(@RequestParam String email,
                                                    @RequestParam String courseId,
@@ -156,6 +161,33 @@ public class EnrollmentController {
     public ResponseEntity<?> updateProgressQuiz(@RequestParam String courseId, @RequestParam String itemId, @RequestParam Double newScore, Principal principal) {
         return ResponseEntity.ok(enrollmentService.updateProgressForQuiz(courseId, itemId, newScore,principal));
     }
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @DeleteMapping("/admin/delete")
+    public ResponseEntity<?> deleteEnrollmentForAdmin(@RequestParam String courseId, @RequestParam String email) {
+        Optional<User> userOptional = userRepository.findByEmail(email);
+        if(userOptional.isPresent()){
+            enrollmentService.deleteEnrollment(courseId,userOptional.get());
+            return ResponseEntity.ok("Deleted successfully");
+        }
+        return ResponseEntity.status(401).body("User not found");
+    }
+    @PreAuthorize("hasRole('ROLE_TEACHER')")
+    @DeleteMapping("/teacher/delete")
+    public ResponseEntity<?> deleteEnrollmentForTeacher(@RequestParam String courseId, @RequestParam String email, Principal principal) {
+        Optional<User> userOptional = userRepository.findByEmail(email);
+        User userTeacher = userRepository.findByUsername(principal.getName()).orElse(null);
+        Course course = courseRepository.findById(new ObjectId(courseId)).orElse(null);
+        if(userOptional.isPresent()) {
+            assert course != null;
+            assert userTeacher != null;
+            if (course.getTeacherId().equals(userTeacher.getId())) {
+                enrollmentService.deleteEnrollment(courseId, userOptional.get());
+                return ResponseEntity.ok("Deleted successfully");
+            }
+        }
+        return ResponseEntity.status(401).body("User not found");
+    }
+
 //    @PreAuthorize("hasRole('ROLE_USER')")
 //    @DeleteMapping("/{id}")
 //    public ResponseEntity<?> deleteEnrollment(@PathVariable String id, Principal principal) {
