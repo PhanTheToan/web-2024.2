@@ -1,3 +1,4 @@
+web20242/webcourse/model/CourseCreateRequest$CourseCreateRequestBuilder.class
 web20242/webcourse/repository/LogoRepository.class
 web20242/webcourse/model/Category.class
 web20242/webcourse/repository/QuizzesRepository.class
@@ -7,6 +8,7 @@ web20242/webcourse/configuration/SecurityConfig.class
 web20242/webcourse/service/FileService.class
 web20242/webcourse/model/Logo.class
 web20242/webcourse/model/Enrollment.class
+web20242/webcourse/model/CourseCreateRequest.class
 web20242/webcourse/controller/AuthenticationController.class
 web20242/webcourse/repository/ReviewRepository.class
 web20242/webcourse/controller/CategoriesController.class

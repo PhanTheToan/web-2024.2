@@ -6,7 +6,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import web20242.webcourse.model.*;
+import web20242.webcourse.model.constant.ERole;
 import web20242.webcourse.model.constant.EStatus;
+import web20242.webcourse.model.createRequest.CourseCreateRequest;
 import web20242.webcourse.repository.*;
 import org.springframework.data.mongodb.core.MongoTemplate;
 
@@ -14,7 +16,6 @@ import org.springframework.data.mongodb.core.MongoTemplate;
 import java.security.Principal;
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 
@@ -926,6 +927,76 @@ public class CourseService {
             courseRepository.save(course);
         }
     }
+
+    public ResponseEntity<?> updateOrderForList(Map<String, String> list, Principal principal) {
+        if (principal == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("User not authenticated");
+        }
+        User user = userService.findByUsername(principal.getName());
+        for (Map.Entry<String, String> entry : list.entrySet()) {
+            String itemId = entry.getKey();
+            String newOrderStr = entry.getValue();
+            Integer newOrder = Integer.parseInt(newOrderStr);
+            Optional<Lesson> lessonOptional = lessonRepository.findById(new ObjectId(itemId));
+            Optional<Quizzes> quizzesOptional = quizzesRepository.findById(new ObjectId(itemId));
+            if (lessonOptional.isPresent()) {
+                Lesson lesson = lessonOptional.get();
+                Course course = courseRepository.findById(lesson.getCourseId()).orElse(null);
+                if(user.getRole() == ERole.ROLE_ADMIN) {
+                    lesson.setOrder(newOrder);
+                    lessonRepository.save(lesson);
+                }else if(course != null && !user.getId().equals(course.getTeacherId())) {
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN).body("You are not the owner of this course");
+                }else{
+                    lesson.setOrder(newOrder);
+                    lessonRepository.save(lesson);
+                }
+            } else if (quizzesOptional.isPresent()) {
+                Quizzes quizzes = quizzesOptional.get();
+                Course course = courseRepository.findById(quizzes.getCourseId()).orElse(null);
+                if (course != null && !user.getId().equals(course.getTeacherId())) {
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN).body("You are not the owner of this course");
+                }
+                quizzes.setOrder(newOrder);
+                quizzesRepository.save(quizzes);
+            }
+        }
+        return ResponseEntity.ok("Done !");
+    }
+
+
+    public ResponseEntity<?> createCourse(CourseCreateRequest input, User user) {
+        Course course = new Course();
+        course.setTitle(input.getTitle());
+        course.setDescription(input.getDescription());
+        course.setThumbnail(input.getThumbnail());
+        course.setPrice(Double.valueOf(input.getPrice()));
+        course.setTeacherId(user.getId());
+        course.setStatus(input.getStatus());
+        course.setCreatedAt(LocalDateTime.now());
+        course.setUpdatedAt(LocalDateTime.now());
+        course.setAverageRating(0.0);
+        course.setTotalTimeLimit(0);
+        course.setLessons(new ArrayList<>());
+
+        ArrayList<String> categories = new ArrayList<>();
+        List<?> categoriesInput = input.getCategories();
+        if (categoriesInput != null) {
+            for (Object category : categoriesInput) {
+                if (category != null) {
+                    categories.add(category.toString().trim());
+                }
+            }
+        }
+        course.setCategories(categories);
+
+        course.setQuizzes(new ArrayList<>());
+        course.setStudentsEnrolled(new ArrayList<>());
+        course.setRequest(new ArrayList<>());
+        courseRepository.save(course);
+        return ResponseEntity.ok("Course created successfully");
+    }
+
 
 //    public ResponseEntity<?> getCoursesByPage(int page) {
 //        int pageSize = 6;

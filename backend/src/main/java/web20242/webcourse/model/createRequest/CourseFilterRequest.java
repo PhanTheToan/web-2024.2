@@ -1,4 +1,4 @@
-package web20242.webcourse.model;
+package web20242.webcourse.model.createRequest;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

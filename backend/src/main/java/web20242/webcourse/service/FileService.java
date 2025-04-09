@@ -10,7 +10,7 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import web20242.webcourse.model.Image;
-import web20242.webcourse.model.Logo;
+import web20242.webcourse.model.createRequest.Logo;
 import web20242.webcourse.repository.ImageRepository;
 import web20242.webcourse.repository.LogoRepository;
 

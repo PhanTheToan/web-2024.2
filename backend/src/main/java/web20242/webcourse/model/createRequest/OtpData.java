@@ -1,9 +1,10 @@
-package web20242.webcourse.model;
+package web20242.webcourse.model.createRequest;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import web20242.webcourse.model.User;
 
 import java.time.LocalDateTime;
 

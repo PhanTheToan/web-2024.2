@@ -4,12 +4,9 @@ import org.bson.types.ObjectId;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.parameters.P;
 import org.springframework.web.bind.annotation.*;
-import web20242.webcourse.model.Course;
-import web20242.webcourse.model.CourseFilterRequest;
-import web20242.webcourse.model.Enrollment;
-import web20242.webcourse.model.User;
+import web20242.webcourse.model.*;
+import web20242.webcourse.model.createRequest.CourseCreateRequest;
 import web20242.webcourse.repository.CourseRepository;
 import web20242.webcourse.repository.EnrollmentRepository;
 import web20242.webcourse.repository.UserRepository;
@@ -69,10 +66,32 @@ public class CourseController {
             Principal principal) {
         return ResponseEntity.ok(courseService.updateOrderForItem(itemType, new ObjectId(itemId), newOrder, principal));
     }
+    @PreAuthorize("hasRole('ROLE_TEACHER') || hasRole('ROLE_ADMIN')")
+    @PutMapping("/update-order-list")
+    public ResponseEntity<?> updateOrder(@RequestParam Map<String,String> list, Principal principal) {
+        return ResponseEntity.ok(courseService.updateOrderForList(list, principal));
+    }
     @PreAuthorize("hasRole('ROLE_TEACHER')")
     @GetMapping("/getlessonquiz/{id}")
     public ResponseEntity<?> getLessonAndQuizForCourse(@PathVariable String id, Principal principal){
         return ResponseEntity.ok(courseService.getLessonAndQuizForCourseTeacher(id, principal));
+    }
+
+    @PreAuthorize("hasRole('ROLE_TEACHER')")
+    @PostMapping("/create")
+    public ResponseEntity<?> createCourse(@RequestBody CourseCreateRequest course, Principal principal) {
+        User user = userService.findByUsername(principal.getName());
+        return ResponseEntity.ok(courseService.createCourse(course, user));
+    }
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @PostMapping("/admin/create")
+    public ResponseEntity<?> updateCourse(@RequestBody CourseCreateRequest course) {
+        String id = course.getTeacherId();
+        User user = userService.findById(id).orElse(null);
+        if(user!=null) {
+            return ResponseEntity.ok(courseService.createCourse(course, user));
+        }else
+            return ResponseEntity.status(401).body("User not found");
     }
 //    @PreAuthorize("hasRole('ROLE_ADMIN')")
 //    @PutMapping("/update-order")
