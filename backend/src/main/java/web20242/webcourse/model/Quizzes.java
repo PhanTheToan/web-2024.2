@@ -32,6 +32,9 @@ public class Quizzes {
     @Field(name = "questions")
     private ArrayList<Question> questions; // Danh sách câu hỏi
 
+    @Field(name="description")
+    private String description; // Mô tả bài quiz
+
     @Field(name = "order")
     private Integer order; // Thứ tự bài quiz, dùng Integer thay cho Number
 
@@ -43,4 +46,7 @@ public class Quizzes {
 
     @Field(name = "createdAt", targetType = FieldType.TIMESTAMP)
     private LocalDateTime createdAt;
+
+    @Field(name = "updatedAt", targetType = FieldType.TIMESTAMP)
+    private LocalDateTime updateAt;
 }

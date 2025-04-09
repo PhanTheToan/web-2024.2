@@ -10,6 +10,8 @@ import web20242.webcourse.service.FileService;
 
 import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/upload")
@@ -61,13 +63,18 @@ public class FileController {
     }
     @PreAuthorize("hasRole('ROLE_ADMIN') || hasRole('ROLE_TEACHER')")
     @PostMapping("/pdf")
-    public String uploadPdfToR2(
-            @RequestParam("file") MultipartFile file
+    public List<String> uploadPdfToR2(
+            @RequestParam("files") List<MultipartFile> files
     ) throws IOException, NoSuchAlgorithmException {
-        if (!isPdfFile(file)) {
-            throw new IllegalArgumentException("Only PDF files are allowed");
+        List<String> uploadedUrls = new ArrayList<>();
+        for (MultipartFile file : files) {
+            if (!isPdfFile(file)) {
+                throw new IllegalArgumentException("Only PDF files are allowed");
+            }
+            String url = fileService.uploadFileR2(file);
+            uploadedUrls.add(url);
         }
-        return fileService.uploadFileR2(file);
+        return uploadedUrls;
     }
     @PreAuthorize("hasRole('ROLE_ADMIN')")
     @PostMapping("/logo")

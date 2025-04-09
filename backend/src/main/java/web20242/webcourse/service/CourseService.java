@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import web20242.webcourse.model.*;
 import web20242.webcourse.model.constant.ERole;
 import web20242.webcourse.model.constant.EStatus;
@@ -997,7 +998,149 @@ public class CourseService {
         return ResponseEntity.ok("Course created successfully");
     }
 
+    public ResponseEntity<?> createLesson(Course course, Lesson lesson) {
+        if (lesson.getTitle() == null || lesson.getTitle().isEmpty()) {
+            return ResponseEntity.badRequest().body("Title is required");
+        }
+        if (lesson.getTimeLimit() == null || lesson.getTimeLimit() < 0) {
+            return ResponseEntity.badRequest().body("Invalid time limit");
+        }
+        if (lesson.getMaterials() == null) {
+            lesson.setMaterials(new ArrayList<>());
+        }
+        course.getLessons().add(lesson.getId());
+        Integer timeLimit = course.getTotalTimeLimit();
+        timeLimit += lesson.getTimeLimit();
+        lesson.setCourseId(course.getId());
+        course.setTotalTimeLimit(timeLimit);
+        course.setUpdatedAt(LocalDateTime.now());
+        lesson.setUpdateAt(LocalDateTime.now());
+        lesson.setCreatedAt(LocalDateTime.now());
+        lessonRepository.save(lesson);
+        courseRepository.save(course);
+        return ResponseEntity.ok("Lesson created successfully");
+    }
+    public ResponseEntity<?> createQuiz(Course course, Quizzes quizzes) {
+        if (quizzes.getTimeLimit() == null || quizzes.getTimeLimit() < 0) {
+            return ResponseEntity.badRequest().body("Invalid time limit");
+        }
+        if (quizzes.getQuestions() == null || quizzes.getQuestions().isEmpty()) {
+            return ResponseEntity.badRequest().body("Quiz must have at least one question");
+        }
+        course.getQuizzes().add(quizzes.getId());
+        Integer timeLimit = course.getTotalTimeLimit();
+        timeLimit += quizzes.getTimeLimit();
+        quizzes.setCourseId(course.getId());
+        course.setTotalTimeLimit(timeLimit);
+        course.setUpdatedAt(LocalDateTime.now());
+        quizzes.setUpdateAt(LocalDateTime.now());
+        quizzes.setCreatedAt(LocalDateTime.now());
+        quizzesRepository.save(quizzes);
+        courseRepository.save(course);
+        return ResponseEntity.ok("Lesson created successfully");
+    }
 
+    public ResponseEntity<?> updateQuiz(Course course, Quizzes existingQuiz, Quizzes updatedQuiz) {
+        int oldTimeLimit = existingQuiz.getTimeLimit() != null ? existingQuiz.getTimeLimit() : 0;
+        int newTimeLimit = updatedQuiz.getTimeLimit() != null ? updatedQuiz.getTimeLimit() : 0;
+        int courseTimeLimit = course.getTotalTimeLimit() != null ? course.getTotalTimeLimit() : 0;
+        courseTimeLimit = courseTimeLimit - oldTimeLimit + newTimeLimit;
+        course.setTotalTimeLimit(courseTimeLimit);
+
+        existingQuiz.setDescription(updatedQuiz.getDescription());
+        existingQuiz.setOrder(updatedQuiz.getOrder());
+        existingQuiz.setPassingScore(updatedQuiz.getPassingScore());
+        existingQuiz.setTimeLimit(updatedQuiz.getTimeLimit());
+
+        if (updatedQuiz.getQuestions() != null) {
+            existingQuiz.setQuestions(updatedQuiz.getQuestions());
+        }
+
+        existingQuiz.setUpdateAt(LocalDateTime.now());
+        course.setUpdatedAt(LocalDateTime.now());
+
+        quizzesRepository.save(existingQuiz);
+        courseRepository.save(course);
+
+        return ResponseEntity.ok("Quiz updated successfully");
+    }
+
+    public ResponseEntity<?> updateLesson(Course course, Lesson existingLesson, Lesson updatedLesson) {
+        Integer oldTimeLimit = existingLesson.getTimeLimit() != null ? existingLesson.getTimeLimit() : 0;
+        Integer newTimeLimit = updatedLesson.getTimeLimit() != null ? updatedLesson.getTimeLimit() : 0;
+        Integer courseTimeLimit = course.getTotalTimeLimit() != null ? course.getTotalTimeLimit() : 0;
+        courseTimeLimit = courseTimeLimit - oldTimeLimit + newTimeLimit;
+        course.setTotalTimeLimit(courseTimeLimit);
+
+        existingLesson.setTitle(updatedLesson.getTitle());
+        existingLesson.setShortTile(updatedLesson.getShortTile());
+        existingLesson.setContent(updatedLesson.getContent());
+        existingLesson.setVideoUrl(updatedLesson.getVideoUrl());
+        existingLesson.setOrder(updatedLesson.getOrder());
+        existingLesson.setTimeLimit(updatedLesson.getTimeLimit());
+
+        if (updatedLesson.getMaterials() != null) {
+            existingLesson.setMaterials(updatedLesson.getMaterials());
+        }
+
+        existingLesson.setUpdateAt(LocalDateTime.now());
+        course.setUpdatedAt(LocalDateTime.now());
+
+        lessonRepository.save(existingLesson);
+        courseRepository.save(course);
+
+        return ResponseEntity.ok("Lesson updated successfully");
+    }
+    @Transactional
+    public ResponseEntity<?> deleteQuiz(Course course, Quizzes quiz) {
+        Integer quizTimeLimit = quiz.getTimeLimit() != null ? quiz.getTimeLimit() : 0;
+        Integer courseTimeLimit = course.getTotalTimeLimit() != null ? course.getTotalTimeLimit() : 0;
+        courseTimeLimit -= quizTimeLimit;
+        course.setTotalTimeLimit(Math.max(courseTimeLimit, 0)); // Đảm bảo không âm
+        List<Enrollment> enrollmentOptional = enrollmentRepository.findByCourseId(course.getId());
+        enrollmentOptional.forEach(enrollment -> {
+            ArrayList<ObjectId> lessonAndQuizIds = enrollment.getLessonAndQuizId();
+            if (lessonAndQuizIds != null && lessonAndQuizIds.contains(quiz.getId())) {
+                lessonAndQuizIds.remove(quiz.getId());
+                enrollment.setLessonAndQuizId(lessonAndQuizIds);
+                enrollmentRepository.save(enrollment);
+            }
+        });
+        course.getQuizzes().remove(quiz.getId());
+
+        course.setUpdatedAt(LocalDateTime.now());
+
+        quizzesRepository.delete(quiz);
+
+        courseRepository.save(course);
+
+        return ResponseEntity.ok("Quiz deleted successfully");
+    }
+    @Transactional
+    public ResponseEntity<?> deleteLesson(Course course, Lesson lesson) {
+        Integer lessonTimeLimit = lesson.getTimeLimit() != null ? lesson.getTimeLimit() : 0;
+        Integer courseTimeLimit = course.getTotalTimeLimit() != null ? course.getTotalTimeLimit() : 0;
+        courseTimeLimit -= lessonTimeLimit;
+        course.setTotalTimeLimit(Math.max(courseTimeLimit, 0)); // Đảm bảo không âm
+        List<Enrollment> enrollmentOptional = enrollmentRepository.findByCourseId(course.getId());
+        enrollmentOptional.forEach(enrollment -> {
+            ArrayList<ObjectId> lessonAndQuizIds = enrollment.getLessonAndQuizId();
+            if (lessonAndQuizIds != null && lessonAndQuizIds.contains(lesson.getId())) {
+                lessonAndQuizIds.remove(lesson.getId());
+                enrollment.setLessonAndQuizId(lessonAndQuizIds);
+                enrollmentRepository.save(enrollment);
+            }
+        });
+        course.getLessons().remove(lesson.getId());
+
+        course.setUpdatedAt(LocalDateTime.now());
+
+        lessonRepository.delete(lesson);
+
+        courseRepository.save(course);
+
+        return ResponseEntity.ok("Lesson deleted successfully");
+    }
 //    public ResponseEntity<?> getCoursesByPage(int page) {
 //        int pageSize = 6;
 //        Pageable pageable = PageRequest.of(page, pageSize);

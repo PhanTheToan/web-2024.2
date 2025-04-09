@@ -7,9 +7,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import web20242.webcourse.model.*;
 import web20242.webcourse.model.createRequest.CourseCreateRequest;
-import web20242.webcourse.repository.CourseRepository;
-import web20242.webcourse.repository.EnrollmentRepository;
-import web20242.webcourse.repository.UserRepository;
+import web20242.webcourse.repository.*;
 import web20242.webcourse.service.CourseService;
 import web20242.webcourse.service.UserService;
 
@@ -30,6 +28,10 @@ public class CourseController {
     private EnrollmentRepository enrollmentRepository;
     @Autowired
     private UserRepository userRepository;
+    @Autowired
+    private QuizzesRepository quizzesRepository;
+    @Autowired
+    private LessonRepository lessonRepository;
 
     @PreAuthorize("hasRole('ROLE_ADMIN') || hasRole('ROLE_TEACHER')")
     @DeleteMapping("/deleteUserCourse/{userId}/{courseId}")
@@ -93,6 +95,164 @@ public class CourseController {
         }else
             return ResponseEntity.status(401).body("User not found");
     }
+    @PreAuthorize("hasRole('ROLE_TEACHER') || hasRole('ROLE_ADMIN')")
+    @PostMapping("/create-lesson")
+    public ResponseEntity<?> createLesson(@RequestBody Lesson lesson, @RequestParam String courseId) {
+        Optional<Course> courseOptional = courseRepository.findById(new ObjectId(courseId));
+        if (courseOptional.isEmpty()) {
+            return ResponseEntity.status(404).body("Course not found");
+        }
+        return ResponseEntity.ok(courseService.createLesson(courseOptional.get(),lesson));
+    }
+    @PreAuthorize("hasRole('ROLE_TEACHER') || hasRole('ROLE_ADMIN')")
+    @PostMapping("/create-quiz")
+    public ResponseEntity<?> createLesson(@RequestBody Quizzes quizzes, @RequestParam String courseId) {
+        Optional<Course> courseOptional = courseRepository.findById(new ObjectId(courseId));
+        if (courseOptional.isEmpty()) {
+            return ResponseEntity.status(404).body("Course not found");
+        }
+        return ResponseEntity.ok(courseService.createQuiz(courseOptional.get(),quizzes));
+    }
+    @PreAuthorize("hasRole('ROLE_TEACHER') || hasRole('ROLE_ADMIN')")
+    @PutMapping("/update-quiz/{quizId}")
+    public ResponseEntity<?> updateQuiz(
+            @PathVariable String quizId,
+            @RequestBody Quizzes updatedQuiz,
+            @RequestParam String courseId
+    ) {
+        Optional<Course> courseOptional = courseRepository.findById(new ObjectId(courseId));
+        if (courseOptional.isEmpty()) {
+            return ResponseEntity.status(404).body("Course not found");
+        }
+
+        Optional<Quizzes> quizOptional = quizzesRepository.findById(new ObjectId(quizId));
+        if (quizOptional.isEmpty()) {
+            return ResponseEntity.status(404).body("Quiz not found");
+        }
+
+        Course course = courseOptional.get();
+        Quizzes existingQuiz = quizOptional.get();
+
+        if (!existingQuiz.getCourseId().equals(course.getId())) {
+            return ResponseEntity.status(400).body("Quiz does not belong to this course");
+        }
+
+        return ResponseEntity.ok(courseService.updateQuiz(course, existingQuiz, updatedQuiz));
+    }
+    @PreAuthorize("hasRole('ROLE_TEACHER') || hasRole('ROLE_ADMIN')")
+    @PutMapping("/update-lesson/{lessonId}")
+    public ResponseEntity<?> updateLesson(
+            @PathVariable String lessonId,
+            @RequestBody Lesson updatedLesson,
+            @RequestParam String courseId
+    ) {
+        // Tìm khóa học
+        Optional<Course> courseOptional = courseRepository.findById(new ObjectId(courseId));
+        if (courseOptional.isEmpty()) {
+            return ResponseEntity.status(404).body("Course not found");
+        }
+
+        // Tìm lesson hiện có
+        Optional<Lesson> lessonOptional = lessonRepository.findById(new ObjectId(lessonId));
+        if (lessonOptional.isEmpty()) {
+            return ResponseEntity.status(404).body("Lesson not found");
+        }
+
+        Course course = courseOptional.get();
+        Lesson existingLesson = lessonOptional.get();
+
+        // Kiểm tra lesson có thuộc khóa học không
+        if (!existingLesson.getCourseId().equals(course.getId())) {
+            return ResponseEntity.status(400).body("Lesson does not belong to this course");
+        }
+
+        return ResponseEntity.ok(courseService.updateLesson(course, existingLesson, updatedLesson));
+    }
+    @PreAuthorize("hasRole('ROLE_TEACHER') || hasRole('ROLE_ADMIN')")
+    @GetMapping("/edit-quiz/{quizId}")
+    public ResponseEntity<?> getQuizForEdit(@PathVariable String quizId) {
+        Optional<Quizzes> quizOptional = quizzesRepository.findById(new ObjectId(quizId));
+        if (quizOptional.isEmpty()) {
+            return ResponseEntity.status(404).body("Quiz not found");
+        }
+
+        Quizzes quiz = quizOptional.get();
+
+        Optional<Course> courseOptional = courseRepository.findById(quiz.getCourseId());
+        if (courseOptional.isEmpty()) {
+            return ResponseEntity.status(404).body("Associated course not found");
+        }
+
+        return ResponseEntity.ok(quiz);
+    }
+    @PreAuthorize("hasRole('ROLE_TEACHER') || hasRole('ROLE_ADMIN')")
+    @GetMapping("/edit-lesson/{lessonId}")
+    public ResponseEntity<?> getLessonForEdit(@PathVariable String lessonId) {
+        Optional<Lesson> lessonOptional = lessonRepository.findById(new ObjectId(lessonId));
+        if (lessonOptional.isEmpty()) {
+            return ResponseEntity.status(404).body("Lesson not found");
+        }
+
+        Lesson lesson = lessonOptional.get();
+
+        Optional<Course> courseOptional = courseRepository.findById(lesson.getCourseId());
+        if (courseOptional.isEmpty()) {
+            return ResponseEntity.status(404).body("Associated course not found");
+        }
+
+        return ResponseEntity.ok(lesson);
+    }
+    @PreAuthorize("hasRole('ROLE_TEACHER') || hasRole('ROLE_ADMIN')")
+    @DeleteMapping("/delete-quiz/{quizId}")
+    public ResponseEntity<?> deleteQuiz(
+            @PathVariable String quizId,
+            @RequestParam String courseId
+    ) {
+        Optional<Course> courseOptional = courseRepository.findById(new ObjectId(courseId));
+        if (courseOptional.isEmpty()) {
+            return ResponseEntity.status(404).body("Course not found");
+        }
+
+        Optional<Quizzes> quizOptional = quizzesRepository.findById(new ObjectId(quizId));
+        if (quizOptional.isEmpty()) {
+            return ResponseEntity.status(404).body("Quiz not found");
+        }
+
+        Course course = courseOptional.get();
+        Quizzes quiz = quizOptional.get();
+
+        if (!quiz.getCourseId().equals(course.getId())) {
+            return ResponseEntity.status(400).body("Quiz does not belong to this course");
+        }
+
+        return courseService.deleteQuiz(course, quiz);
+    }
+    @PreAuthorize("hasRole('ROLE_TEACHER') || hasRole('ROLE_ADMIN')")
+    @DeleteMapping("/delete-lesson/{lessonId}")
+    public ResponseEntity<?> deleteLesson(
+            @PathVariable String lessonId,
+            @RequestParam String courseId
+    ) {
+        Optional<Course> courseOptional = courseRepository.findById(new ObjectId(courseId));
+        if (courseOptional.isEmpty()) {
+            return ResponseEntity.status(404).body("Course not found");
+        }
+
+        Optional<Lesson> lessonOptional = lessonRepository.findById(new ObjectId(lessonId));
+        if (lessonOptional.isEmpty()) {
+            return ResponseEntity.status(404).body("Lesson not found");
+        }
+
+        Course course = courseOptional.get();
+        Lesson lesson = lessonOptional.get();
+
+        if (!lesson.getCourseId().equals(course.getId())) {
+            return ResponseEntity.status(400).body("Lesson does not belong to this course");
+        }
+
+        return courseService.deleteLesson(course, lesson);
+    }
+
 //    @PreAuthorize("hasRole('ROLE_ADMIN')")
 //    @PutMapping("/update-order")
 //    public ResponseEntity<?> updateOrder(){
