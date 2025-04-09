@@ -55,6 +55,9 @@ public class User {
     @Field(name = "gender")
     private String gender;
 
+    @Field(name="requested_courses")
+    private ArrayList<ObjectId> requestedCourses; // Danh sách khóa học đã yêu cầu
+
     @Field(name = "status")
     private EStatus status; // "ACTIVE", "INACTIVE"
 

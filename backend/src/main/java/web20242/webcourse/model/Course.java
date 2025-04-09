@@ -61,6 +61,9 @@ public class Course {
     @Field(name = "averageRating")
     private Double averageRating;
 
+    @Field(name= "request")
+    private ArrayList<ObjectId> request;
+
     @Field(name = "createdAt")
     private LocalDateTime createdAt;
 

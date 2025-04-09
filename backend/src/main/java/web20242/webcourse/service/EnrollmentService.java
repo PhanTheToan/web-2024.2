@@ -242,4 +242,232 @@ public class EnrollmentService {
             return ResponseEntity.status(401).body("Người dùng không tồn tại");
         }
     }
+
+    public ResponseEntity<?> getAllRequestForUser(User user){
+        ArrayList<ObjectId> request = user.getRequestedCourses();
+        if (request != null && !request.isEmpty()) {
+            List<Course> courses = courseRepository.findAllById(request);
+            List<Map<String, String>> filteredCourses = courses.stream()
+                    .map(course -> {
+                        Map<String, String> map = new HashMap<>();
+                        map.put("CourseID", course.getId().toHexString());
+                        Optional<User> userOptional = userRepository.findById(course.getTeacherId());
+                        if(userOptional.isPresent()){
+                            String firstName = userOptional.get().getFirstName() != null ? userOptional.get().getFirstName() : "";
+                            String lastName = userOptional.get().getLastName() != null ? userOptional.get().getLastName() : "";
+                            String fullName = firstName + " " + lastName;
+                            map.put("Teacher", fullName);
+                        }else {
+                            map.put("Teacher", "Unknown");
+                        }
+                        map.put("Title", course.getTitle());
+                        return map;
+                    })
+                    .toList();
+            return ResponseEntity.ok(filteredCourses);
+        } else {
+            return ResponseEntity.status(404).body("Không có yêu cầu nào");
+        }
+    }
+
+    public void createEnrollmentByRequest(User user, String courseIdHex) {
+        ObjectId courseId = new ObjectId(courseIdHex);
+
+        Optional<Course> course = courseRepository.findById(courseId);
+
+        if (course.isEmpty()) {
+            throw new IllegalArgumentException("courseId không tồn tại trong collection courses");
+        }
+
+        Optional<Enrollment> existingEnrollment = enrollmentRepository.findByUserIdAndCourseId(user.getId(), courseId);
+        if (existingEnrollment.isPresent()) {
+            throw new IllegalStateException("Người dùng đã đăng ký khóa học này rồi");
+        }
+
+        Course existingCourse = course.get();
+        ArrayList<ObjectId> request = existingCourse.getRequest();
+        if (request == null) {
+            request = new ArrayList<>();
+        }
+        if (!request.contains(user.getId())) {
+            request.add(user.getId());
+            existingCourse.setRequest(request);
+            courseRepository.save(existingCourse);
+        }
+
+        ArrayList<ObjectId> requestCoursed = user.getRequestedCourses();
+        if (requestCoursed == null) {
+            requestCoursed = new ArrayList<>();
+        }
+        if (!requestCoursed.contains(courseId)) {
+            requestCoursed.add(courseId);
+            user.setRequestedCourses(requestCoursed);
+            userRepository.save(user);
+        }
+    }
+
+    public void acceptEnrollmentRequestForAdmin(String courseId, User user) {
+        Optional<Course> courseOptional = courseRepository.findById(new ObjectId(courseId));
+
+        if (courseOptional.isPresent()) {
+            Course course = courseOptional.get();
+
+            ArrayList<ObjectId> request = course.getRequest();
+            ArrayList<ObjectId> requestCoursed = user.getRequestedCourses();
+            if (request != null && request.contains(user.getId()) &&  requestCoursed != null && requestCoursed.contains(course.getId())) {
+                request.remove(user.getId());
+                course.setRequest(request);
+                courseRepository.save(course);
+                requestCoursed.remove(course.getId());
+                user.setRequestedCourses(requestCoursed);
+                userRepository.save(user);
+                try {
+                    createEnrollment(user.getId(), courseId);
+                    ResponseEntity.ok("Xác nhận yêu cầu thành công");
+                    return;
+                }catch (IllegalStateException e){
+                    ResponseEntity.status(401).body("Người dùng đã đăng ký khóa học này rồi");
+                    return;
+                }
+            }
+        }
+        ResponseEntity.status(401).body("Không có quyền xác nhận yêu cầu này");
+    }
+    public void acceptEnrollmentRequestForTeacher(String courseId, User user, Principal principal) {
+        Optional<Course> courseOptional = courseRepository.findById(new ObjectId(courseId));
+        Optional<User> userOptional = userRepository.findByUsername(principal.getName());
+        if (courseOptional.isPresent() && userOptional.isPresent()) {
+            Course course = courseOptional.get();
+            User userTeacher = userOptional.get();
+            if(!userTeacher.getId().equals(course.getTeacherId())){
+                ResponseEntity.status(401).body("Không có quyền xác nhận yêu cầu này");
+                return;
+            }
+            ArrayList<ObjectId> request = course.getRequest();
+            ArrayList<ObjectId> requestCoursed = user.getRequestedCourses();
+            if (request != null && request.contains(user.getId()) &&  requestCoursed != null && requestCoursed.contains(course.getId())) {
+                request.remove(user.getId());
+                course.setRequest(request);
+                courseRepository.save(course);
+                requestCoursed.remove(course.getId());
+                user.setRequestedCourses(requestCoursed);
+                userRepository.save(user);
+                try {
+                    createEnrollment(user.getId(), courseId);
+                    ResponseEntity.ok("Xác nhận yêu cầu thành công");
+                    return;
+                }catch (IllegalStateException e){
+                    ResponseEntity.status(401).body("Người dùng đã đăng ký khóa học này rồi");
+                    return;
+                }
+            }
+        }
+        ResponseEntity.status(401).body("Không có quyền xác nhận yêu cầu này");
+    }
+    public void rejectEnrollmentRequestForAdmin(String courseId, User user) {
+        Optional<Course> courseOptional = courseRepository.findById(new ObjectId(courseId));
+
+        if (courseOptional.isPresent()) {
+            Course course = courseOptional.get();
+
+            ArrayList<ObjectId> request = course.getRequest();
+            ArrayList<ObjectId> requestCoursed = user.getRequestedCourses();
+            if (request != null && request.contains(user.getId()) &&  requestCoursed != null && requestCoursed.contains(course.getId())) {
+                request.remove(user.getId());
+                course.setRequest(request);
+                courseRepository.save(course);
+                requestCoursed.remove(course.getId());
+                user.setRequestedCourses(requestCoursed);
+                userRepository.save(user);
+                ResponseEntity.ok("Từ chối yêu cầu đăng kí thành công");
+                return;
+            }
+            ResponseEntity.status(401).body("Không yêu cầu không tồn tại");
+            return;
+
+        }
+        ResponseEntity.status(401).body("Không có quyền xác nhận yêu cầu này");
+
+    }
+    public void rejectEnrollmentRequestForTeacher(String courseId, User user, Principal principal) {
+        Optional<Course> courseOptional = courseRepository.findById(new ObjectId(courseId));
+        Optional<User> userOptional = userRepository.findByUsername(principal.getName());
+
+        if (courseOptional.isPresent() && userOptional.isPresent()) {
+            Course course = courseOptional.get();
+            User userTeacher = userOptional.get();
+            if(!userTeacher.getId().equals(course.getTeacherId())){
+                ResponseEntity.status(401).body("Không có quyền xác nhận yêu cầu này");
+                return;
+            }
+            ArrayList<ObjectId> request = course.getRequest();
+            ArrayList<ObjectId> requestCoursed = user.getRequestedCourses();
+            if (request != null && request.contains(user.getId()) &&  requestCoursed != null && requestCoursed.contains(course.getId())) {
+                request.remove(user.getId());
+                course.setRequest(request);
+                courseRepository.save(course);
+                requestCoursed.remove(course.getId());
+                user.setRequestedCourses(requestCoursed);
+                userRepository.save(user);
+                ResponseEntity.ok("Từ chối yêu cầu đăng kí thành công");
+                return;
+            }
+            ResponseEntity.status(401).body("Không yêu cầu không tồn tại");
+            return;
+        }
+        ResponseEntity.status(401).body("Không có quyền xác nhận yêu cầu này");
+    }
+    public ResponseEntity<?> allRequestEnrolled(String courseId){
+        Optional<Course> courseOptional = courseRepository.findById(new ObjectId(courseId));
+        if (courseOptional.isPresent()) {
+            Map<String, Object> response = new HashMap<>();
+            List<Map<String, Object>> requestList = new ArrayList<>();
+            response.put("request", requestList);
+            Course course = courseOptional.get();
+            List<ObjectId> request = course.getRequest();
+            if (request != null && !request.isEmpty()) {
+                List<User> users = userRepository.findAllById(request);
+                for (User user : users) {
+                    Map<String, Object> map = new HashMap<>();
+                    String firstName = user.getFirstName()!=null ? user.getFirstName() : "";
+                    String lastName = user.getLastName() != null ? user.getLastName() : "";
+                    map.put("fullName", firstName + " " + lastName);
+                    map.put("email", user.getEmail());
+                    requestList.add(map);
+                }
+                return ResponseEntity.ok(response);
+            } else {
+                return ResponseEntity.ok("Không có yêu cầu nào");
+            }
+        } else {
+            return ResponseEntity.status(404).body("Không tìm thấy khóa học với ID: " + courseId);
+        }
+    }
+    public void addUserEnrolledForAdmin(String courseId, User user) {
+        Optional<Course> courseOptional = courseRepository.findById(new ObjectId(courseId));
+
+        if (courseOptional.isPresent()) {
+            Course course = courseOptional.get();
+            createEnrollment(user.getId(), courseId);
+            ResponseEntity.ok("Thêm người");
+            return;
+        }
+        ResponseEntity.status(401).body("Thêm không thành công");
+    }
+    public void addUserEnrolledForTeacher(String courseId, User userEnroll, Principal principal){
+        Optional<User> userOptional = userRepository.findByUsername(principal.getName());
+
+        Optional<Course> courseOptional = courseRepository.findById(new ObjectId(courseId));
+        if (userOptional.isPresent() && courseOptional.isPresent()) {
+            User user = userOptional.get();
+            Course course = courseOptional.get();
+            if (course.getTeacherId().equals(user.getId())){
+                createEnrollment(userEnroll.getId(),courseId);
+            }else {
+                ResponseEntity.status(401).body("Người dùng không có quyền thêm người vào khóa học này");
+                return;
+            }
+        }
+        ResponseEntity.status(401).body("Thêm không thành công");
+    }
 }

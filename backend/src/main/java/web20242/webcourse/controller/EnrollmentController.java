@@ -45,6 +45,108 @@ public class EnrollmentController {
 
     }
     @PreAuthorize("hasRole('ROLE_USER')")
+    @PutMapping("/{courseId}")
+    public ResponseEntity<?> enrollCourseByRequest(@PathVariable String courseId, Principal principal) {
+        Optional<User> userOptional = userRepository.findByUsername(principal.getName());
+        if(userOptional.isPresent()){
+            enrollmentService.createEnrollmentByRequest(userOptional.get(), courseId);
+            return ResponseEntity.ok("Enrolled successfully");
+        }
+        else  return ResponseEntity.status(401).body("User not found");
+
+    }
+
+    @PreAuthorize("hasRole('ROLE_USER')")
+    @GetMapping("/all-request-user")
+    public ResponseEntity<?> getAllEnrollmentRequestUser(Principal principal) {
+        Optional<User> userOptional = userRepository.findByUsername(principal.getName());
+        if(userOptional.isPresent()){
+            User user = userOptional.get();
+            return ResponseEntity.ok(enrollmentService.getAllRequestForUser(user));
+        }
+        else  return ResponseEntity.status(401).body("User not found");
+    }
+
+    @PreAuthorize("hasRole('ROLE_TEACHER') || hasRole('ROLE_ADMIN')")
+    @GetMapping("/all-request/{id}")
+    public ResponseEntity<?> getAllEnrollmentRequest(@PathVariable String id) {
+        return ResponseEntity.ok(enrollmentService.allRequestEnrolled(id));
+    }
+
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @PutMapping("/admin/accept")
+    public ResponseEntity<?> acceptEnrollmentForAdmin(@RequestParam String email,
+                                                      @RequestParam String courseId) {
+        Optional<User> userOptional = userRepository.findByEmail(email);
+        if(userOptional.isPresent()){
+            enrollmentService.acceptEnrollmentRequestForAdmin(courseId,userOptional.get());
+            return ResponseEntity.ok("Accepted successfully");
+        }
+        return ResponseEntity.status(401).body("User not found");
+    }
+    @PreAuthorize("hasRole('ROLE_TEACHER')")
+    @PutMapping("/teacher/accept")
+    public ResponseEntity<?> acceptEnrollmentForTeacher(@RequestParam String email,
+                                                      @RequestParam String courseId,
+                                                        Principal principal) {
+        Optional<User> userOptional = userRepository.findByEmail(email);
+        if(userOptional.isPresent()){
+            enrollmentService.acceptEnrollmentRequestForTeacher(courseId,userOptional.get(), principal);
+            return ResponseEntity.ok("Accepted successfully");
+        }
+        return ResponseEntity.status(401).body("User not found");
+    }
+    @PreAuthorize("hasRole('ROLE_TEACHER')")
+    @PutMapping("/teacher/reject")
+    public ResponseEntity<?> rejectEnrollmentForTeacher(@RequestParam String email,
+                                                        @RequestParam String courseId,
+                                                        Principal principal) {
+        Optional<User> userOptional = userRepository.findByEmail(email);
+        if(userOptional.isPresent()){
+            enrollmentService.rejectEnrollmentRequestForTeacher(courseId,userOptional.get(), principal);
+            return ResponseEntity.ok("Rejected successfully");
+        }
+        return ResponseEntity.status(401).body("User not found");
+    }
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @PutMapping("/admin/reject")
+    public ResponseEntity<?> rejectEnrollmentForAdmin(@RequestParam String email,
+                                                        @RequestParam String courseId) {
+        Optional<User> userOptional = userRepository.findByEmail(email);
+        if(userOptional.isPresent()){
+            enrollmentService.rejectEnrollmentRequestForAdmin(courseId,userOptional.get());
+            return ResponseEntity.ok("Rejected successfully");
+        }
+        return ResponseEntity.status(401).body("User not found");
+    }
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @PutMapping("/admin/add")
+    public ResponseEntity<?> addEnrollmentForAdmin(@RequestParam String email,
+                                                      @RequestParam String courseId) {
+        Optional<User> userOptional = userRepository.findByEmail(email);
+        if(userOptional.isPresent()){
+            enrollmentService.addUserEnrolledForAdmin(courseId,userOptional.get());
+            return ResponseEntity.ok("Added successfully");
+        }
+        return ResponseEntity.status(401).body("User not found");
+    }
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @PutMapping("/teacher/add")
+    public ResponseEntity<?> addEnrollmentForTeacher(@RequestParam String email,
+                                                   @RequestParam String courseId,
+                                                     Principal principal) {
+        Optional<User> userOptional = userRepository.findByEmail(email);
+        if(userOptional.isPresent()){
+            enrollmentService.addUserEnrolledForTeacher(courseId,userOptional.get(), principal);
+            return ResponseEntity.ok("Added successfully");
+        }
+        return ResponseEntity.status(401).body("User not found");
+    }
+
+
+
+
+    @PreAuthorize("hasRole('ROLE_USER')")
     @PutMapping("/update-progress")
     public ResponseEntity<?> updateProgress(@RequestParam String courseId, @RequestParam String itemId, Principal principal) {
         return ResponseEntity.ok(enrollmentService.updateProgressForLesson(courseId, itemId, principal));
