@@ -3,7 +3,9 @@ package web20242.webcourse;
 import io.github.cdimascio.dotenv.Dotenv;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.annotation.Bean;
 import org.springframework.scheduling.annotation.EnableScheduling;
+import org.springframework.web.client.RestTemplate;
 
 @SpringBootApplication
 //@EnableScheduling
@@ -26,9 +28,13 @@ public class WebcourseApplication {
 		System.setProperty("S3_BUCKET_NAME", dotenv.get("S3_BUCKET_NAME"));
 		System.setProperty("S3_API_ENDPOINT", dotenv.get("S3_API_ENDPOINT"));
 		System.setProperty("S3_PUBLIC_URL", dotenv.get("S3_PUBLIC_URL"));
-		System.setProperty("GEMINI_API_KEY", dotenv.get("gemini.api.key"));
+		System.setProperty("GEMINI_API_KEY", dotenv.get("GEMINI_API_KEY"));
 		SpringApplication.run(WebcourseApplication.class, args);
 
+	}
+	@Bean
+	public RestTemplate restTemplate() {
+		return new RestTemplate();
 	}
 
 }
