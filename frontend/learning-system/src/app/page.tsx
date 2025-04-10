@@ -132,7 +132,7 @@ export default function Home() {
 
   // Fetch categories
   useEffect(() => {
-    console.log("API_BASE_URL:", API_BASE_URL);  
+    console.log("API_BASE_URL:", API_BASE_URL);
     setTimeout(() => {
       console.log("Fetching categories...");
       fetch(`${API_BASE_URL}/categories/popular`)
