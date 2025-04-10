@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import React, { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import * as dotenv from "dotenv"
 dotenv.config()
@@ -28,35 +28,69 @@ export const UserControl = () => {
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
   const [userToDelete, setUserToDelete] = useState<string | null>(null)
   const [selectedRole, setSelectedRole] = useState<string>("USER")
+  const [showInactive, setShowInactive] = useState(false)
+
+  const fetchUserData = async () => {
+    setLoading(true)
+    try {
+      const response = await fetch(`${BASE_URL}/user`, {
+        method: "GET",
+        credentials: "include",
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setUserData(data.body)
+      } else {
+        setError(data.message || "Không thể lấy thông tin người dùng!")
+      }
+    } catch (err) {
+      setError("Lỗi kết nối, vui lòng thử lại sau!")
+    }
+    setLoading(false)
+  }
 
   useEffect(() => {
-    const fetchUserData = async () => {
-      setLoading(true)
-      try {
-        const response = await fetch(`${BASE_URL}/user`, {
-          method: "GET",
-          credentials: "include",
-        })
-
-        const data = await response.json()
-
-        if (response.ok) {
-          setUserData(data.body)
-        } else {
-          setError(data.message || "Không thể lấy thông tin người dùng!")
-        }
-      } catch (err) {
-        setError("Lỗi kết nối, vui lòng thử lại sau!")
-      }
-      setLoading(false)
-    }
-
     fetchUserData()
   }, [])
 
   const handleEdit = (user: User) => {
     setEditingUser(user)
     setIsModalOpen(true)
+  }
+
+  const handleStatusChange = async (userId: string, newStatus: "ACTIVE" | "INACTIVE") => {
+    try {
+      const url = `${BASE_URL}/admin/delete-user/${userId}`
+      const response = await fetch(url, {
+        method: "PUT",
+        credentials: "include",
+      })
+
+      const text = await response.text()
+      console.log("Status code:", response.status)
+      console.log("Raw response text:", text)
+
+      let data
+      try {
+        data = JSON.parse(text)
+      } catch {
+        data = { message: text }
+      }
+
+      if (response.ok) {
+        console.log(`${newStatus === "INACTIVE" ? "Xóa" : "Khôi phục"} thành công.`)
+        setIsDeleteConfirmOpen(false)
+        await fetchUserData()
+      } else {
+        console.warn("Phản hồi lỗi từ server:", data)
+        alert(data.message || `Không thể ${newStatus === "INACTIVE" ? "xóa" : "khôi phục"} người dùng!`)
+      }
+    } catch (err: any) {
+      console.error("Lỗi kết nối:", err)
+      alert(`Lỗi kết nối: ${err.message || err}`)
+    }
   }
 
   const handleDelete = (userId: string) => {
@@ -66,21 +100,9 @@ export const UserControl = () => {
 
   const handleDeleteConfirm = async () => {
     if (userToDelete) {
-      try {
-        const response = await fetch(`${BASE_URL}/user/${userToDelete}`, {
-          method: "DELETE",
-          credentials: "include",
-        })
-
-        if (response.ok) {
-          setUserData(userData.filter((user) => user.UserId !== userToDelete))
-          setIsDeleteConfirmOpen(false)
-        } else {
-          alert("Không thể xóa người dùng!")
-        }
-      } catch (err) {
-        alert("Lỗi kết nối, vui lòng thử lại sau!")
-      }
+      const user = userData.find(u => u.UserId === userToDelete)
+      const newStatus = user?.Status === "ACTIVE" ? "INACTIVE" : "ACTIVE"
+      await handleStatusChange(userToDelete, newStatus)
     }
   }
 
@@ -94,81 +116,78 @@ export const UserControl = () => {
     setIsModalOpen(false)
   }
 
-  // Update the handleSubmit function to include validation for required fields
   const handleSubmit = async () => {
-  try {
-    const username = (document.getElementById("username") as HTMLInputElement)?.value
-    const email = (document.getElementById("email") as HTMLInputElement)?.value
-    const password = (document.getElementById("password") as HTMLInputElement)?.value
-    const firstName = (document.getElementById("firstName") as HTMLInputElement)?.value
-    const lastName = (document.getElementById("lastName") as HTMLInputElement)?.value
-    const phone = (document.getElementById("phone") as HTMLInputElement)?.value
-    const dateOfBirth = (document.getElementById("dateOfBirth") as HTMLInputElement)?.value
-    const gender = (document.getElementById("gender") as HTMLSelectElement)?.value
+    try {
+      const username = (document.getElementById("username") as HTMLInputElement)?.value
+      const email = (document.getElementById("email") as HTMLInputElement)?.value
+      const password = (document.getElementById("password") as HTMLInputElement)?.value
+      const firstName = (document.getElementById("firstName") as HTMLInputElement)?.value
+      const lastName = (document.getElementById("lastName") as HTMLInputElement)?.value
+      const phone = (document.getElementById("phone") as HTMLInputElement)?.value
+      const dateOfBirth = (document.getElementById("dateOfBirth") as HTMLInputElement)?.value
+      const gender = (document.getElementById("gender") as HTMLSelectElement)?.value
 
-    if (!username || !email || !password || !firstName || !lastName || !phone || !dateOfBirth) {
-      alert("Vui lòng điền đầy đủ thông tin bắt buộc!")
-      return
+      if (!username || !email || !password || !firstName || !lastName || !phone || !dateOfBirth) {
+        alert("Vui lòng điền đầy đủ thông tin bắt buộc!")
+        return
+      }
+
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+      if (!emailRegex.test(email)) {
+        alert("Email không hợp lệ!")
+        return
+      }
+
+      const userData = {
+        username,
+        email,
+        password,
+        firstName,
+        lastName,
+        phone,
+        dateOfBirth,
+        gender,
+        profileImage: null,
+        coursesEnrolled: [],
+      }
+
+      let apiUrl
+      if (selectedRole === "TEACHER") {
+        apiUrl = `${BASE_URL}/admin/teacher-signup`
+      } else if (selectedRole === "ADMIN") {
+        apiUrl = `${BASE_URL}/admin/admin-signup`
+      } else {
+        apiUrl = `${BASE_URL}/admin/user-signup`
+      }
+
+      console.log("Gửi tới:", apiUrl)
+      console.log("Dữ liệu gửi đi:", userData)
+
+      const response = await fetch(apiUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(userData),
+      })
+
+      const data = await response.json()
+
+      console.log("Phản hồi API:", data)
+
+      if (response.ok) {
+        alert("Tạo tài khoản thành công!")
+        await fetchUserData()
+        closeModal()
+      } else {
+        alert(data.message || "Không thể tạo tài khoản!")
+      }
+    } catch (err: any) {
+      console.error("Lỗi trong quá trình gửi:", err)
+      alert(`Lỗi kết nối: ${err.message || err}`)
     }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(email)) {
-      alert("Email không hợp lệ!")
-      return
-    }
-
-    const userData = {
-      username,
-      email,
-      password,
-      firstName,
-      lastName,
-      phone,
-      dateOfBirth,
-      gender,
-      profileImage: null,
-      coursesEnrolled: [],
-    }
-
-    let apiUrl
-    if (selectedRole === "TEACHER") {
-      apiUrl = `${BASE_URL}/admin/teacher-signup`
-    } else if (selectedRole === "ADMIN") {
-      apiUrl = `${BASE_URL}/admin/admin-signup`
-    } else {
-      apiUrl = `${BASE_URL}/admin/user-signup`
-    }
-
-    // Debug log
-    console.log("Gửi tới:", apiUrl)
-    console.log("Dữ liệu gửi đi:", userData)
-
-    const response = await fetch(apiUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      credentials: "include",
-      body: JSON.stringify(userData),
-    })
-
-    const data = await response.json()
-
-    console.log("Phản hồi API:", data)
-
-    if (response.ok) {
-      alert("Tạo tài khoản thành công!")
-      window.location.reload() // 👉 Reload lại trang
-      closeModal()
-    } else {
-      alert(data.message || "Không thể tạo tài khoản!")
-    }
-  } catch (err: any) {
-    console.error("Lỗi trong quá trình gửi:", err)
-    alert(`Lỗi kết nối: ${err.message || err}`)
   }
-}
-
 
   if (loading) {
     return (
@@ -186,41 +205,57 @@ export const UserControl = () => {
     )
   }
 
+  const filteredUsers = userData.filter(user => user.Status === (showInactive ? "INACTIVE" : "ACTIVE"))
+
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-6 max-w-7xl mx-auto">
       <div className="flex justify-between items-center mb-6">
-        <motion.h3 initial={{ x: -20 }} animate={{ x: 0 }} className="font-semibold text-2xl text-gray-800">
-          Danh sách người dùng:
-        </motion.h3>
-        <div className="flex gap-3">
+        <div className="flex items-center gap-4">
+          <motion.h3 initial={{ x: -20 }} animate={{ x: 0 }} className="font-semibold text-2xl text-gray-800">
+            Danh sách người dùng:
+          </motion.h3>
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
-            onClick={() => handleAdd("USER")}
-            className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 flex items-center transition-colors duration-200"
+            onClick={() => setShowInactive(!showInactive)}
+            className={`px-4 py-2 rounded-md text-white transition-colors duration-200 ${
+              showInactive ? "bg-green-500 hover:bg-green-600" : "bg-gray-500 hover:bg-gray-600"
+            }`}
           >
-            <span className="mr-2">+</span>
-            Tạo tài khoản User
-          </motion.button>
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => handleAdd("TEACHER")}
-            className="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 flex items-center transition-colors duration-200"
-          >
-            <span className="mr-2">+</span>
-            Tạo tài khoản Teacher
-          </motion.button>
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => handleAdd("ADMIN")}
-            className="bg-purple-500 text-white px-4 py-2 rounded-md hover:bg-purple-600 flex items-center transition-colors duration-200"
-          >
-            <span className="mr-2">+</span>
-            Tạo tài khoản Admin
+            {showInactive ? "Tài khoản đang hoạt động" : "Tài khoản đã xóa"}
           </motion.button>
         </div>
+        {!showInactive && (
+          <div className="flex gap-3">
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => handleAdd("USER")}
+              className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 flex items-center transition-colors duration-200"
+            >
+              <span className="mr-2">+</span>
+              Tạo tài khoản User
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => handleAdd("TEACHER")}
+              className="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 flex items-center transition-colors duration-200"
+            >
+              <span className="mr-2">+</span>
+              Tạo tài khoản Teacher
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => handleAdd("ADMIN")}
+              className="bg-purple-500 text-white px-4 py-2 rounded-md hover:bg-purple-600 flex items-center transition-colors duration-200"
+            >
+              <span className="mr-2">+</span>
+              Tạo tài khoản Admin
+            </motion.button>
+          </div>
+        )}
       </div>
 
       <motion.div
@@ -243,7 +278,7 @@ export const UserControl = () => {
           </thead>
           <tbody>
             <AnimatePresence>
-              {userData.map((user, index) => (
+              {filteredUsers.map((user, index) => (
                 <motion.tr
                   key={user.UserId}
                   initial={{ opacity: 0, y: 20 }}
@@ -271,21 +306,27 @@ export const UserControl = () => {
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex justify-center gap-2">
-                      <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => handleEdit(user)}
-                        className="bg-yellow-500 text-white px-3 py-1.5 rounded hover:bg-yellow-600 transition-colors duration-200 flex items-center text-sm"
-                      >
-                        Sửa
-                      </motion.button>
+                      {user.Status === "ACTIVE" && (
+                        <motion.button
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => handleEdit(user)}
+                          className="bg-yellow-500 text-white px-3 py-1.5 rounded hover:bg-yellow-600 transition-colors duration-200 flex items-center text-sm"
+                        >
+                          Sửa
+                        </motion.button>
+                      )}
                       <motion.button
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                         onClick={() => handleDelete(user.UserId)}
-                        className="bg-red-500 text-white px-3 py-1.5 rounded hover:bg-red-600 transition-colors duration-200 flex items-center text-sm"
+                        className={`text-white px-3 py-1.5 rounded transition-colors duration-200 flex items-center text-sm ${
+                          user.Status === "ACTIVE"
+                            ? "bg-red-500 hover:bg-red-600"
+                            : "bg-green-500 hover:bg-green-600"
+                        }`}
                       >
-                        Xóa
+                        {user.Status === "ACTIVE" ? "Xóa" : "Khôi phục"}
                       </motion.button>
                     </div>
                   </td>
@@ -304,8 +345,6 @@ export const UserControl = () => {
             exit={{ opacity: 0 }}
             className="fixed inset-0 bg-gray-500 bg-opacity-50 flex justify-center items-center z-50"
           >
-            {/* Update the modal form to include all required fields */}
-            {/* Replace the existing modal form content with this expanded version */}
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -430,8 +469,12 @@ export const UserControl = () => {
               exit={{ scale: 0.9, opacity: 0 }}
               className="bg-white p-6 rounded-lg shadow-lg w-1/3"
             >
-              <h3 className="text-xl font-semibold mb-4">Xác nhận xóa</h3>
-              <p className="mb-4">Bạn chắc chắn muốn xóa người dùng này?</p>
+              <h3 className="text-xl font-semibold mb-4">Xác nhận</h3>
+              <p className="mb-4">
+                {showInactive
+                  ? "Bạn chắc chắn muốn khôi phục người dùng này?"
+                  : "Bạn chắc chắn muốn xóa người dùng này?"}
+              </p>
               <div className="flex justify-end space-x-2">
                 <motion.button
                   whileHover={{ scale: 1.02 }}
@@ -445,9 +488,11 @@ export const UserControl = () => {
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={handleDeleteConfirm}
-                  className="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600 transition-colors duration-200"
+                  className={`text-white px-4 py-2 rounded-md transition-colors duration-200 ${
+                    showInactive ? "bg-green-500 hover:bg-green-600" : "bg-red-500 hover:bg-red-600"
+                  }`}
                 >
-                  Xóa
+                  {showInactive ? "Khôi phục" : "Xóa"}
                 </motion.button>
               </div>
             </motion.div>
