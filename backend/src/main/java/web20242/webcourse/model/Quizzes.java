@@ -9,6 +9,7 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
 import org.springframework.data.mongodb.core.mapping.FieldType;
+import web20242.webcourse.model.constant.EStatus;
 import web20242.webcourse.model.createRequest.Question;
 
 import java.time.LocalDateTime;
@@ -35,8 +36,11 @@ public class Quizzes {
     @Field(name="description")
     private String description; // Mô tả bài quiz
 
+    @Field(name = "status")
+    private EStatus status; // "ACTIVE", "INACTIVE"
+
     @Field(name = "order")
-    private Integer order; // Thứ tự bài quiz, dùng Integer thay cho Number
+    private Integer order; // Thứ tự bài quiz, dùng Integer thay acho Number
 
     @Field(name = "passingScore")
     private Double passingScore; // Điểm tối thiểu để qua, dùng Double thay cho Number

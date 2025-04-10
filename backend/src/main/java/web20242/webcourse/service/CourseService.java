@@ -1243,6 +1243,7 @@ public class CourseService {
                             overview.put("username", user.getUsername());
                             overview.put("firstName", user.getFirstName());
                             overview.put("lastName", user.getLastName());
+                            overview.put("email", user.getEmail());
                             overview.put("progress", enrollment.getProgress());
                             overview.put("status", enrollment.getStatus());
                             return overview;

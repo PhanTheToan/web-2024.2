@@ -9,6 +9,7 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
 import org.springframework.data.mongodb.core.mapping.FieldType;
+import web20242.webcourse.model.constant.EStatus;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -40,6 +41,9 @@ public class Lesson {
 
     @Field(name = "materials")
     private ArrayList<String> materials; // Danh sách URL tài liệu
+
+    @Field(name="status")
+    private EStatus status; // "ACTIVE", "INACTIVE"
 
     @Field(name = "order")
     private Integer order; // Thứ tự bài học, dùng Integer thay cho Number

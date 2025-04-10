@@ -26,6 +26,7 @@ public class WebcourseApplication {
 		System.setProperty("S3_BUCKET_NAME", dotenv.get("S3_BUCKET_NAME"));
 		System.setProperty("S3_API_ENDPOINT", dotenv.get("S3_API_ENDPOINT"));
 		System.setProperty("S3_PUBLIC_URL", dotenv.get("S3_PUBLIC_URL"));
+		System.setProperty("GEMINI_API_KEY", dotenv.get("gemini.api.key"));
 		SpringApplication.run(WebcourseApplication.class, args);
 
 	}
