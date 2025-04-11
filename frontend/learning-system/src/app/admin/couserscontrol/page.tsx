@@ -1,12 +1,17 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { courseService } from '@/services/courseService';
 import { Edit, Trash2, Eye, Plus, Search, BookOpen, Users, Star, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
 import { Course } from '@/app/types';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
+import { toast } from 'react-hot-toast';
+
+// API Base URL
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8082/api';
 
 export default function AdminCoursesPage() {
+  const router = useRouter();
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -15,22 +20,84 @@ export default function AdminCoursesPage() {
   const [courseToDelete, setCourseToDelete] = useState<Course | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
+  // Check authentication and fetch courses
   useEffect(() => {
-    const fetchCourses = async () => {
+    const checkAuthAndFetchCourses = async () => {
       try {
         setLoading(true);
-        const data = await courseService.getCourses(1, 100);
-        setCourses(data.courses);
+        console.log("Checking authentication...");
+        
+        // Check authentication using the endpoint from screenshot
+        const authResponse = await fetch(`${API_BASE_URL}/auth/check`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (!authResponse.ok) {
+          throw new Error('Bạn cần đăng nhập để tiếp tục');
+        }
+        
+        const authData = await authResponse.json();
+        const userData = authData.data;
+        
+        // Verify admin role
+        if (userData.role !== 'ROLE_ADMIN') {
+          toast.error('Bạn không có quyền truy cập trang này');
+          router.push('/login?redirect=/admin/couserscontrol');
+          return;
+        }
+        
+        console.log("Authenticated admin:", userData);
+        
+        // Fetch all courses
+        const coursesResponse = await fetch(`${API_BASE_URL}/course/all`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (!coursesResponse.ok) {
+          throw new Error('Không thể tải danh sách khóa học');
+        }
+        
+        const coursesData = await coursesResponse.json();
+        console.log("Courses data:", coursesData);
+        
+        // Parse courses based on API response structure
+        let parsedCourses: Course[] = [];
+        
+        if (coursesData.body && Array.isArray(coursesData.body)) {
+          // Handle nested response structure
+          parsedCourses = coursesData.body;
+        } else if (Array.isArray(coursesData)) {
+          // Handle direct array response
+          parsedCourses = coursesData;
+        } else {
+          console.error("Unexpected courses data format:", coursesData);
+        }
+        
+        setCourses(parsedCourses);
       } catch (error) {
-        console.error('Failed to fetch courses:', error);
+        console.error('Error:', error);
+        setError(error instanceof Error ? error.message : 'Có lỗi xảy ra');
+        
+        if (error instanceof Error && error.message.includes('đăng nhập')) {
+          router.push('/login?redirect=/admin/couserscontrol');
+        }
       } finally {
         setLoading(false);
       }
     };
 
-    fetchCourses();
-  }, []);
+    checkAuthAndFetchCourses();
+  }, [router]);
 
   // Delete course handler
   const handleDeleteCourse = async () => {
@@ -40,10 +107,24 @@ export default function AdminCoursesPage() {
     setDeleteError(null);
     
     try {
-      await courseService.deleteCourse(courseToDelete._id);
+      // Delete course using direct API call
+      const response = await fetch(`${API_BASE_URL}/course/delete/${courseToDelete._id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Không thể xóa khóa học');
+      }
+      
+      // Update UI after successful deletion
       setCourses(prevCourses => prevCourses.filter(course => course._id !== courseToDelete._id));
       setShowDeleteModal(false);
       setCourseToDelete(null);
+      toast.success('Khóa học đã được xóa thành công');
     } catch (error) {
       console.error('Failed to delete course:', error);
       setDeleteError('Không thể xóa khóa học. Vui lòng thử lại sau.');
@@ -61,14 +142,35 @@ export default function AdminCoursesPage() {
   // Filter courses based on search query and filter
   const filteredCourses = courses.filter(course => {
     const matchesSearch = course.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      course.description.toLowerCase().includes(searchQuery.toLowerCase());
+      (course.description && course.description.toLowerCase().includes(searchQuery.toLowerCase()));
     
     if (filter === 'all') return matchesSearch;
-    if (filter === 'active') return matchesSearch && course.isPublished === true;
-    if (filter === 'inactive') return matchesSearch && course.isPublished === false;
+    if (filter === 'active') return matchesSearch && (course.isPublished === true || course.courseStatus === 'ACTIVE');
+    if (filter === 'inactive') return matchesSearch && (course.isPublished === false || course.courseStatus === 'INACTIVE');
     if (filter === 'popular') return matchesSearch && course.isPopular === true;
     return matchesSearch;
   });
+
+  // Display error message if authentication or fetching failed
+  if (error && !loading) {
+    return (
+      <div className="p-8 max-w-7xl mx-auto">
+        <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4 rounded">
+          <div className="flex">
+            <div className="ml-3">
+              <p className="text-sm text-red-700">{error}</p>
+            </div>
+          </div>
+        </div>
+        <button 
+          onClick={() => router.push('/login')}
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg"
+        >
+          Đăng nhập lại
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="p-8 max-w-7xl mx-auto">
@@ -214,7 +316,7 @@ export default function AdminCoursesPage() {
                           </div>
                           <span className="text-gray-300">•</span>
                           <div className="flex items-center">
-                            <span>{course.totalDuration || 0} phút</span>
+                            <span>{course.totalDuration || course.totalTimeLimit || 0} phút</span>
                           </div>
                         </div>
                       </div>
@@ -224,14 +326,14 @@ export default function AdminCoursesPage() {
                     <div className="flex items-center">
                       <div className="w-8 h-8 bg-blue-50 text-blue-700 rounded-full flex items-center justify-center mr-2 text-xs font-medium">
                         {typeof course.teacherId === 'object' 
-                          ? `${course.teacherId.firstName.charAt(0)}${course.teacherId.lastName.charAt(0)}`
-                          : 'N/A'}
+                          ? `${course.teacherId.firstName?.charAt(0) || ''}${course.teacherId.lastName?.charAt(0) || ''}`
+                          : course.teacherFullName?.charAt(0) || 'N/A'}
                       </div>
                       <div>
                         <div className="text-sm text-gray-900">
                           {typeof course.teacherId === 'object' 
-                            ? `${course.teacherId.firstName} ${course.teacherId.lastName}`
-                            : 'Không có giảng viên'}
+                            ? `${course.teacherId.firstName || ''} ${course.teacherId.lastName || ''}`
+                            : course.teacherFullName || course.teacherName || 'Không có giảng viên'}
                         </div>
                       </div>
                     </div>
@@ -241,7 +343,7 @@ export default function AdminCoursesPage() {
                     {course.price === 0 && <div className="text-xs text-green-600">Miễn phí</div>}
                   </td>
                   <td className="px-6 py-5 whitespace-nowrap">
-                    {course.isPublished ? (
+                    {course.isPublished || course.courseStatus === 'ACTIVE' ? (
                       <span className="px-3 py-1 inline-flex text-xs leading-5 font-medium rounded-full bg-green-100 text-green-800">
                         <CheckCircle className="w-4 h-4 mr-1" /> Đang hoạt động
                       </span>
@@ -254,20 +356,20 @@ export default function AdminCoursesPage() {
                   <td className="px-6 py-5 whitespace-nowrap">
                     <div className="flex items-center text-sm text-gray-900">
                       <Users className="w-4 h-4 mr-2 text-blue-500" />
-                      <span>{course.registrations || course.studentsEnrolled?.length || 0}</span>
+                      <span>{course.studentsCount || course.registrations || course.studentsEnrolled?.length || 0}</span>
                     </div>
                   </td>
                   <td className="px-6 py-5 whitespace-nowrap">
                     <div className="flex space-x-2">
                       <Link 
-                        href={`/admin/couserscontrol/${course._id}`} 
+                        href={`/admin/couserscontrol/${course.id}`} 
                         className="text-indigo-600 hover:text-indigo-900 p-2 hover:bg-indigo-50 rounded-lg transition-colors"
                         title="Xem chi tiết"
                       >
                         <Eye className="w-5 h-5" />
                       </Link>
                       <Link 
-                        href={`/admin/couserscontrol/${course._id}/edit`} 
+                        href={`/admin/couserscontrol/${course.id}/edit`} 
                         className="text-blue-600 hover:text-blue-900 p-2 hover:bg-blue-50 rounded-lg transition-colors"
                         title="Chỉnh sửa"
                       >

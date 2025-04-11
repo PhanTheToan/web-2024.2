@@ -2,59 +2,86 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { courseService } from '@/services/courseService';
 import { 
   Edit, Eye, Plus, ArrowLeft, BookOpen, Users, 
   Calendar, Clock, Trash2, AlertTriangle, UserMinus, 
   UserPlus, DollarSign, Star, FileText, BarChart2, ArrowUpDown, MoveUp, MoveDown,
   Loader2, CheckCircle2
 } from 'lucide-react';
-import { Course, User } from '@/app/types';
-import { lessonService } from '@/services/lessonService';
-import { quizService } from '@/services/quizService';
 import { toast } from 'react-hot-toast';
-import { enrollmentService } from '@/services/enrollmentService';
 
-// Define extended interfaces to manage types until the backend is complete
-interface ExtendedUser extends Omit<User, 'createdAt' | 'updatedAt'> {
+// API Base URL
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8082/api';
+
+// Define interfaces to match API response format
+interface User {
   _id: string;
   firstName: string;
   lastName: string;
   username: string;
-  password: string;
-  role: 'TEACHER' | 'USER' | 'student';
   email: string;
-  coursesEnrolled: string[];
-  enrolledAt?: string;
-  progress?: number;
-  lastActive?: string;
-  createdAt: string | Date;
-  updatedAt: string | Date;
-  phone?: string;
+  status: string;
+  progress: number;
+  enrolledAt?: string | Date;
 }
 
-interface ExtendedCourse extends Omit<Course, 'quizzes' | 'studentsEnrolled'> {
-  category?: { _id: string; name: string };
-  quizzes?: QuizItem[] | string[];
-  studentsEnrolled: Array<ExtendedUser | string>;
+interface Quiz {
+  quizId: string;
+  title?: string;
+  orderQuiz: number;
+  questionCount: number;
+  passingScore: number;
 }
 
-interface QuizItem {
-  _id: string;
+interface Lesson {
+  lessonId: string;
+  _id?: string;
+  lessonTitle: string;
+  lessonShortTitle: string;
+  orderLesson: number;
+  description?: string;
+}
+
+interface Course {
+  id: string;
+  _id?: string;
+  teacherId: string;
+  teacherFullName: string;
+  teacherName: string;
   title: string;
-  questions: { _id: string; text: string; options: string[]; answer: string }[];
-  passingScore?: number;
+  description: string;
+  thumbnail: string;
+  price: number;
+  courseStatus: string;
+  contentCount: number;
+  totalTimeLimit: number;
+  studentsCount: number;
+  categories: string[];
+  quizzes?: Quiz[];
+  lessons?: Lesson[];
+  studentsEnrolled?: User[];
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 // Add a new interface for combined course content items
 interface CourseContentItem {
-  _id: string;
+  id: string;
   courseId: string;
   title: string;
   description?: string;
   order?: number;
   type: 'lesson' | 'quiz';
-  [key: string]: string | number | boolean | undefined; // More specific than 'any'
+  [key: string]: string | number | boolean | undefined;
+}
+
+// Định nghĩa interface cho yêu cầu ghi danh
+interface EnrollmentRequest {
+  _id?: string;
+  id?: string;
+  fullName?: string;
+  email?: string;
+  courseId?: string;
 }
 
 export default function TeacherCourseDetailPage() {
@@ -62,7 +89,7 @@ export default function TeacherCourseDetailPage() {
   const router = useRouter();
   const courseId = params.id as string;
   
-  const [course, setCourse] = useState<ExtendedCourse | null>(null);
+  const [course, setCourse] = useState<Course | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('lessons');
@@ -78,11 +105,11 @@ export default function TeacherCourseDetailPage() {
     averageProgress: number;
     revenueGenerated: string;
   } | null>(null);
-  const [studentToDelete, setStudentToDelete] = useState<{id: string, name: string} | null>(null);
+  const [studentToDelete, setStudentToDelete] = useState<{id: string, name: string, email?: string} | null>(null);
   const [studentDeleteModalOpen, setStudentDeleteModalOpen] = useState(false);
   const [studentDeleteError, setStudentDeleteError] = useState<string | null>(null);
   const [studentDeleteLoading, setStudentDeleteLoading] = useState(false);
-  const [enrollmentRequests, setEnrollmentRequests] = useState<{_id: string, name: string, email: string}[]>([]);
+  const [enrollmentRequests, setEnrollmentRequests] = useState<EnrollmentRequest[]>([]);
   const [enrollmentRequestsModalOpen, setEnrollmentRequestsModalOpen] = useState(false);
   const [addStudentModalOpen, setAddStudentModalOpen] = useState(false);
   const [newStudentName, setNewStudentName] = useState('');
@@ -96,73 +123,253 @@ export default function TeacherCourseDetailPage() {
   const [studentSortDirection, setStudentSortDirection] = useState<'asc' | 'desc'>('desc');
   const [courseContent, setCourseContent] = useState<CourseContentItem[]>([]);
 
+  // Authentication check
   useEffect(() => {
-    const fetchCourse = async () => {
-      setLoading(true);
+    const checkAuth = async () => {
       try {
-        const data = await courseService.getCourseById(courseId);
-        setCourse(data as ExtendedCourse);
-        
-        // Add analytics data like in admin page
-        setAnalyticsData({
-          totalViews: Math.floor(Math.random() * 1000) + 100,
-          completionRate: Math.floor(Math.random() * 60) + 20,
-          averageProgress: Math.floor(Math.random() * 70) + 10,
-          revenueGenerated: (data.price * data.studentsEnrolled.length).toFixed(2)
+        console.log("Checking authentication...");
+        const response = await fetch(`${API_BASE_URL}/auth/check`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          }
         });
-
-        // Fetch enrollment requests (mock data for now)
-        // In a real app, this would be an API call
-        const mockRequests = [
-          { _id: 'req1', name: 'Nguyễn Văn A', email: 'nguyenvana@example.com' },
-          { _id: 'req2', name: 'Trần Thị B', email: 'tranthib@example.com' },
-        ];
-        setEnrollmentRequests(mockRequests);
+        
+        if (!response.ok) {
+          throw new Error('Bạn cần đăng nhập để tiếp tục');
+        }
+        
+        const data = await response.json();
+        const userData = data.data;
+        
+        if (userData.role !== 'ROLE_TEACHER') {
+          toast.error('Bạn không có quyền truy cập trang này');
+          router.push('/login?redirect=/teacher/courses');
+          return;
+        }
+        
+        console.log("Authenticated user:", userData);
+        
+        // Add user's name to document title for more context
+        if (userData.firstName || userData.lastName) {
+          const teacherName = `${userData.firstName || ''} ${userData.lastName || ''}`.trim();
+          document.title = teacherName ? `Khóa học | ${teacherName}` : 'Quản lý khóa học';
+        }
+        
+        fetchCourse();
       } catch (error) {
-        console.error("Error fetching course:", error);
-        setError("Không thể tải khóa học. Vui lòng thử lại sau.");
-      } finally {
-        setLoading(false);
+        console.error('Auth check error:', error);
+        setError('Vui lòng đăng nhập để tiếp tục');
+        router.push('/login?redirect=/teacher/courses');
       }
     };
+    
+    checkAuth();
+  }, [router]);
 
-    if (courseId) {
-      fetchCourse();
-    } else {
-      setError('ID khóa học không hợp lệ');
+  const fetchCourse = async () => {
+    setLoading(true);
+    try {
+      // Fetch course information
+      console.log(`Fetching course details for ID: ${courseId}`);
+      const response = await fetch(`${API_BASE_URL}/course/info/${courseId}`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Không thể tải thông tin khóa học');
+      }
+      
+      const courseData = await response.json();
+      console.log("Course data:", courseData);
+      
+      // Parse course data based on API response structure
+      let parsedCourse: Course;
+      
+      if (courseData.body) {
+        // Handle nested response structure
+        parsedCourse = {
+          id: courseData.body.id || courseId,
+          teacherId: courseData.body.teacherId || '',
+          teacherFullName: courseData.body.teacherFullName || courseData.body.teacherName || '',
+          teacherName: courseData.body.teacherName || '',
+          title: courseData.body.title || '',
+          description: courseData.body.description || '',
+          thumbnail: courseData.body.thumbnail || '',
+          price: courseData.body.price || 0,
+          courseStatus: courseData.body.courseStatus || 'INACTIVE',
+          contentCount: courseData.body.contentCount || 0,
+          totalTimeLimit: courseData.body.totalTimeLimit || 0,
+          studentsCount: courseData.body.studentsCount || 0,
+          categories: courseData.body.categories || [],
+          createdAt: courseData.body.createdAt || new Date().toISOString(),
+          updatedAt: courseData.body.updatedAt || new Date().toISOString()
+        };
+      } else {
+        // Handle direct response structure
+        parsedCourse = {
+          id: courseData.id || courseId,
+          teacherId: courseData.teacherId || '',
+          teacherFullName: courseData.teacherFullName || courseData.teacherName || '',
+          teacherName: courseData.teacherName || '',
+          title: courseData.title || '',
+          description: courseData.description || '',
+          thumbnail: courseData.thumbnail || '',
+          price: courseData.price || 0,
+          courseStatus: courseData.courseStatus || 'INACTIVE',
+          contentCount: courseData.contentCount || 0,
+          totalTimeLimit: courseData.totalTimeLimit || 0,
+          studentsCount: courseData.studentsCount || 0,
+          categories: courseData.categories || [],
+          createdAt: courseData.createdAt || new Date().toISOString(),
+          updatedAt: courseData.updatedAt || new Date().toISOString()
+        };
+      }
+      
+      // Fetch lessons and quizzes
+      await fetchLessonsAndQuizzes(parsedCourse);
+      
+      // Fetch students ngay khi tải trang thay vì chỉ khi chuyển sang tab students
+      await fetchStudents(parsedCourse);
+      
+      setCourse(parsedCourse);
+      
+      // Add analytics data
+      setAnalyticsData({
+        totalViews: parsedCourse.studentsCount * 10 || 100,
+        completionRate: Math.floor(Math.random() * 60) + 20,
+        averageProgress: Math.floor(Math.random() * 70) + 10,
+        revenueGenerated: (parsedCourse.price * parsedCourse.studentsCount).toFixed(2)
+      });
+    } catch (error) {
+      console.error("Error fetching course:", error);
+      setError("Không thể tải khóa học. Vui lòng thử lại sau.");
+    } finally {
       setLoading(false);
     }
-  }, [courseId]);
+  };
 
-  useEffect(() => {
-    const loadCourseContent = async () => {
-      if (activeTab === 'content' && courseId) {
-        try {
-          const content = await courseService.getCourseContent(courseId);
-          // Cast each item to ensure it has all required properties
-          const typedContent = content.map(item => {
-            // Destructure to avoid duplicating and overwriting properties
-            const { _id = '', courseId = '', title = '', description, order, type, ...rest } = item;
-            return {
-              _id,
-              courseId,
-              title,
-              description,
-              order,
-              type: type as 'lesson' | 'quiz',
-              ...rest // Include remaining properties
-            };
-          }) as CourseContentItem[];
-          
-          setCourseContent(typedContent);
-        } catch (error) {
-          console.error("Error loading course content:", error);
+  const fetchLessonsAndQuizzes = async (parsedCourse: Course) => {
+    try {
+      // Fetch lessons and quizzes
+      const lessonsQuizResponse = await fetch(`${API_BASE_URL}/course/lesson_quiz/${courseId}`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
         }
+      });
+      
+      if (lessonsQuizResponse.ok) {
+        const lessonsQuizData = await lessonsQuizResponse.json();
+        console.log("Lessons and quizzes data:", lessonsQuizData);
+        
+        if (lessonsQuizData.body) {
+          // Parse lessons
+          if (lessonsQuizData.body.lessons && Array.isArray(lessonsQuizData.body.lessons)) {
+            parsedCourse.lessons = lessonsQuizData.body.lessons;
+          }
+          
+          // Parse quizzes
+          if (lessonsQuizData.body.quizzes && Array.isArray(lessonsQuizData.body.quizzes)) {
+            parsedCourse.quizzes = lessonsQuizData.body.quizzes;
+          }
+        }
+      } else {
+        console.error("Could not fetch lessons and quizzes");
       }
-    };
+    } catch (error) {
+      console.error("Error fetching lessons and quizzes:", error);
+    }
+  };
 
-    loadCourseContent();
+  const fetchStudents = async (parsedCourse: Course) => {
+    try {
+      // Fetch enrolled students
+      console.log("Fetching enrolled students for course:", courseId);
+      const studentsResponse = await fetch(`${API_BASE_URL}/course/teacher/all-user/${courseId}`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (studentsResponse.ok) {
+        const studentsData = await studentsResponse.json();
+        console.log("Students data:", studentsData);
+        
+        if (studentsData.body && Array.isArray(studentsData.body)) {
+          parsedCourse.studentsEnrolled = studentsData.body;
+          console.log("Students enrolled:", studentsData.body);
+          console.log("Students enrolled:", parsedCourse.studentsEnrolled);
+        }
+      } else {
+        console.error("Could not fetch enrolled students");
+      }
+    } catch (error) {
+      console.error("Error fetching students:", error);
+    }
+  };
+
+  // Effect for tab changes
+  useEffect(() => {
+    if (activeTab === 'content') {
+      loadCourseContent();
+    }
   }, [activeTab, courseId]);
+
+  // Load course content (combined lessons and quizzes in order)
+  const loadCourseContent = async () => {
+    if (!courseId || !course) return;
+    
+    try {
+      // Create a combined list of lessons and quizzes
+      const content: CourseContentItem[] = [];
+      
+      // Add lessons
+      if (course.lessons && Array.isArray(course.lessons)) {
+        course.lessons.forEach(lesson => {
+          content.push({
+            id: lesson.lessonId,
+            courseId: courseId,
+            title: lesson.lessonTitle || lesson.lessonShortTitle || 'Bài học',
+            description: lesson.lessonShortTitle || '',
+            order: lesson.orderLesson || 0,
+            type: 'lesson'
+          });
+        });
+      }
+      
+      // Add quizzes
+      if (course.quizzes && Array.isArray(course.quizzes)) {
+        course.quizzes.forEach(quiz => {
+          content.push({
+            id: quiz.quizId,
+            courseId: courseId,
+            title: `Bài kiểm tra ${quiz.orderQuiz || ''}`,
+            description: `${quiz.questionCount || 0} câu hỏi • Điểm đạt: ${quiz.passingScore || 60}%`,
+            order: quiz.orderQuiz || 999,
+            type: 'quiz',
+            questionCount: quiz.questionCount || 0,
+            passingScore: quiz.passingScore || 60
+          });
+        });
+      }
+      
+      // Sort by order
+      content.sort((a, b) => (a.order || 0) - (b.order || 0));
+      
+      setCourseContent(content);
+    } catch (error) {
+      console.error("Error loading course content:", error);
+    }
+  };
 
   const handleDelete = async () => {
     if (!itemToDelete) return;
@@ -171,48 +378,48 @@ export default function TeacherCourseDetailPage() {
     setDeleteError(null);
 
     try {
-      if (itemToDelete.type === 'lesson') {
-        await lessonService.deleteLesson(courseId, itemToDelete.id);
-        // Update the lessons array to remove the deleted lesson
-        setCourse(prev => {
-          if (!prev) return prev;
-          
-          // Create a new filtered lessons array
-          const updatedLessons = Array.isArray(prev.lessons) 
-            ? prev.lessons.filter(lesson => {
-                const lessonId = typeof lesson === 'string' ? lesson : lesson._id;
-                return lessonId !== itemToDelete.id;
-              })
-            : [];
-            
-          // Return a properly typed course object
-          return {
-            ...prev,
-            lessons: updatedLessons
-          } as ExtendedCourse;
-        });
-      } else {
-        await quizService.deleteQuiz(courseId, itemToDelete.id);
-        // Update the quizzes array to remove the deleted quiz
-        setCourse(prev => {
-          if (!prev) return prev;
-          
-          // Create a new filtered quizzes array
-          const updatedQuizzes = Array.isArray(prev.quizzes) 
-            ? prev.quizzes.filter(quiz => {
-                const quizId = typeof quiz === 'string' ? quiz : quiz._id;
-                return quizId !== itemToDelete.id;
-              })
-            : [];
-            
-          // Return a properly typed course object
-          return {
-            ...prev,
-            quizzes: updatedQuizzes
-          } as ExtendedCourse;
-        });
+      let url = '';
+      if (itemToDelete.type === 'lesson' && course && course.lessons) {
+        url = `${API_BASE_URL}/course/delete-lesson/${itemToDelete.id}?courseId=${courseId}`;
+      } else if (itemToDelete.type === 'quiz' && course && course.quizzes) {
+        url = `${API_BASE_URL}/course/delete-quiz/${itemToDelete.id}?courseId=${courseId}`;
       }
       
+      const response = await fetch(url, {
+        method: 'DELETE',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      console.log("Response:", response);
+      if (!response.ok) {
+        throw new Error(`Không thể xóa ${itemToDelete.type === 'lesson' ? 'bài học' : 'bài kiểm tra'}`);
+      }
+      
+      // Update course state
+      if (course) {
+        if (itemToDelete.type === 'lesson' && course.lessons) {
+          setCourse({
+            ...course,
+            lessons: course.lessons.filter(lesson => lesson.lessonId !== itemToDelete.id)
+          });
+        } else if (itemToDelete.type === 'quiz' && course.quizzes) {
+          setCourse({
+            ...course,
+            quizzes: course.quizzes.filter(quiz => quiz.quizId !== itemToDelete.id)
+          });
+        }
+      }
+      
+      // Update course content if in content tab
+      if (activeTab === 'content') {
+        setCourseContent(prevContent => 
+          prevContent.filter(item => !(item.id === itemToDelete.id && item.type === itemToDelete.type))
+        );
+      }
+      
+      toast.success(`${itemToDelete.type === 'lesson' ? 'Bài học' : 'Bài kiểm tra'} đã được xóa thành công`);
       setDeleteModalOpen(false);
       setItemToDelete(null);
     } catch (err) {
@@ -229,34 +436,46 @@ export default function TeacherCourseDetailPage() {
     setDeleteModalOpen(true);
   };
 
-  // Add function to handle student deletion
+  // Cập nhật API xóa học viên khỏi khóa học
   const handleStudentDelete = async () => {
-    if (!studentToDelete) return;
+    if (!studentToDelete || !courseId) return;
 
     setStudentDeleteLoading(true);
     setStudentDeleteError(null);
 
     try {
-      // In a real app, call an API to remove the student
-      // await courseService.removeStudentFromCourse(courseId, studentToDelete.id);
+      const email = studentToDelete.email || '';
+      console.log(`Deleting student with email ${email} from course ${courseId}`);
       
-      // Update the course state to remove the student
-      setCourse(prev => {
-        if (!prev) return prev;
-
-        const updatedStudents = Array.isArray(prev.studentsEnrolled)
-          ? prev.studentsEnrolled.filter(student => {
-              const studentId = typeof student === 'string' ? student : student._id;
-              return studentId !== studentToDelete.id;
-            })
-          : [];
-
-        return {
-          ...prev,
-          studentsEnrolled: updatedStudents
-        } as ExtendedCourse;
-      });
-
+      // API delete sử dụng query params giống như API add
+      const response = await fetch(
+        `${API_BASE_URL}/enrollments/teacher/delete?courseId=${encodeURIComponent(courseId)}&email=${encodeURIComponent(email)}`, 
+        {
+          method: 'DELETE',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      
+      if (!response.ok) {
+        console.error(`DELETE ${API_BASE_URL}/enrollments/teacher/delete?courseId=${courseId}&email=${email}: ${response.status} ${response.statusText}`);
+        const errorText = await response.text();
+        console.error("Error response:", errorText);
+        throw new Error('Không thể xóa học viên khỏi khóa học');
+      }
+      
+      // Update course state
+      if (course?.studentsEnrolled) {
+        setCourse({
+          ...course,
+          studentsEnrolled: course.studentsEnrolled.filter(student => student.email !== email),
+          studentsCount: (course.studentsCount || 0) - 1
+        });
+      }
+      
+      toast.success('Học viên đã được xóa khỏi khóa học');
       setStudentDeleteModalOpen(false);
       setStudentToDelete(null);
     } catch (err) {
@@ -268,138 +487,75 @@ export default function TeacherCourseDetailPage() {
   };
 
   // Add function to confirm student deletion
-  const confirmStudentDelete = (studentId: string, studentName: string) => {
-    setStudentToDelete({ id: studentId, name: studentName });
+  const confirmStudentDelete = (studentId: string, studentName: string, studentEmail: string) => {
+    setStudentToDelete({ id: studentId, name: studentName, email: studentEmail });
     setStudentDeleteModalOpen(true);
   };
 
-  // Add function to handle enrollment approval/rejection
-  const handleEnrollmentRequest = async (requestId: string, action: 'approve' | 'reject') => {
-    setDeleteLoading(true);
-    
-    try {
-      // In a real app, call an API to approve/reject the enrollment
-      // await courseService.processEnrollmentRequest(courseId, requestId, isApproved);
-      
-      // Update local state to remove the processed request
-      setEnrollmentRequests(prev => prev.filter(req => req._id !== requestId));
-      
-      // If approved, add the student to the course
-      if (action === 'approve' && course) {
-        const approvedStudent = enrollmentRequests.find(req => req._id === requestId);
-        
-        if (approvedStudent) {
-          setCourse(prev => {
-            if (!prev) return prev;
-            
-            // Create a new student object with all required fields
-            const nameArray = approvedStudent.name.split(' ');
-            const firstName = nameArray.pop() || '';
-            const lastName = nameArray.join(' ') || '';
-            
-            const newStudent: ExtendedUser = {
-              _id: approvedStudent._id,
-              firstName: firstName,
-              lastName: lastName,
-              email: approvedStudent.email,
-              username: approvedStudent.email,
-              password: '',
-              role: 'student',
-              coursesEnrolled: [],
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-              enrolledAt: new Date().toISOString(),
-              progress: 0,
-              lastActive: new Date().toISOString()
-            };
-            
-            // Add to students enrolled list
-            const updatedStudents = Array.isArray(prev.studentsEnrolled) 
-              ? [...prev.studentsEnrolled, newStudent]
-              : [newStudent];
-              
-            return {
-              ...prev,
-              studentsEnrolled: updatedStudents
-            } as ExtendedCourse;
-          });
-        }
-      }
-    } catch (err) {
-      console.error('Error processing enrollment request:', err);
-    } finally {
-      setDeleteLoading(false);
-    }
-  };
-
-  // Function to handle the addition of a student
+  // Thêm hàm xử lý thêm học viên vào khóa học
   const handleAddStudent = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!courseId || !newStudentEmail.trim() || !course) return;
+    
     setAddStudentLoading(true);
+    setShowErrorMessage(false);
+    setShowSuccessMessage(false);
 
     try {
       // Check if the student email already exists in the course
-      const emailExists = course?.studentsEnrolled?.some(
-        (student) => {
-          if (typeof student === 'string') return false;
-          return student.email?.toLowerCase() === newStudentEmail.toLowerCase();
+      if (course.studentsEnrolled) {
+        const emailExists = course.studentsEnrolled.some(
+          student => student.email?.toLowerCase() === newStudentEmail.toLowerCase()
+        );
+        
+        if (emailExists) {
+          setErrorMessage("Email này đã được đăng ký trong khóa học.");
+          setShowErrorMessage(true);
+          setAddStudentLoading(false);
+          return;
+        }
+      }
+
+      console.log(`Adding student with email ${newStudentEmail} to course ${courseId}`);
+      
+      // Sử dụng query params theo format trong ảnh Postman
+      const response = await fetch(
+        `${API_BASE_URL}/enrollments/teacher/add?email=${encodeURIComponent(newStudentEmail)}&courseId=${encodeURIComponent(courseId)}`, 
+        {
+          method: 'PUT',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          }
         }
       );
       
-      if (emailExists) {
-        setErrorMessage("Email này đã được đăng ký trong khóa học.");
-        setShowErrorMessage(true);
-        setAddStudentLoading(false);
-        return;
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Không thể thêm học viên');
       }
-
-      const result = await enrollmentService.enrollCourse(
-        newStudentEmail, // userId (using email as a substitute for now)
-        course?._id || '' // courseId
-      );
-
-      if (result) {
-        // Add the new student to the studentsEnrolled array if it exists
-        if (course?.studentsEnrolled) {
-          const nameArray = newStudentName.split(' ');
-          const firstName = nameArray.pop() || '';
-          const lastName = nameArray.join(' ') || '';
-          
-          const newStudent: ExtendedUser = {
-            _id: `user-${Date.now()}`, // Generate a temp ID
-            email: newStudentEmail,
-            username: newStudentEmail,
-            firstName: firstName,
-            lastName: lastName,
-            password: '',
-            role: 'student',
-            coursesEnrolled: [],
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            progress: 0,
-            lastActive: new Date().toISOString(),
-            enrolledAt: new Date().toISOString()
-          };
-          
-          setCourse(prev => {
-            if (!prev) return prev;
-            return {
-              ...prev,
-              studentsEnrolled: [...prev.studentsEnrolled, newStudent]
-            };
-          });
-        }
-
-        setNewStudentName('');
-        setNewStudentEmail('');
-        setAddStudentModalOpen(false);
-        setSuccessMessage('Học viên đã được thêm thành công!');
-        setShowSuccessMessage(true);
+      
+      // Refresh danh sách học viên nếu course không null
+      if (course) {
+        await fetchStudents(course);
+      } else {
+        // Fetch lại toàn bộ thông tin khóa học nếu cần
+        fetchCourse();
       }
+      
+      // Cập nhật UI
+      setNewStudentName('');
+      setNewStudentEmail('');
+      setAddStudentModalOpen(false);
+      setSuccessMessage('Học viên đã được thêm thành công!');
+      setShowSuccessMessage(true);
+      toast.success('Học viên đã được thêm thành công!');
     } catch (error) {
       console.error('Failed to add student:', error);
-      setErrorMessage('Có lỗi xảy ra khi thêm học viên. Vui lòng thử lại.');
+      setErrorMessage(error instanceof Error ? error.message : 'Có lỗi xảy ra khi thêm học viên. Vui lòng thử lại.');
       setShowErrorMessage(true);
+      toast.error('Không thể thêm học viên');
     } finally {
       setAddStudentLoading(false);
     }
@@ -433,29 +589,61 @@ export default function TeacherCourseDetailPage() {
   };
   
   const saveContentOrder = async () => {
+    if (!course) return;
     setContentOrderSaving(true);
     
     try {
       // Separate lesson IDs and quiz IDs while preserving the overall order
-      const lessonIds: string[] = [];
-      const quizIds: string[] = [];
+      const lessons = courseContent
+        .filter(item => item.type === 'lesson')
+        .map((item, index) => ({
+          lessonId: item.id,
+          orderLesson: index + 1
+        }));
       
-      // Add each item to the appropriate array based on type
-      courseContent.forEach(item => {
-        if (item.type === 'lesson') {
-          lessonIds.push(item._id);
-        } else if (item.type === 'quiz') {
-          quizIds.push(item._id);
+      const quizzes = courseContent
+        .filter(item => item.type === 'quiz')
+        .map((item, index) => ({
+          quizId: item.id,
+          orderQuiz: index + 1
+        }));
+      
+      // Update lessons order
+      if (lessons.length > 0) {
+        const lessonResponse = await fetch(`${API_BASE_URL}/lesson/reorder`, {
+          method: 'PUT',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            courseId: course.id,
+            lessons: lessons
+          })
+        });
+        
+        if (!lessonResponse.ok) {
+          throw new Error('Không thể cập nhật thứ tự bài học');
         }
-      });
-      
-      // Update both lessons and quizzes order
-      if (lessonIds.length > 0) {
-        await courseService.updateLessonOrder(courseId, lessonIds);
       }
       
-      if (quizIds.length > 0) {
-        await courseService.updateQuizOrder(courseId, quizIds);
+      // Update quizzes order
+      if (quizzes.length > 0) {
+        const quizResponse = await fetch(`${API_BASE_URL}/quiz/reorder`, {
+          method: 'PUT',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            courseId: course.id,
+            quizzes: quizzes
+          })
+        });
+        
+        if (!quizResponse.ok) {
+          throw new Error('Không thể cập nhật thứ tự bài kiểm tra');
+        }
       }
       
       // Exit reordering mode
@@ -468,6 +656,142 @@ export default function TeacherCourseDetailPage() {
       toast.error('Không thể cập nhật thứ tự nội dung khóa học. Vui lòng thử lại sau.');
     } finally {
       setContentOrderSaving(false);
+    }
+  };
+
+  // Thêm các hàm helper để xử lý dữ liệu sinh viên
+  const getName = (student: User) => {
+    return `${student.firstName || ''} ${student.lastName || ''}`.trim() || student.username || 'Người dùng';
+  };
+
+  const getProgress = (student: User) => {
+    return student.progress || 0;
+  };
+
+  const getDate = (student: User) => {
+    if ('enrolledAt' in student && student.enrolledAt) {
+      return new Date(student.enrolledAt).getTime();
+    }
+    return Date.now() - Math.floor(Math.random() * 30 * 24 * 60 * 60 * 1000);
+  };
+
+  // Thêm useEffect để fetch enrollment requests khi component mount và sau mỗi 30 giây
+  useEffect(() => {
+    const fetchEnrollmentRequests = async () => {
+      if (!courseId) return;
+      
+      try {
+        console.log("Fetching enrollment requests for course ID:", courseId);
+        // Đảm bảo courseId được thêm vào URL
+        const response = await fetch(`${API_BASE_URL}/enrollments/all-request/${courseId}`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          console.log("Enrollment requests data:", data);
+          
+          // Cấu trúc dữ liệu theo phản hồi từ ảnh Postman
+          if (data.body && data.body.request && Array.isArray(data.body.request)) {
+            // Log để debug
+            console.log("Raw request data:", data.body.request);
+            
+            setEnrollmentRequests(data.body.request.map((req: {
+              _id?: string;
+              id?: string;
+              email?: string;
+              fullName?: string;
+              courseId?: string;
+            }) => {
+              const processed = {
+                _id: req._id || req.id,
+                email: req.email,
+                fullName: req.fullName,
+                courseId: courseId
+              };
+              console.log("Processed request:", processed);
+              return processed;
+            }));
+          } else {
+            console.log("No enrollment requests found or invalid format");
+            setEnrollmentRequests([]);
+          }
+        } else {
+          console.error("Failed to fetch enrollment requests:", await response.text());
+          setEnrollmentRequests([]);
+        }
+      } catch (error) {
+        console.error("Error fetching enrollment requests:", error);
+        setEnrollmentRequests([]);
+      }
+    };
+    
+    // Fetch requests immediately
+    fetchEnrollmentRequests();
+    
+    // Set up polling every 30 seconds to check for new requests
+    const intervalId = setInterval(fetchEnrollmentRequests, 30000);
+    
+    // Clean up interval on unmount
+    return () => clearInterval(intervalId);
+  }, [courseId]);
+
+  // Cập nhật hàm handleEnrollmentRequest để nhận trực tiếp email thay vì request ID
+  const handleEnrollmentRequest = async (requestData: EnrollmentRequest, action: 'accept' | 'reject') => {
+    if (!course || !courseId) return;
+    
+    try {
+      // Kiểm tra thông tin yêu cầu
+      if (!requestData || !requestData.email) {
+        throw new Error('Không tìm thấy thông tin yêu cầu ghi danh');
+      }
+      
+      console.log(`Processing ${action} for email ${requestData.email} in course ${courseId}`);
+      
+      // Sử dụng endpoint mới với query params
+      const response = await fetch(
+        `${API_BASE_URL}/enrollments/teacher/${action}?email=${encodeURIComponent(requestData.email)}&courseId=${courseId}`, 
+        {
+          method: 'PUT',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Không thể ${action === 'accept' ? 'chấp nhận' : 'từ chối'} yêu cầu`);
+      }
+      
+      // Remove the request from the list
+      setEnrollmentRequests(prevRequests => 
+        prevRequests.filter(req => req.email !== requestData.email)
+      );
+      
+      // If accepted, fetch students again to update the list
+      if (action === 'accept') {
+        await fetchStudents(course);
+        
+        // Update studentsCount manually in case API doesn't return updated count
+        setCourse(prevCourse => {
+          if (!prevCourse) return prevCourse;
+          return {
+            ...prevCourse,
+            studentsCount: (prevCourse.studentsCount || 0) + 1
+          };
+        });
+      }
+      
+      toast.success(`Yêu cầu ghi danh đã được ${action === 'accept' ? 'chấp nhận' : 'từ chối'}`);
+    } catch (error) {
+      console.error(`Error ${action} enrollment request:`, error);
+      toast.error(error instanceof Error ? error.message : `Không thể ${action === 'accept' ? 'chấp nhận' : 'từ chối'} yêu cầu ghi danh`);
     }
   };
 
@@ -516,26 +840,6 @@ export default function TeacherCourseDetailPage() {
     );
   }
   
-  // Comment out unused variables to fix linter errors
-  // const lessons = Array.isArray(course.lessons) 
-  //   ? course.lessons.map(lesson => {
-  //       if (typeof lesson === 'string') {
-  //         // Properly type assert string to avoid 'never' type errors
-  //         const lessonId = lesson as string;
-  //         return { 
-  //           _id: lessonId, 
-  //           title: `Bài học ${lessonId.length >= 4 ? lessonId.slice(-4) : ''}`, 
-  //           courseId: courseId 
-  //         } as Lesson;
-  //       }
-  //       return lesson;
-  //     }) 
-  //   : [];
-    
-  // const quizzes = Array.isArray(course.quizzes) 
-  //   ? course.quizzes.map((quiz, index) => typeof quiz === 'string' ? { _id: quiz, title: `Bài kiểm tra ${index + 1}`, questions: [] } as QuizItem : quiz) 
-  //   : [];
-    
   return (
     <div className="p-6 max-w-7xl mx-auto">
       {/* Header */}
@@ -551,6 +855,15 @@ export default function TeacherCourseDetailPage() {
         </div>
         
         <div className="flex flex-wrap gap-2">
+          {enrollmentRequests.length > 0 && (
+            <button
+              onClick={() => setEnrollmentRequestsModalOpen(true)}
+              className="bg-amber-500 text-white px-4 py-2 rounded-md flex items-center hover:bg-amber-600 transition-colors"
+            >
+              <Users className="w-4 h-4 mr-2" />
+              Yêu cầu tham gia ({enrollmentRequests.length})
+            </button>
+          )}
           <Link
             href="/teacher/courses/create"
             className="bg-emerald-600 text-white px-4 py-2 rounded-md flex items-center hover:bg-emerald-700 transition-colors"
@@ -592,12 +905,12 @@ export default function TeacherCourseDetailPage() {
                   <div className="flex flex-col items-center p-3 bg-gray-50 rounded-lg">
                     <Clock className="w-6 h-6 text-gray-700 mb-2" />
                     <div className="text-sm text-gray-500">Thời lượng</div>
-                    <div className="font-medium">{course.totalDuration || 0} phút</div>
+                    <div className="font-medium">{course.totalTimeLimit || 0} phút</div>
                   </div>
                   <div className="flex flex-col items-center p-3 bg-gray-50 rounded-lg">
                     <BookOpen className="w-6 h-6 text-gray-700 mb-2" />
                     <div className="text-sm text-gray-500">Bài học</div>
-                    <div className="font-medium">{course.lessons.length}</div>
+                    <div className="font-medium">{course.lessons?.length || 0}</div>
                   </div>
                   <div className="flex flex-col items-center p-3 bg-gray-50 rounded-lg">
                     <FileText className="w-6 h-6 text-gray-700 mb-2" />
@@ -607,7 +920,7 @@ export default function TeacherCourseDetailPage() {
                   <div className="flex flex-col items-center p-3 bg-gray-50 rounded-lg">
                     <Users className="w-6 h-6 text-gray-700 mb-2" />
                     <div className="text-sm text-gray-500">Học viên</div>
-                    <div className="font-medium">{course.studentsEnrolled.length}</div>
+                    <div className="font-medium">{course.studentsEnrolled?.length || 0}</div>
                   </div>
                 </div>
               </div>
@@ -624,7 +937,7 @@ export default function TeacherCourseDetailPage() {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div className="bg-gray-50 p-4 rounded-lg">
                     <div className="text-sm text-gray-500 mb-1">Lượt đăng ký</div>
-                    <div className="text-xl font-bold">{course.registrations || course.studentsEnrolled.length}</div>
+                    <div className="text-xl font-bold">{course.studentsCount || (course.studentsEnrolled ? course.studentsEnrolled.length : 0)}</div>
                   </div>
                   <div className="bg-gray-50 p-4 rounded-lg">
                     <div className="text-sm text-gray-500 mb-1">Tỷ lệ hoàn thành</div>
@@ -667,14 +980,16 @@ export default function TeacherCourseDetailPage() {
                     <Calendar className="w-5 h-5 mr-2 text-gray-400" />
                     Ngày tạo
                   </div>
-                  <div className="font-medium">{new Date(course.createdAt).toLocaleDateString()}</div>
+                  <div className="font-medium">
+                    {course.createdAt ? new Date(course.createdAt).toLocaleDateString() : 'N/A'}
+                  </div>
                 </div>
                 <div className="flex items-center text-gray-600">
                   <div className="flex-1">Danh mục</div>
                   <div className="flex flex-wrap justify-end">
-                    {course.category && (
+                    {course.categories && (
                       <span className="bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded-full mr-1 mb-1">
-                        {course.category.name}
+                        {course.categories.join(', ')}
                       </span>
                     )}
                   </div>
@@ -687,18 +1002,18 @@ export default function TeacherCourseDetailPage() {
               <h3 className="text-lg font-bold mb-4">Thao tác nhanh</h3>
               <div className="space-y-3">
                 <Link 
-                  href={`/teacher/courses/${course._id}/lessons/create`}
+                  href={`/teacher/courses/${course?.id || courseId}/lessons/create`}
                   className="flex items-center text-indigo-600 hover:text-indigo-800"
                 >
                   <Plus className="w-4 h-4 mr-2" />
-                  Thêm bài học mới
+                  Thêm bài học
                 </Link>
                 <Link 
-                  href={`/teacher/courses/${course._id}/quizzes/create`}
+                  href={`/teacher/courses/${course?.id || courseId}/quizzes/create`}
                   className="flex items-center text-indigo-600 hover:text-indigo-800"
                 >
                   <Plus className="w-4 h-4 mr-2" />
-                  Thêm bài kiểm tra mới
+                  Thêm bài kiểm tra
                 </Link>
               </div>
             </div>
@@ -754,7 +1069,7 @@ export default function TeacherCourseDetailPage() {
                 <h3 className="text-lg font-medium">Danh sách bài học</h3>
                 <div className="flex space-x-2">
                   <Link 
-                    href={`/teacher/courses/${course?._id}/lessons/create`}
+                    href={`/teacher/courses/${course?.id || courseId}/lessons/create`}
                     className="bg-indigo-600 text-white px-3 py-1.5 rounded-md text-sm flex items-center"
                   >
                     <Plus className="w-4 h-4 mr-1" />
@@ -769,7 +1084,7 @@ export default function TeacherCourseDetailPage() {
                     <FileText className="w-12 h-12 mx-auto text-gray-400 mb-2" />
                     <p>Khóa học chưa có bài học nào</p>
                     <Link 
-                      href={`/teacher/courses/${course?._id}/lessons/create`}
+                      href={`/teacher/courses/${course?.id || courseId}/lessons/create`}
                       className="mt-4 inline-flex items-center text-indigo-600 hover:text-indigo-800"
                     >
                       <Plus className="w-4 h-4 mr-1" />
@@ -778,8 +1093,8 @@ export default function TeacherCourseDetailPage() {
                   </div>
                 ) : (
                   course.lessons.map((lesson, index) => {
-                    const lessonId = typeof lesson === 'string' ? lesson : lesson._id;
-                    const lessonTitle = typeof lesson === 'string' ? `Bài học ${index + 1}` : lesson.title;
+                    const lessonId = typeof lesson === 'string' ? lesson : (lesson._id || lesson.lessonId);
+                    const lessonTitle = typeof lesson === 'string' ? `Bài học ${index + 1}` : lesson.lessonTitle;
                     const lessonDescription = typeof lesson === 'object' ? lesson.description : '';
                     
                     return (
@@ -828,7 +1143,7 @@ export default function TeacherCourseDetailPage() {
                 <h3 className="text-lg font-medium">Danh sách bài kiểm tra</h3>
                 <div className="flex space-x-2">
                   <Link 
-                    href={`/teacher/courses/${course?._id}/quizzes/create`}
+                    href={`/teacher/courses/${course?.id || courseId}/quizzes/create`}
                     className="bg-indigo-600 text-white px-3 py-1.5 rounded-md text-sm flex items-center"
                   >
                     <Plus className="w-4 h-4 mr-1" />
@@ -843,7 +1158,7 @@ export default function TeacherCourseDetailPage() {
                     <FileText className="w-12 h-12 mx-auto text-gray-400 mb-2" />
                     <p>Khóa học chưa có bài kiểm tra nào</p>
                     <Link 
-                      href={`/teacher/courses/${course?._id}/quizzes/create`}
+                      href={`/teacher/courses/${course?.id || courseId}/quizzes/create`}
                       className="mt-4 inline-flex items-center text-indigo-600 hover:text-indigo-800"
                     >
                       <Plus className="w-4 h-4 mr-1" />
@@ -852,8 +1167,8 @@ export default function TeacherCourseDetailPage() {
                   </div>
                 ) : (
                   course.quizzes.map((quiz, index) => {
-                    const quizId = typeof quiz === 'string' ? quiz : quiz._id;
-                    const quizTitle = typeof quiz === 'object' ? quiz.title : `Bài kiểm tra ${index + 1}`;
+                    const quizId = typeof quiz === 'string' ? quiz : quiz.quizId;
+                    const quizTitle = typeof quiz === 'object' && quiz.title ? quiz.title : `Bài kiểm tra ${index + 1}`;
                     return (
                       <div key={index} className="flex items-start p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                         <div className="flex-shrink-0 w-8 h-8 bg-indigo-100 text-indigo-700 rounded-full flex items-center justify-center mr-4">
@@ -862,9 +1177,7 @@ export default function TeacherCourseDetailPage() {
                         <div className="flex-grow">
                           <h4 className="font-medium text-gray-900">{quizTitle}</h4>
                           <p className="text-sm text-gray-500">
-                            {typeof quiz === 'object' && quiz.questions 
-                              ? `${quiz.questions.length} câu hỏi ${quiz.passingScore ? `• Điểm đạt: ${quiz.passingScore}%` : ''}` 
-                              : 'Không có thông tin chi tiết'}
+                            {typeof quiz === 'object' && quiz.questionCount ? `${quiz.questionCount} câu hỏi` : 'Không có thông tin chi tiết'}
                           </p>
                         </div>
                         <div className="flex items-center ml-4">
@@ -949,14 +1262,14 @@ export default function TeacherCourseDetailPage() {
                     <p>Khóa học chưa có nội dung nào</p>
                     <div className="flex justify-center mt-4 space-x-4">
                       <Link 
-                        href={`/teacher/courses/${course?._id}/lessons/create`}
+                        href={`/teacher/courses/${course?.id || courseId}/lessons/create`}
                         className="inline-flex items-center text-indigo-600 hover:text-indigo-800"
                       >
                         <Plus className="w-4 h-4 mr-1" />
                         Thêm bài học
                       </Link>
                       <Link 
-                        href={`/teacher/courses/${course?._id}/quizzes/create`}
+                        href={`/teacher/courses/${course?.id || courseId}/quizzes/create`}
                         className="inline-flex items-center text-indigo-600 hover:text-indigo-800"
                       >
                         <Plus className="w-4 h-4 mr-1" />
@@ -966,14 +1279,14 @@ export default function TeacherCourseDetailPage() {
                   </div>
                 ) : (
                   courseContent.map((item, index) => {
-                    const itemId = item._id;
+                    const itemId = item.id;
                     const isLesson = item.type === 'lesson';
                     const itemTitle = item.title;
                     const itemDescription = item.description || '';
                     const order = item.order || 999;
                     
                     return (
-                      <div key={item._id} className="flex items-start p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                      <div key={item.id || `content-${index}`} className="flex items-start p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                         {isReorderingContent && (
                           <div className="flex flex-col mr-2">
                             <button 
@@ -1081,30 +1394,14 @@ export default function TeacherCourseDetailPage() {
               </div>
 
               <div className="space-y-4">
-                {course.studentsEnrolled.length === 0 ? (
+                {!course?.studentsEnrolled || course.studentsEnrolled.length === 0 ? (
                   <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg">
                     <p>Chưa có học viên nào đăng ký khóa học này</p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {[...course.studentsEnrolled]
+                    {course.studentsEnrolled
                       .sort((a, b) => {
-                        const getProgress = (student: ExtendedUser | string) => 
-                          typeof student !== 'string' && 'progress' in student ? student.progress || 0 : 0;
-                        
-                        const getName = (student: ExtendedUser | string) => {
-                          if (typeof student === 'string') return '';
-                          return `${student.firstName || ''} ${student.lastName || ''}`.trim();
-                        };
-                        
-                        const getDate = (student: ExtendedUser | string) => {
-                          if (typeof student === 'string') return 0;
-                          if ('enrolledAt' in student && student.enrolledAt) {
-                            return new Date(student.enrolledAt as Date | string).getTime();
-                          }
-                          return 0;
-                        };
-                        
                         if (studentSort === 'progress') {
                           const progressA = getProgress(a);
                           const progressB = getProgress(b);
@@ -1122,24 +1419,14 @@ export default function TeacherCourseDetailPage() {
                         }
                       })
                       .map((student) => {
-                        const studentId = typeof student === 'string' ? student : student._id;
-                        const studentName = typeof student !== 'string' 
-                          ? `${student.firstName || ''} ${student.lastName || ''}`.trim() 
-                          : 'Unknown';
-                        const studentEmail = typeof student !== 'string' ? student.email : '';
+                        const studentId = student._id;
+                        const studentName = getName(student);
+                        const studentEmail = student.email || '';
                         
-                        // Generate placeholder data for demo
-                        const progress = typeof student !== 'string' && 'progress' in student
-                          ? student.progress || Math.floor(Math.random() * 100)
-                          : Math.floor(Math.random() * 100);
-                          
-                        const lastActive = typeof student !== 'string' && 'lastActive' in student
-                          ? student.lastActive || new Date(Date.now() - Math.floor(Math.random() * 30) * 24 * 60 * 60 * 1000)
-                          : new Date(Date.now() - Math.floor(Math.random() * 30) * 24 * 60 * 60 * 1000);
-                          
-                        const enrolledAt = typeof student !== 'string' && 'enrolledAt' in student
-                          ? student.enrolledAt || new Date(Date.now() - Math.floor(Math.random() * 90) * 24 * 60 * 60 * 1000)
-                          : new Date(Date.now() - Math.floor(Math.random() * 90) * 24 * 60 * 60 * 1000);
+                        // Lấy dữ liệu tiến độ học tập
+                        const progress = getProgress(student);
+                        const lastActive = getDate(student);
+                        const enrolledAt = getDate(student);
 
                         return (
                           <div key={studentId} className="bg-white p-4 rounded-lg shadow">
@@ -1159,7 +1446,7 @@ export default function TeacherCourseDetailPage() {
                                 </div>
                               </div>
                               <button 
-                                onClick={() => confirmStudentDelete(studentId, studentName)}
+                                onClick={() => confirmStudentDelete(studentId, studentName, studentEmail)}
                                 className="text-red-500 hover:text-red-700 text-sm"
                               >
                                 Xóa
@@ -1285,7 +1572,7 @@ export default function TeacherCourseDetailPage() {
             )}
             
             <p className="mb-4">
-              Bạn có chắc chắn muốn xóa học viên <span className="font-medium">{studentToDelete?.name}</span> khỏi khóa học này? 
+              Bạn có chắc chắn muốn xóa học viên <span className="font-medium">{studentToDelete?.name}</span> <span className="text-gray-600">({studentToDelete?.email})</span> khỏi khóa học này? 
               Hành động này không thể hoàn tác.
             </p>
             
@@ -1431,21 +1718,21 @@ export default function TeacherCourseDetailPage() {
             ) : (
               <div className="space-y-4">
                 {enrollmentRequests.map(request => (
-                  <div key={request._id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-gray-50 rounded-lg">
+                  <div key={request._id || request.email} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-gray-50 rounded-lg">
                     <div className="mb-3 sm:mb-0">
-                      <h4 className="font-medium text-gray-900">{request.name}</h4>
+                      <h4 className="font-medium text-gray-900">{request.fullName}</h4>
                       <p className="text-sm text-gray-500">{request.email}</p>
                     </div>
                     <div className="flex items-center space-x-2">
                       <button
-                        onClick={() => handleEnrollmentRequest(request._id, 'reject')}
+                        onClick={() => handleEnrollmentRequest(request, 'reject')}
                         className="px-3 py-1.5 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50"
                         disabled={deleteLoading}
                       >
                         Từ chối
                       </button>
                       <button
-                        onClick={() => handleEnrollmentRequest(request._id, 'approve')}
+                        onClick={() => handleEnrollmentRequest(request, 'accept')}
                         className="px-3 py-1.5 bg-green-600 text-white rounded-md hover:bg-green-700"
                         disabled={deleteLoading}
                       >

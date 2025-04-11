@@ -2,8 +2,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { courseService } from '@/services/courseService';
-import { lessonService } from '@/services/lessonService';
 import { 
   ArrowLeft, Edit, Trash, Clock, Calendar, 
   FileText, AlertCircle, Loader2, Play,
@@ -12,6 +10,9 @@ import {
 import { Course, Lesson } from '@/app/types';
 import { formatDate } from '@/lib/utils';
 import { toast } from 'react-hot-toast';
+
+// API Base URL
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8082/api';
 
 export default function LessonDetailPage() {
   const params = useParams();
@@ -32,21 +33,72 @@ export default function LessonDetailPage() {
       try {
         setLoading(true);
         
-        // Fetch course data
-        const courseData = await courseService.getCourseById(courseId);
-        setCourse(courseData as Course);
+        // Fetch course data directly using API
+        console.log("Fetching course:", courseId);
+        const courseResponse = await fetch(`${API_BASE_URL}/course/info/${courseId}`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!courseResponse.ok) {
+          throw new Error("Failed to fetch course");
+        }
+
+        const courseData = await courseResponse.json();
+        let parsedCourse;
         
-        // Fetch lesson data
-        const lessonData = await lessonService.getLessonById(lessonId);
-        setLesson(lessonData);
+        if (courseData.body) {
+          parsedCourse = courseData.body;
+        } else {
+          parsedCourse = courseData;
+        }
         
-        // Set first PDF as selected if available
-        if (lessonData.materials && lessonData.materials.length > 0) {
-          const pdfMaterial = lessonData.materials.find(
-            (m: string) => m.toLowerCase().endsWith('.pdf')
-          );
-          if (pdfMaterial) {
-            setSelectedPdf(pdfMaterial);
+        console.log("Course data:", parsedCourse);
+        setCourse(parsedCourse);
+        
+        // Fetch lesson data using API
+        console.log("Fetching lesson:", lessonId);
+        const lessonResponse = await fetch(`${API_BASE_URL}/course/get-lesson/${lessonId}`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!lessonResponse.ok) {
+          throw new Error("Failed to fetch lesson");
+        }
+
+        const lessonData = await lessonResponse.json();
+        console.log("Lesson data:", lessonData);
+        
+        if (lessonData.body) {
+          setLesson(lessonData.body);
+          
+          // Set first PDF as selected if available
+          if (lessonData.body.materials && lessonData.body.materials.length > 0) {
+            const pdfMaterial = lessonData.body.materials.find(
+              (m: string) => m.toLowerCase().endsWith('.pdf')
+            );
+            if (pdfMaterial) {
+              setSelectedPdf(pdfMaterial);
+            }
+          }
+        } else {
+          setLesson(lessonData);
+          
+          // Set first PDF as selected if available
+          if (lessonData.materials && lessonData.materials.length > 0) {
+            const pdfMaterial = lessonData.materials.find(
+              (m: string) => m.toLowerCase().endsWith('.pdf')
+            );
+            if (pdfMaterial) {
+              setSelectedPdf(pdfMaterial);
+            }
           }
         }
       } catch (err) {
@@ -67,7 +119,21 @@ export default function LessonDetailPage() {
     
     try {
       setDeleting(true);
-      await lessonService.deleteLesson(courseId, lessonId);
+      
+      // Use direct API call to delete lesson
+      const url = `${API_BASE_URL}/course/delete-lesson/${lessonId}?courseId=${courseId}`;
+      
+      const response = await fetch(url, {
+        method: 'DELETE',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Không thể xóa bài học');
+      }
       
       toast.success('Bài học đã được xóa thành công!');
       router.push(`/admin/couserscontrol/${courseId}`);

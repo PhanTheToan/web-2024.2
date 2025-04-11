@@ -3,31 +3,36 @@ import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "react-hot-toast";
-import { quizService } from "@/services/quizService";
-import { courseService } from "@/services/courseService";
-import { enrollmentService } from "@/services/enrollmentService";
-import { Clock, AlertTriangle, AlertCircle, CheckCircle, ChevronRight } from "lucide-react";
+import { Clock, AlertTriangle, AlertCircle, CheckCircle, ChevronRight, BookOpen, Lock, PlayCircle } from "lucide-react";
 import BreadcrumbContainer from "@/app/components/breadcrumb/BreadcrumbContainer";
+
+// API Base URL
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8082/api';
 
 // Types for quiz data
 interface QuizQuestion {
   question: string;
   options: string[];
-  correctAnswer: string;
+  correctAnswer?: string;
 }
 
 interface Quiz {
   _id: string;
+  id?: string;
   courseId: string;
   title: string;
+  description?: string;
   questions: QuizQuestion[];
   passingScore: number;
   timeLimit?: number;
+  order?: number;
+  orderQuiz?: number;
   createdAt: Date;
 }
 
 interface Course {
   _id: string;
+  id?: string;
   title: string;
   description: string;
 }
@@ -42,6 +47,60 @@ interface QuizResult {
     isCorrect: boolean;
     correctAnswer?: string;
   }[];
+}
+
+// Interface for content items (lessons and quizzes)
+interface ContentItem {
+  _id: string;
+  title: string;
+  description?: string;
+  order: number;
+  type: 'lesson' | 'quiz';
+  complete?: boolean;
+  currentlyLearning?: boolean;
+  timeLimit?: number;
+  lessonId?: string;
+  quizId?: string;
+  orderLesson?: number;
+  orderQuiz?: number;
+}
+
+// Response structure for the lesson_quiz endpoint
+interface LessonQuizResponse {
+  body: {
+    notLearned?: {
+      quizzes: Array<{
+        quizId: string;
+        title: string;
+        questionCount: number;
+        orderQuiz: number;
+        passingScore: number;
+      }>;
+      lessons: Array<{
+        lessonId: string;
+        lessonTitle: string;
+        lessonShortTitle: string;
+        orderLesson: number;
+      }>;
+    };
+    learned?: {
+      quizzes: Array<{
+        quizId: string;
+        title: string;
+        questionCount: number;
+        orderQuiz: number;
+        passingScore: number;
+      }>;
+      lessons: Array<{
+        lessonId: string;
+        lessonTitle: string;
+        lessonShortTitle: string;
+        orderLesson: number;
+      }>;
+    };
+  };
+  statusCodeValue: number;
+  statusCode: string;
 }
 
 // Quiz question component
@@ -120,35 +179,6 @@ const QuizQuestion: React.FC<QuizQuestionProps> = ({
   );
 };
 
-// Question navigation item
-interface QuestionNavItemProps {
-  index: number;
-  isAnswered: boolean;
-  isActive: boolean;
-  onClick: () => void;
-}
-
-const QuestionNavItem: React.FC<QuestionNavItemProps> = ({
-  index,
-  isAnswered,
-  isActive,
-  onClick
-}) => {
-  return (
-    <button
-      onClick={onClick}
-      className={`w-8 h-8 flex items-center justify-center text-sm rounded-full 
-        ${isActive ? 'ring-2 ring-blue-500' : ''}
-        ${isAnswered 
-          ? 'bg-green-100 border border-green-300 text-green-800' 
-          : 'bg-gray-100 border border-gray-300 text-gray-600 hover:bg-gray-200'
-        }`}
-    >
-      {index + 1}
-    </button>
-  );
-};
-
 // Main Quiz Page component
 const QuizPage: React.FC = () => {
   const params = useParams();
@@ -164,45 +194,306 @@ const QuizPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [quizResult, setQuizResult] = useState<QuizResult | null>(null);
   const [remainingTime, setRemainingTime] = useState<number>(0);
-  const [activeQuestionIndex, setActiveQuestionIndex] = useState<number>(0);
   const [isTimeWarning, setIsTimeWarning] = useState<boolean>(false);
   const [isConfirmed, setIsConfirmed] = useState<boolean>(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isEnrolled, setIsEnrolled] = useState(false);
+  const [courseContent, setCourseContent] = useState<ContentItem[]>([]);
 
-  // Mock user ID for demonstration - in a real app, this would come from authentication
-  const currentUserId = 'student1';
+  // Check user authentication
+  const checkUserAuth = async () => {
+    try {
+      // Use the auth/check endpoint for both auth and enrollment check
+      console.log('Checking user authentication');
+      const authResponse = await fetch(`${API_BASE_URL}/auth/check`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!authResponse.ok) {
+        console.log('User is not authenticated');
+        setIsAuthenticated(false);
+        setIsEnrolled(false);
+        return false;
+      }
+
+      const authData = await authResponse.json();
+      console.log('Auth data:', authData);
+      
+      let userIsEnrolled = false;
+      
+      // Check if authentication was successful (status 200)
+      if (authData.status === 200 && authData.message === 'User authenticated') {
+        console.log('User is authenticated');
+        setIsAuthenticated(true);
+        
+        // Check if the courseId is in the user's enrolled courses list
+        if (authData.data && Array.isArray(authData.data.coursesEnrolled)) {
+          console.log('User courses:', authData.data.coursesEnrolled);
+          
+          // Check if the current courseId is in the enrolled courses array
+          if (authData.data.coursesEnrolled.includes(courseId)) {
+            console.log('User is enrolled in this course');
+            userIsEnrolled = true;
+            setIsEnrolled(true);
+          } else {
+            console.log('User is not enrolled in this course');
+            setIsEnrolled(false);
+          }
+        } else {
+          console.log('No courses enrolled or invalid data format');
+          setIsEnrolled(false);
+        }
+      } else {
+        console.log('Authentication failed:', authData.message);
+        setIsAuthenticated(false);
+        setIsEnrolled(false);
+      }
+      
+      return userIsEnrolled;
+    } catch (error) {
+      console.error('Error checking authentication:', error);
+      setIsAuthenticated(false);
+      setIsEnrolled(false);
+      return false;
+    }
+  };
+
+  // Fetch course content from the API
+  const fetchCourseContent = async (userIsEnrolled = false) => {
+    try {
+      // First API to get content structure and ordering
+      const orderEndpoint = `${API_BASE_URL}/course/lesson_quiz/${courseId}`;
+      console.log('Fetching content structure from:', orderEndpoint);
+      
+      const orderResponse = await fetch(orderEndpoint, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!orderResponse.ok) {
+        throw new Error('Failed to fetch course structure');
+      }
+
+      const orderData = await orderResponse.json();
+      console.log('Course structure data:', orderData);
+      
+      const initialItems: ContentItem[] = [];
+      
+      // Process lessons from the order API
+      if (orderData.body && orderData.body.lessons) {
+        orderData.body.lessons.forEach((lesson: any) => {
+          initialItems.push({
+            _id: lesson.lessonId,
+            title: lesson.lessonTitle || '',
+            description: lesson.lessonShortTitle || '',
+            order: lesson.orderLesson,
+            orderLesson: lesson.orderLesson,
+            type: 'lesson',
+            complete: false,
+            currentlyLearning: false,
+            lessonId: lesson.lessonId
+          });
+        });
+      }
+      
+      // Process quizzes from the order API
+      if (orderData.body && orderData.body.quizzes) {
+        orderData.body.quizzes.forEach((quiz: any) => {
+          initialItems.push({
+            _id: quiz.quizId,
+            title: 'Quiz',
+            order: quiz.orderQuiz,
+            orderQuiz: quiz.orderQuiz,
+            type: 'quiz',
+            complete: false,
+            currentlyLearning: false,
+            quizId: quiz.quizId,
+            timeLimit: quiz.timeLimit
+          });
+        });
+      }
+      
+      // Sort items by order
+      initialItems.sort((a, b) => (a.order || 0) - (b.order || 0));
+      
+      // If user is enrolled, fetch the second API for learning status
+      if (userIsEnrolled) {
+        // Second API to get learning status
+        const statusEndpoint = `${API_BASE_URL}/course/lesson-quiz/${courseId}`;
+        console.log('Fetching learning status from:', statusEndpoint);
+        
+        const statusResponse = await fetch(statusEndpoint, {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (statusResponse.ok) {
+          const statusData = await statusResponse.json() as LessonQuizResponse;
+          console.log('Learning status data:', statusData);
+          
+          // Mark completed items based on the status API response
+          if (statusData.body) {
+            // Process learned lessons
+            if (statusData.body.learned?.lessons) {
+              statusData.body.learned.lessons.forEach(lesson => {
+                const existingItem = initialItems.find(item => 
+                  item.type === 'lesson' && item._id === lesson.lessonId
+                );
+                
+                if (existingItem) {
+                  existingItem.complete = true;
+                }
+              });
+            }
+            
+            // Process learned quizzes
+            if (statusData.body.learned?.quizzes) {
+              statusData.body.learned.quizzes.forEach(quiz => {
+                const existingItem = initialItems.find(item => 
+                  item.type === 'quiz' && item._id === quiz.quizId
+                );
+                
+                if (existingItem) {
+                  existingItem.complete = true;
+                }
+              });
+            }
+          }
+        }
+      }
+      
+      // Mark the current quiz as "currently learning"
+      const currentQuizIndex = initialItems.findIndex(item => 
+        item.type === 'quiz' && item._id === quizId
+      );
+      
+      if (currentQuizIndex !== -1) {
+        initialItems[currentQuizIndex].currentlyLearning = true;
+      }
+      
+      setCourseContent(initialItems);
+      return initialItems;
+    } catch (error) {
+      console.error('Error fetching course content:', error);
+      throw error;
+    }
+  };
+
+  // Fetch quiz data from API
+  const fetchQuizData = async () => {
+    try {
+      const quizResponse = await fetch(`${API_BASE_URL}/course/quiz/${quizId}`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!quizResponse.ok) {
+        throw new Error('Failed to fetch quiz data');
+      }
+
+      const quizData = await quizResponse.json();
+      console.log('Quiz data:', quizData);
+      
+      // Parse the response to match our Quiz interface
+      const parsedQuiz: Quiz = {
+        _id: quizData.body.id || quizData.body._id,
+        courseId: quizData.body.courseId,
+        title: quizData.body.title,
+        description: quizData.body.description,
+        questions: quizData.body.questions || [],
+        passingScore: quizData.body.passingScore || 70,
+        timeLimit: quizData.body.timeLimit || 30,
+        order: quizData.body.order || quizData.body.orderQuiz,
+        createdAt: new Date(quizData.body.createdAt)
+      };
+      
+      setQuiz(parsedQuiz);
+      return parsedQuiz;
+    } catch (error) {
+      console.error('Error fetching quiz:', error);
+      throw error;
+    }
+  };
+
+  // Fetch course info
+  const fetchCourseInfo = async () => {
+    try {
+      const courseResponse = await fetch(`${API_BASE_URL}/course/info/${courseId}`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!courseResponse.ok) {
+        throw new Error('Failed to fetch course data');
+      }
+
+      const courseData = await courseResponse.json();
+      console.log('Course data:', courseData);
+      
+      const parsedCourse: Course = {
+        _id: courseData.body.id || courseData.body._id,
+        title: courseData.body.title,
+        description: courseData.body.description
+      };
+      
+      setCourse(parsedCourse);
+      return parsedCourse;
+    } catch (error) {
+      console.error('Error fetching course:', error);
+      throw error;
+    }
+  };
 
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
       setError(null);
       try {
-        // Check if user is enrolled in the course
-        const enrollment = await enrollmentService.getEnrollment(currentUserId, courseId);
-        if (!enrollment) {
-          toast.error('Bạn cần đăng ký khóa học trước khi làm bài kiểm tra');
-          router.push(`/courses/${courseId}`);
+        // Check if user is authenticated and enrolled
+        const userIsEnrolled = await checkUserAuth();
+        
+        if (!isAuthenticated) {
+          console.log('User is not authenticated');
+          toast.error('Bạn cần đăng nhập để làm bài kiểm tra');
+          // router.push('/auth/login?redirect=' + encodeURIComponent(`/courses/${courseId}/quiz/${quizId}`));
           return;
         }
         
-        // Fetch quiz and course data
-        const [quizData, courseData] = await Promise.all([
-          quizService.getQuizById(quizId),
-          courseService.getCourseById(courseId)
+        if (!userIsEnrolled) {
+          console.log('User is not enrolled in this course');
+          toast.error('Bạn cần đăng ký khóa học trước khi làm bài kiểm tra');
+          // router.push(`/courses/${courseId}`);
+          return;
+        }
+        
+        // Fetch quiz, course content, and course info in parallel
+        const [quizData, parsedCourse] = await Promise.all([
+          fetchQuizData(),
+          fetchCourseInfo()
         ]);
         
-        // Debug: log the quiz data to verify timeLimit
-        console.log('Quiz data loaded:', {
-          quizId: quizData._id,
-          title: quizData.title,
-          timeLimit: quizData.timeLimit,
-          questions: quizData.questions.length
-        });
+        console.log('Course data loaded:', parsedCourse.title);
         
-        setQuiz(quizData);
-        setCourse(courseData);
+        // Fetch course content after quiz data is available
+        await fetchCourseContent(userIsEnrolled);
         
-        // Use the actual timeLimit from quiz data (in minutes), converted to seconds
-        // If timeLimit is not available, use 2 minutes per question as fallback
+        // Use the timeLimit from quiz data (in minutes), converted to seconds
         const timeInSeconds = quizData.timeLimit 
           ? quizData.timeLimit * 60 
           : quizData.questions.length * 120;
@@ -219,7 +510,7 @@ const QuizPage: React.FC = () => {
     };
 
     fetchData();
-  }, [courseId, quizId, router]);
+  }, [courseId, quizId, router, isAuthenticated]);
 
   // Timer effect
   useEffect(() => {
@@ -260,14 +551,6 @@ const QuizPage: React.FC = () => {
     }));
   };
 
-  const scrollToQuestion = (index: number) => {
-    setActiveQuestionIndex(index);
-    const questionElements = document.querySelectorAll('.quiz-question');
-    if (questionElements[index]) {
-      questionElements[index].scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  };
-
   const getQuestionStats = () => {
     if (!quiz) return { total: 0, answered: 0, unanswered: 0 };
     
@@ -290,20 +573,51 @@ const QuizPage: React.FC = () => {
     
     setIsSubmitting(true);
     try {
-      const result = await quizService.submitQuiz({
-        quizId,
-        userId: currentUserId,
-        answers: selectedAnswers
+      // Format answers for the API
+      const answers = Object.entries(selectedAnswers).map(([questionIndex, selectedAnswer]) => {
+        const question = quiz.questions[parseInt(questionIndex)];
+        return {
+          question: question.question,
+          selectedAnswer
+        };
       });
+      
+      // Call the submit API with the formatted answers
+      const response = await fetch(`${API_BASE_URL}/course/quiz/${quizId}/submit`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ answers })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to submit quiz');
+      }
+      
+      const data = await response.json();
+      console.log('Quiz submission response:', data);
+      
+      // Process API response to match our QuizResult interface
+      const correctAnswers = data.body?.correctAnswers || 0;
+      const totalQuestions = quiz.questions.length;
+      const score = Math.round((correctAnswers / totalQuestions) * 100);
+      const passed = score >= (quiz.passingScore || 70);
+      
+      // Create a QuizResult object
+      const result: QuizResult = {
+        score,
+        totalQuestions,
+        correctAnswers,
+        passed,
+        feedback: data.body?.feedback || []
+      };
       
       setQuizResult(result);
       
-      // Update course progress after quiz completion
-      const enrollment = await enrollmentService.getEnrollment(currentUserId, courseId);
-      if (enrollment) {
-        const newProgress = Math.min(100, enrollment.progress + 10);
-        await enrollmentService.updateProgress(currentUserId, courseId, newProgress);
-      }
+      // Refresh course content to update completed items
+      await fetchCourseContent(true);
       
       toast.success('Đã hoàn thành bài kiểm tra!');
     } catch (err) {
@@ -311,6 +625,59 @@ const QuizPage: React.FC = () => {
       toast.error('Không thể nộp bài kiểm tra');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  // Check if a content item is accessible
+  const isContentItemAccessible = (item: ContentItem): boolean => {
+    // If the item is the current quiz, it's accessible
+    if (item.type === 'quiz' && item._id === quizId) return true;
+    
+    // If item is already marked as completed, it's accessible
+    if (item.complete) return true;
+    
+    // Get the index of this item and the current quiz
+    const itemIndex = courseContent.findIndex(i => i._id === item._id);
+    const currentQuizIndex = courseContent.findIndex(i => 
+      i.type === 'quiz' && i._id === quizId
+    );
+    
+    if (currentQuizIndex === -1) return false;
+    
+    // Allow access to items before current quiz
+    if (itemIndex < currentQuizIndex) return true;
+    
+    // For items beyond current, check if all previous items are completed
+    if (itemIndex > currentQuizIndex) {
+      // Check if all items between current and target are completed
+      for (let i = currentQuizIndex; i < itemIndex; i++) {
+        if (!courseContent[i].complete) return false;
+      }
+      return true;
+    }
+    
+    return false;
+  };
+
+  // Handle content item navigation
+  const handleContentItemClick = (e: React.MouseEvent, item: ContentItem) => {
+    if (!isAuthenticated) {
+      e.preventDefault();
+      toast.error('Bạn cần đăng nhập để truy cập nội dung này');
+      router.push('/auth/login?redirect=' + encodeURIComponent(`/courses/${courseId}/quiz/${quizId}`));
+      return;
+    }
+    
+    if (!isEnrolled) {
+      e.preventDefault();
+      toast.error('Bạn cần đăng ký khóa học để truy cập nội dung này');
+      return;
+    }
+    
+    if (!isContentItemAccessible(item)) {
+      e.preventDefault();
+      toast.error('Bạn cần hoàn thành các nội dung trước để mở khóa nội dung này');
+      return;
     }
   };
 
@@ -421,11 +788,155 @@ const QuizPage: React.FC = () => {
           </div>
         )}
 
-        {/* Main content wrapper - Only show if confirmed */}
+        {/* Main content wrapper with sidebar - Update this section */}
         {(isConfirmed || quizResult) && (
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-            {/* Left column - Quiz questions */}
-            <div className="lg:col-span-3">
+            {/* Left sidebar with course content */}
+            <div className="lg:col-span-1 order-2 lg:order-1">
+              <div className="bg-white rounded-lg shadow-md p-4 sticky top-6">
+                <h3 className="text-xl font-medium mb-4 flex items-center border-b pb-3">
+                  <BookOpen className="mr-2 w-5 h-5" />
+                  Nội dung khóa học
+                </h3>
+                
+                <div className="space-y-1 max-h-[calc(100vh-240px)] overflow-y-auto pr-2">
+                  {courseContent.length > 0 ? (
+                    <>
+                      {/* Group and sort content by type and order */}
+                      {(() => {
+                        // First separate lessons and quizzes
+                        const lessons = courseContent.filter(item => item.type === 'lesson');
+                        const quizzes = courseContent.filter(item => item.type === 'quiz');
+                        
+                        // Group by lesson or order
+                        const grouped = [];
+                        
+                        // First add main lessons
+                        for (const lesson of lessons) {
+                          const lessonGroup = {
+                            header: lesson,
+                            items: quizzes.filter(quiz => {
+                              // Find quizzes that belong to this lesson based on order
+                              // Assuming quizzes come after their respective lessons
+                              const quizOrder = quiz.order || quiz.orderQuiz || 0;
+                              const thisLessonOrder = lesson.order || lesson.orderLesson || 0;
+                              const nextLessonOrder = lessons.find(l => 
+                                (l.order || l.orderLesson || 0) > thisLessonOrder
+                              )?.order || 999999;
+                              
+                              return quizOrder > thisLessonOrder && quizOrder < nextLessonOrder;
+                            })
+                          };
+                          
+                          grouped.push(lessonGroup);
+                        }
+                        
+                        // Return the rendered content
+                        return grouped.map((group, groupIndex) => (
+                          <div key={`lesson-group-${groupIndex}`} className="mb-4">
+                            {/* Section header */}
+                            <div className={`py-2 px-3 rounded mb-1 flex items-center ${
+                              group.header.complete 
+                                ? 'text-gray-800 font-medium' 
+                                : (!isContentItemAccessible(group.header) && group.header._id !== quizId)
+                                  ? 'text-gray-400'
+                                  : 'text-gray-800 font-medium'
+                            }`}>
+                              <BookOpen className="mr-2 w-4 h-4" />
+                              <span className="truncate">{group.header.title}</span>
+                              {!isContentItemAccessible(group.header) && group.header._id !== quizId && (
+                                <Lock className="ml-auto w-3 h-3 text-gray-400" />
+                              )}
+                            </div>
+                            
+                            {/* Main lesson (if it's not just a header) */}
+                            <Link
+                              href={isContentItemAccessible(group.header) 
+                                ? `/courses/${courseId}/lesson/${group.header._id}` 
+                                : '#'}
+                              className={`py-2 px-3 ml-4 rounded flex items-center ${
+                                !isContentItemAccessible(group.header) 
+                                  ? 'text-gray-400 cursor-not-allowed' 
+                                  : group.header._id === quizId
+                                    ? 'bg-blue-50 text-blue-700'
+                                    : 'hover:bg-gray-50'
+                              }`}
+                              onClick={(e) => !isContentItemAccessible(group.header) && handleContentItemClick(e, group.header)}
+                            >
+                              <BookOpen className={`mr-2 w-4 h-4 ${
+                                group.header._id === quizId ? 'text-blue-500' : 'text-gray-500'
+                              }`} />
+                              <span className="truncate flex-1">{group.header.title}</span>
+                              {group.header.complete ? (
+                                <CheckCircle className="ml-1 w-4 h-4 text-green-500" />
+                              ) : !isContentItemAccessible(group.header) && group.header._id !== quizId ? (
+                                <Lock className="ml-1 w-4 h-4 text-gray-400" />
+                              ) : null}
+                            </Link>
+                            
+                            {/* Quizzes for this section */}
+                            {group.items.map((quiz, idx) => (
+                              <Link
+                                key={`quiz-${quiz._id}-${idx}`}
+                                href={isContentItemAccessible(quiz) 
+                                  ? `/courses/${courseId}/quiz/${quiz._id}` 
+                                  : '#'}
+                                className={`py-2 px-3 ml-4 rounded flex items-center ${
+                                  !isContentItemAccessible(quiz) && quiz._id !== quizId
+                                    ? 'text-gray-400 cursor-not-allowed' 
+                                    : quiz._id === quizId
+                                      ? 'bg-blue-50 text-blue-700'
+                                      : 'hover:bg-gray-50'
+                                }`}
+                                onClick={(e) => !isContentItemAccessible(quiz) && quiz._id !== quizId && handleContentItemClick(e, quiz)}
+                              >
+                                <Clock className={`mr-2 w-4 h-4 ${
+                                  quiz._id === quizId ? 'text-blue-500' : 'text-gray-500'
+                                }`} />
+                                <span className="truncate flex-1">Quiz</span>
+                                {quiz.complete ? (
+                                  <div className="ml-1 p-0.5 bg-blue-500 text-white rounded-full">
+                                    <CheckCircle className="w-3 h-3" />
+                                  </div>
+                                ) : quiz._id === quizId ? (
+                                  <div className="ml-1 p-0.5 bg-blue-500 text-white rounded-full">
+                                    <PlayCircle className="w-3 h-3" />
+                                  </div>
+                                ) : !isContentItemAccessible(quiz) ? (
+                                  <Lock className="ml-1 w-4 h-4 text-gray-400" />
+                                ) : null}
+                              </Link>
+                            ))}
+                          </div>
+                        ));
+                      })()}
+                    </>
+                  ) : (
+                    <div className="text-center py-6 text-gray-500">
+                      <p>Đang tải nội dung khóa học...</p>
+                    </div>
+                  )}
+                </div>
+                
+                {isEnrolled && courseContent.length > 0 && (
+                  <div className="mt-4 pt-4 border-t">
+                    <div className="text-sm text-gray-600 mb-2 flex justify-between">
+                      <span>Tiến độ khóa học:</span>
+                      <span className="font-medium">{Math.round((courseContent.filter(item => item.complete).length / courseContent.length) * 100)}%</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div 
+                        className="bg-green-500 h-2 rounded-full" 
+                        style={{ width: `${(courseContent.filter(item => item.complete).length / courseContent.length) * 100}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            {/* Main quiz content - keep existing content */}
+            <div className="lg:col-span-3 order-1 lg:order-2">
               {/* Quiz result panel */}
               {quizResult && (
                 <div className={`p-6 rounded-lg shadow-md mb-6 ${
@@ -596,115 +1107,6 @@ const QuizPage: React.FC = () => {
                       correctAnswer={question.correctAnswer}
                     />
                   ))}
-                </div>
-              )}
-            </div>
-            
-            {/* Right column - Quiz summary and navigation */}
-            <div className="lg:col-span-1">
-              {/* Quiz progress panel */}
-              {!quizResult && (
-                <div className="bg-white rounded-lg shadow-md p-4 mb-6">
-                  <h3 className="font-semibold text-lg mb-3">Tiến trình bài làm</h3>
-                  
-                  <div className="flex justify-between mb-2">
-                    <div className="text-sm text-gray-600">Đã trả lời</div>
-                    <div className="font-medium">{questionStats.answered}/{questionStats.total}</div>
-                  </div>
-                  
-                  <div className="w-full bg-gray-200 rounded-full h-2.5 mb-4">
-                    <div 
-                      className="bg-blue-600 h-2.5 rounded-full" 
-                      style={{ width: `${(questionStats.answered / questionStats.total) * 100}%` }}
-                    ></div>
-                  </div>
-                  
-                  {questionStats.unanswered > 0 && (
-                    <div className="flex items-start p-2 bg-yellow-50 rounded-lg text-sm">
-                      <AlertTriangle className="text-yellow-500 w-4 h-4 mr-2 flex-shrink-0 mt-0.5" />
-                      <div>
-                        Bạn còn {questionStats.unanswered} câu hỏi chưa trả lời.
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-              
-              {/* Question navigation */}
-              {!quizResult && quiz.questions.length > 1 && (
-                <div className="bg-white rounded-lg shadow-md p-4">
-                  <h3 className="font-semibold text-lg mb-3">Danh sách câu hỏi</h3>
-                  
-                  <div className="grid grid-cols-4 gap-2">
-                    {quiz.questions.map((_, index) => (
-                      <QuestionNavItem 
-                        key={index}
-                        index={index}
-                        isAnswered={selectedAnswers[index] !== undefined}
-                        isActive={activeQuestionIndex === index}
-                        onClick={() => scrollToQuestion(index)}
-                      />
-                    ))}
-                  </div>
-                  
-                  <div className="mt-4 flex text-sm text-gray-500 justify-center space-x-4">
-                    <div className="flex items-center">
-                      <div className="w-3 h-3 bg-green-100 border border-green-300 rounded-full mr-1"></div>
-                      <span>Đã trả lời</span>
-                    </div>
-                    <div className="flex items-center">
-                      <div className="w-3 h-3 bg-gray-100 border border-gray-300 rounded-full mr-1"></div>
-                      <span>Chưa trả lời</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-              
-              {/* Result summary panel */}
-              {quizResult && (
-                <div className="bg-white rounded-lg shadow-md p-4">
-                  <h3 className="font-semibold text-lg mb-3">Tổng kết kết quả</h3>
-                  
-                  <div className="space-y-4">
-                    <div className="flex justify-between border-b pb-2">
-                      <span className="text-gray-600">Tổng số câu hỏi</span>
-                      <span className="font-medium">{quizResult.totalQuestions}</span>
-                    </div>
-                    
-                    <div className="flex justify-between border-b pb-2">
-                      <span className="text-gray-600">Số câu trả lời đúng</span>
-                      <span className="font-medium text-green-600">{quizResult.correctAnswers}</span>
-                    </div>
-                    
-                    <div className="flex justify-between border-b pb-2">
-                      <span className="text-gray-600">Số câu trả lời sai</span>
-                      <span className="font-medium text-red-600">
-                        {quizResult.totalQuestions - quizResult.correctAnswers}
-                      </span>
-                    </div>
-                    
-                    <div className="flex justify-between border-b pb-2">
-                      <span className="text-gray-600">Điểm đạt yêu cầu</span>
-                      <span className="font-medium">{quiz.passingScore}%</span>
-                    </div>
-                    
-                    <div className="flex justify-between font-semibold text-lg">
-                      <span>Điểm của bạn</span>
-                      <span className={quizResult.passed ? "text-green-600" : "text-red-600"}>
-                        {quizResult.score.toFixed(1)}%
-                      </span>
-                    </div>
-                    
-                    <div className={`mt-4 p-3 rounded-lg text-center font-medium ${
-                      quizResult.passed 
-                        ? "bg-green-50 text-green-700" 
-                        : "bg-red-50 text-red-700"
-                    }`}>
-                      {quizResult.passed 
-                        ? "Chúc mừng! Bạn đã hoàn thành bài kiểm tra." 
-                        : "Bạn chưa đạt yêu cầu. Hãy thử lại!"}
-                    </div>
-                  </div>
                 </div>
               )}
             </div>

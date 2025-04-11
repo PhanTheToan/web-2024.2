@@ -1,20 +1,35 @@
 "use client";
 import React, { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { courseService } from '@/services/courseService';
-import { lessonService } from '@/services/lessonService';
 import { 
   ArrowLeft, Edit, Clock, Calendar, 
   AlertCircle, Loader2, Play,
-  Eye, File, X
+  File, X
 } from 'lucide-react';
-import { Course, Lesson } from '@/app/types';
+import { Course } from '@/app/types';
 import { formatDate } from '@/lib/utils';
+
+// API Base URL
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8082/api';
+
+// Define Lesson interface based on API response
+interface Lesson {
+  id: string;
+  courseId: string;
+  title: string;
+  shortTile: string | null;
+  content: string;
+  videoUrl: string | null;
+  materials: string[];
+  order: number;
+  timeLimit: number;
+  createdAt: string | Date;
+  updatedAt?: string | Date;
+}
 
 export default function LessonDetailPage() {
   const params = useParams();
-  const router = useRouter();
   const courseId = params.id as string;
   const lessonId = params.lessonId as string;
   
@@ -29,12 +44,49 @@ export default function LessonDetailPage() {
       try {
         setLoading(true);
         
-        // Get course data
-        const courseData = await courseService.getCourseById(courseId);
-        setCourse(courseData);
+        // Fetch course data from API
+        console.log("Fetching course:", courseId);
+        const courseResponse = await fetch(`${API_BASE_URL}/course/info/${courseId}`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!courseResponse.ok) {
+          throw new Error("Failed to fetch course");
+        }
+
+        const courseData = await courseResponse.json();
+        let parsedCourse;
         
-        // Get lesson data
-        const lessonData = await lessonService.getLessonById(lessonId);
+        if (courseData.body) {
+          parsedCourse = courseData.body;
+        } else {
+          parsedCourse = courseData;
+        }
+        
+        console.log("Course data:", parsedCourse);
+        setCourse(parsedCourse);
+        
+        // Fetch lesson data using the API from screenshot
+        console.log("Fetching lesson:", lessonId);
+        const lessonResponse = await fetch(`${API_BASE_URL}/course/get-lesson/${lessonId}`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!lessonResponse.ok) {
+          throw new Error("Failed to fetch lesson");
+        }
+
+        const lessonData = await lessonResponse.json();
+        console.log("Lesson data:", lessonData);
+        
         setLesson(lessonData);
         
         setLoading(false);
@@ -142,7 +194,7 @@ export default function LessonDetailPage() {
           <div className="bg-white rounded-lg shadow mb-6">
             <div className="border-b p-4">
               <h2 className="text-xl font-bold">{lesson.title}</h2>
-              <p className="text-gray-500 mt-1">{lesson.description || 'Không có mô tả'}</p>
+              <p className="text-gray-500 mt-1">{lesson.shortTile || 'Không có mô tả'}</p>
             </div>
             
             <div className="p-4 grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -278,9 +330,7 @@ export default function LessonDetailPage() {
                       <File className="w-5 h-5 text-blue-500 mr-3 flex-shrink-0 mt-0.5" />
                       <div>
                         <div className="font-medium text-gray-900">
-                          {typeof material === 'string' 
-                            ? material.split('/').pop() || material
-                            : material.name || 'Tài liệu'}
+                          {material.split('/').pop() || 'Tài liệu'}
                         </div>
                         <div className="text-xs text-gray-500 mt-1">
                           {isPdf(material) ? (

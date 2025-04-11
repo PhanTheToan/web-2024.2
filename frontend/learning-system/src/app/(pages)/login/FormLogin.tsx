@@ -9,7 +9,8 @@ export const FormLogin = () => {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const BASE_URL = process.env.BASE_URL;
+  const BASE_URL = "http://localhost:8082/api";
+
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();

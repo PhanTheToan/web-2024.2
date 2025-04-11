@@ -3,17 +3,40 @@ import React, { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 import BreadcrumbContainer from "@/app/components/breadcrumb/BreadcrumbContainer";
-import { Lesson, Course, User, Quiz } from "@/app/types";
-import { lessonService } from "@/services/lessonService";
-import { courseService } from "@/services/courseService";
-import { enrollmentService } from "@/services/enrollmentService";
+import { Lesson, Course, User, Quiz, LessonMaterial } from "@/app/types";
+// import { lessonService } from "@/services/lessonService";
+// import { courseService } from "@/services/courseService";
+// import { enrollmentService } from "@/services/enrollmentService";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, BookOpen, Clock, Check, FileText, PlayCircle, Download, Eye, ExternalLink, ClipboardCheck } from "lucide-react";
+
+// API Base URL
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8082/api';
+
+// Helper function to get and set cookies
+const getCookie = (name: string) => {
+  if (typeof document === 'undefined') return null;
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop()?.split(';').shift() || null;
+  return null;
+};
+
+const setCookie = (name: string, value: string, days: number) => {
+  if (typeof document === 'undefined') return;
+  const date = new Date();
+  date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+  const expires = `; expires=${date.toUTCString()}`;
+  document.cookie = `${name}=${value}${expires}; path=/`;
+};
 
 // Extended interfaces for handling type checking
 interface ExtendedLesson extends Lesson {
   complete?: boolean;
   duration?: number;
+  materials?: LessonMaterial[] | string[];
+  videoUrl?: string;
+  content?: string;
 }
 
 interface ExtendedQuiz extends Quiz {
@@ -28,6 +51,21 @@ interface ExtendedCourse extends Omit<Course, 'lessons' | 'quizzes' | 'studentsE
   teacherId: User | string;
 }
 
+// Response from lesson endpoint
+// interface LessonResponse {
+//   id: string;
+//   courseId: string;
+//   title: string;
+//   shortTitle: string;
+//   content: string;
+//   videoUrl: string;
+//   materials: string[];
+//   order: number;
+//   timeLimit?: number;
+//   createdAt: string;
+//   updatedAt: string;
+// }
+
 // Interface for content items (lessons and quizzes)
 interface ContentItem {
   _id: string;
@@ -36,7 +74,12 @@ interface ContentItem {
   order: number;
   type: 'lesson' | 'quiz';
   complete?: boolean;
+  currentlyLearning?: boolean;
   timeLimit?: number;
+  lessonId?: string;
+  quizId?: string;
+  orderLesson?: number;
+  orderQuiz?: number;
 }
 
 interface ContentReference {
@@ -44,13 +87,63 @@ interface ContentReference {
   type: 'lesson' | 'quiz';
 }
 
+// Response structure for the lesson_quiz endpoint
+interface LessonQuizResponse {
+  body: {
+    notLearned?: {
+      quizzes: Array<{
+        quizId: string;
+        title: string;
+        questionCount: number;
+        orderQuiz: number;
+        passingScore: number;
+      }>;
+      lessons: Array<{
+        lessonId: string;
+        lessonTitle: string;
+        lessonShortTitle: string;
+        orderLesson: number;
+      }>;
+    };
+    learned?: {
+      quizzes: Array<{
+        quizId: string;
+        title: string;
+        questionCount: number;
+        orderQuiz: number;
+        passingScore: number;
+      }>;
+      lessons: Array<{
+        lessonId: string;
+        lessonTitle: string;
+        lessonShortTitle: string;
+        orderLesson: number;
+      }>;
+    };
+  };
+  statusCodeValue: number;
+  statusCode: string;
+}
+
+// Interface for user authentication response
+// interface UserInfo {
+//   _id: string;
+//   username: string;
+//   firstName: string;
+//   lastName: string;
+//   email: string;
+//   role: string;
+//   coursesEnrolled: string[];
+//   profileImage: string | null;
+// }
+
 const LessonDetailPage: React.FC = () => {
   const params = useParams();
   const router = useRouter();
   const [lesson, setLesson] = useState<ExtendedLesson | null>(null);
   const [course, setCourse] = useState<ExtendedCourse | null>(null);
-  const [nextLesson, setNextLesson] = useState<ExtendedLesson | null>(null);
-  const [prevLesson, setPrevLesson] = useState<ExtendedLesson | null>(null);
+  // const [nextLesson, setNextLesson] = useState<ExtendedLesson | null>(null);
+  // const [prevLesson, setPrevLesson] = useState<ExtendedLesson | null>(null);
   const [nextContent, setNextContent] = useState<ContentReference | null>(null);
   const [prevContent, setPrevContent] = useState<ContentReference | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -62,9 +155,8 @@ const LessonDetailPage: React.FC = () => {
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const lastTickRef = useRef<number>(Date.now());
   const [orderedContent, setOrderedContent] = useState<ContentItem[]>([]); // New state for ordered content
-
-  // Mock user ID for demonstration - in a real app, this would come from authentication
-  const currentUserId = 'student1';
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  // const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
 
   const courseId = params.id as string;
   const lessonId = params.lessonId as string;
@@ -79,99 +171,432 @@ const LessonDetailPage: React.FC = () => {
     return path.toLowerCase().endsWith('.pdf');
   };
 
-  // Helper function to check if a quiz is completed
-  const isQuizCompleted = (quizId: string): boolean => {
-    // In a real implementation, this would check if the user has submitted the quiz
-    // For example: return completedQuizzes.has(quizId);
-    console.log(`Checking completion status for quiz: ${quizId}`);
-    return false;
-  };
+  // Check user authentication
+  const checkUserAuth = async () => {
+    try {
+      // Use the auth/check endpoint from the screenshot
+      const authResponse = await fetch(`${API_BASE_URL}/auth/check`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
 
-  // Add a helper function to calculate the number of completed items based on progress percentage
-  const getCompletedItemsFromProgress = (totalItems: number, progressPercentage: number): number => {
-    return Math.floor((progressPercentage / 100) * totalItems);
-  };
+      if (!authResponse.ok) {
+        console.log('User is not authenticated');
+        setIsAuthenticated(false);
+        return false;
+      }
 
-  // Update the useEffect that loads ordered content from mockData
-  useEffect(() => {
-    const loadOrderedContent = async () => {
-      if (!course) return;
+      const authData = await authResponse.json();
+      console.log('Auth data:', authData);
       
+      if (authData.status === 200 && authData.data) {
+        // setUserInfo(authData.data);
+        setIsAuthenticated(true);
+        
+        // Check if user is enrolled in this course
+        if (Array.isArray(authData.data.coursesEnrolled) && 
+            authData.data.coursesEnrolled.includes(courseId)) {
+        return true;
+      }
+      }
+      return false;
+    } catch (error) {
+      console.error('Error checking authentication:', error);
+      setIsAuthenticated(false);
+      return false;
+    }
+  };
+
+  // Fetch lesson content from the API
+  const fetchLessonData = async () => {
+    try {
+      // Use the lesson info API as shown in the first screenshot
+      const lessonResponse = await fetch(`${API_BASE_URL}/course/lesson/${lessonId}`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!lessonResponse.ok) {
+        throw new Error('Failed to fetch lesson data');
+      }
+
+      const lessonData = await lessonResponse.json();
+      console.log('Lesson data:', lessonData);
+      
+      const parsedLesson = lessonData.body || lessonData;
+      
+      // Map the API response to our ExtendedLesson type
+      const extendedLesson: ExtendedLesson = {
+        _id: parsedLesson.id || parsedLesson._id,
+        courseId: parsedLesson.courseId,
+        title: parsedLesson.title,
+        content: parsedLesson.content,
+        videoUrl: parsedLesson.videoUrl,
+        materials: parsedLesson.materials || [],
+        order: parsedLesson.order || parsedLesson.orderLesson,
+        timeLimit: parsedLesson.timeLimit,
+        createdAt: new Date(parsedLesson.createdAt),
+        description: parsedLesson.shortTitle
+      };
+      
+      setLesson(extendedLesson);
+      return extendedLesson;
+    } catch (error) {
+      console.error('Error fetching lesson data:', error);
+      throw error;
+    }
+  };
+
+  // Fetch course content from the API
+  const fetchCourseContent = async () => {
+    try {
+      // Use lesson-quiz (with hyphen) for enrolled users to get learned/not learned content
+      // This endpoint returns which lessons and quizzes the user has completed
+      const contentResponse = await fetch(`${API_BASE_URL}/course/lesson-quiz/${courseId}`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!contentResponse.ok) {
+        throw new Error('Failed to fetch course content');
+      }
+
+      const contentData = await contentResponse.json() as LessonQuizResponse;
+      console.log('Course content data:', contentData);
+      
+      const combinedItems: ContentItem[] = [];
+      
+      // Process learned and not learned content
+      if (contentData.body) {
+        // Process not learned lessons - these are items the user still needs to complete
+        if (contentData.body.notLearned?.lessons) {
+          contentData.body.notLearned.lessons.forEach(lesson => {
+            combinedItems.push({
+              _id: lesson.lessonId,
+              title: lesson.lessonTitle,
+              description: lesson.lessonShortTitle,
+              order: lesson.orderLesson,
+              orderLesson: lesson.orderLesson,
+              type: 'lesson',
+              complete: false,
+              lessonId: lesson.lessonId
+            });
+          });
+        }
+        
+        // Process not learned quizzes - these are quizzes the user still needs to complete
+        if (contentData.body.notLearned?.quizzes) {
+          contentData.body.notLearned.quizzes.forEach(quiz => {
+            combinedItems.push({
+              _id: quiz.quizId,
+              title: quiz.title,
+              order: quiz.orderQuiz,
+              orderQuiz: quiz.orderQuiz,
+              type: 'quiz',
+              complete: false,
+              quizId: quiz.quizId
+            });
+          });
+        }
+        
+        // Process learned lessons - these are lessons the user has already completed
+        if (contentData.body.learned?.lessons) {
+          contentData.body.learned.lessons.forEach(lesson => {
+            combinedItems.push({
+              _id: lesson.lessonId,
+              title: lesson.lessonTitle,
+              description: lesson.lessonShortTitle,
+              order: lesson.orderLesson,
+              orderLesson: lesson.orderLesson,
+              type: 'lesson',
+              complete: true, // Mark as completed
+              lessonId: lesson.lessonId
+            });
+          });
+        }
+        
+        // Process learned quizzes - these are quizzes the user has already completed
+        if (contentData.body.learned?.quizzes) {
+          contentData.body.learned.quizzes.forEach(quiz => {
+            combinedItems.push({
+              _id: quiz.quizId,
+              title: quiz.title,
+              order: quiz.orderQuiz,
+              orderQuiz: quiz.orderQuiz,
+              type: 'quiz',
+              complete: true, // Mark as completed
+              quizId: quiz.quizId
+            });
+          });
+        }
+      }
+      
+      // Sort content by order
+      combinedItems.sort((a, b) => (a.order || 0) - (b.order || 0));
+      
+      // Mark items as "currently learning"
+      // Find the first incomplete item - this is what the user should be learning now
+      const firstIncompleteIndex = combinedItems.findIndex(item => !item.complete);
+      if (firstIncompleteIndex !== -1) {
+        // If current lesson is the first incomplete item, it's what the user is currently learning
+        const isCurrentLessonCurrentlyLearning = 
+          combinedItems[firstIncompleteIndex].type === 'lesson' && 
+          combinedItems[firstIncompleteIndex]._id === lessonId;
+        
+        if (isCurrentLessonCurrentlyLearning) {
+          // Current lesson is the first incomplete item
+          combinedItems[firstIncompleteIndex].currentlyLearning = true;
+        } else {
+          // If user is viewing a lesson that's not the first incomplete,
+          // treat the current lesson as "currently learning" instead
+          const currentLessonIndex = combinedItems.findIndex(
+            item => item.type === 'lesson' && item._id === lessonId
+          );
+          
+          if (currentLessonIndex !== -1 && !combinedItems[currentLessonIndex].complete) {
+            // Mark the current lesson as "currently learning"
+            combinedItems[currentLessonIndex].currentlyLearning = true;
+            // Also mark the first incomplete item as "currently learning" if different
+            if (currentLessonIndex !== firstIncompleteIndex) {
+              combinedItems[firstIncompleteIndex].currentlyLearning = true;
+            }
+          } else {
+            // If current lesson is already complete, mark first incomplete as "currently learning"
+            combinedItems[firstIncompleteIndex].currentlyLearning = true;
+          }
+        }
+      }
+      
+      setOrderedContent(combinedItems);
+      
+      // Mark completed lessons
+          const completed = new Set<string>();
+      combinedItems.forEach(item => {
+        if (item.type === 'lesson' && item.complete) {
+              completed.add(item._id);
+            }
+      });
+          setCompletedLessons(completed);
+          
+      // Find the current lesson in the ordered content
+      const currentIndex = combinedItems.findIndex(item => 
+        item.type === 'lesson' && item._id === lessonId
+      );
+      
+      // Set previous and next content
+          if (currentIndex > 0) {
+        const prev = combinedItems[currentIndex - 1];
+            setPrevContent({ id: prev._id, type: prev.type });
+          } else {
+            setPrevContent(null);
+          }
+          
+      if (currentIndex < combinedItems.length - 1) {
+        const next = combinedItems[currentIndex + 1];
+            setNextContent({ id: next._id, type: next.type });
+          } else {
+            setNextContent(null);
+          }
+          
+      return combinedItems;
+    } catch (error) {
+      console.error('Error fetching course content:', error);
+      throw error;
+    }
+  };
+
+  // Fetch course info from the API
+  const fetchCourseInfo = async () => {
+    try {
+      // Use the course info API
+      const courseResponse = await fetch(`${API_BASE_URL}/course/info/${courseId}`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!courseResponse.ok) {
+        throw new Error('Failed to fetch course data');
+      }
+
+      const courseData = await courseResponse.json();
+      console.log('Course info:', courseData);
+      
+      const parsedCourse = courseData.body || courseData;
+      
+      // Create a minimal course object
+      const extendedCourse: ExtendedCourse = {
+        _id: parsedCourse.id || parsedCourse._id,
+        title: parsedCourse.title,
+        description: parsedCourse.description,
+        thumbnail: parsedCourse.thumbnail,
+        price: parsedCourse.price,
+        categories: parsedCourse.categories || [],
+        createdAt: parsedCourse.createdAt,
+        lessons: [],
+        quizzes: [],
+        studentsEnrolled: [],
+        teacherId: parsedCourse.teacherId || ''
+      };
+      
+      setCourse(extendedCourse);
+      return extendedCourse;
+    } catch (error) {
+      console.error('Error fetching course info:', error);
+      throw error;
+    }
+  };
+
+  // Load saved timer state from cookies
+  const loadTimerState = () => {
+    try {
+      const timerCookie = getCookie(`lesson_timer_${lessonId}`);
+      if (!timerCookie) return 0;
+      
+      // Parse the cookie value
+      const timerData = JSON.parse(atob(timerCookie));
+      
+      // Verify it's for the current lesson and course
+      if (timerData.lessonId === lessonId && timerData.courseId === courseId) {
+        console.log('Loaded saved timer state:', timerData.elapsed);
+        return timerData.elapsed;
+      }
+      return 0;
+    } catch (error) {
+      console.error('Error loading timer state:', error);
+      return 0;
+    }
+  };
+
+  // Save the timer state to cookies
+  const saveTimerState = (elapsedSeconds: number) => {
+    try {
+      // Create a simple data object with the timer info
+      const timerData = {
+        lessonId,
+        courseId,
+        elapsed: elapsedSeconds,
+        timestamp: Date.now()
+      };
+      
+      // Convert to base64 for storage
+      const timerString = btoa(JSON.stringify(timerData));
+      
+      // Save to cookie with 7-day expiration
+      setCookie(`lesson_timer_${lessonId}`, timerString, 7);
+      console.log('Saved timer state:', elapsedSeconds);
+    } catch (error) {
+      console.error('Error saving timer state:', error);
+    }
+  };
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setIsLoading(true);
+      setError(null);
       try {
-        // Import data directly from mockData
-        const { mockLessons, mockQuizzes, mockEnrollments } = await import('@/data/mockData');
+        // Check if user is authenticated and enrolled in the course
+        // const isEnrolled = await checkUserAuth();
         
-        // Filter for current course
-        const courseLessons = mockLessons.filter(l => l.courseId === courseId);
-        const courseQuizzes = mockQuizzes.filter(q => q.courseId === courseId);
+        if (!isAuthenticated) {
+          console.log('User is not authenticated');
+          // We'll still show the data, enrollment check will be done elsewhere
+        }
         
-        // Get user enrollment to determine progress
-        const userEnrollment = mockEnrollments.find(
-          e => e.userId === currentUserId && e.courseId === courseId
-        );
+        // Fetch lesson, course content, and course info in parallel
+        await Promise.all([
+          fetchLessonData(),
+          fetchCourseContent(),
+          fetchCourseInfo()
+        ]);
         
-        const enrollmentProgress = userEnrollment?.progress || 0;
-        const totalContentItems = courseLessons.length + courseQuizzes.length;
-        const completedItemCount = getCompletedItemsFromProgress(totalContentItems, enrollmentProgress);
-        
-        console.log(`User progress: ${enrollmentProgress}%, marking ${completedItemCount} items as completed out of ${totalContentItems}`);
-        
-        // Create combined and sorted items array
-        const combinedItems = [
-          ...courseLessons.map(lesson => ({
-            _id: lesson._id,
-            title: lesson.title || '',
-            description: lesson.description || '',
-            order: typeof lesson.order === 'number' ? lesson.order : 0,
-            type: 'lesson' as const,
-            timeLimit: lesson.timeLimit
-          })),
-          ...courseQuizzes.map(quiz => ({
-            _id: quiz._id,
-            title: quiz.title || '',
-            description: quiz.description || '',
-            order: typeof quiz.order === 'number' ? quiz.order : 0,
-            type: 'quiz' as const,
-            timeLimit: quiz.timeLimit
-          }))
-        ].sort((a, b) => a.order - b.order);
-        
-        // Mark items as completed based on progress percentage
-        const itemsWithCompletionStatus = combinedItems.map((item, index) => {
-          // Mark as completed if: 
-          // 1. It's within the completed items count based on progress OR
-          // 2. It's explicitly marked as completed in completedLessons
-          const isCompleted = 
-            (index < completedItemCount) || 
-            (item.type === 'lesson' && completedLessons.has(item._id)) ||
-            (item.type === 'quiz' && isQuizCompleted(item._id));
-            
-          return {
-            ...item,
-            complete: isCompleted
-          };
-        });
-        
-        setOrderedContent(itemsWithCompletionStatus);
-        
-        console.log('Ordered content updated with completion status:', 
-          itemsWithCompletionStatus.map(item => ({
-            id: item._id,
-            title: item.title,
-            type: item.type,
-            order: item.order,
-            complete: item.complete
-          }))
-        );
       } catch (err) {
-        console.error('Error loading ordered content:', err);
+        console.error('Error loading lesson:', err);
+        setError('Không thể tải thông tin bài học');
+        toast.error('Không thể tải thông tin bài học');
+      } finally {
+        setIsLoading(false);
       }
     };
-    
-    if (course) {
-      loadOrderedContent();
+
+    fetchData();
+  }, [courseId, lessonId]);
+
+  // Timer effect for tracking elapsed time - updated to use persisted state
+  useEffect(() => {
+    if (!lesson || !lesson.timeLimit || isLoading) return;
+
+    // Load the initial state from cookies when component mounts
+    if (elapsedTime === 0) {
+      const savedTime = loadTimerState();
+      if (savedTime > 0) {
+        setElapsedTime(savedTime);
+      }
     }
-  }, [course, courseId, completedLessons]);
+
+    const tick = () => {
+      const now = Date.now();
+      const delta = Math.floor((now - lastTickRef.current) / 1000);
+      
+      setElapsedTime(prevTime => {
+        const newTime = prevTime + delta;
+        // Save to cookie every 15 seconds to avoid too frequent writes
+        if (delta >= 15 || Math.floor(newTime / 15) > Math.floor(prevTime / 15)) {
+          saveTimerState(newTime);
+        }
+        return newTime;
+      });
+      
+      lastTickRef.current = now;
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        if (timerRef.current) {
+          clearInterval(timerRef.current);
+          timerRef.current = null;
+          // Update elapsed time one last time before pausing
+          tick();
+          // Save state when user leaves the page
+          saveTimerState(elapsedTime);
+        }
+      } else {
+        if (!timerRef.current) {
+          lastTickRef.current = Date.now(); // Reset last tick time on resume
+          timerRef.current = setInterval(tick, 1000);
+        }
+      }
+    };
+
+    // Start timer immediately if visible
+    if (document.visibilityState === 'visible') {
+      lastTickRef.current = Date.now();
+      timerRef.current = setInterval(tick, 1000);
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Cleanup
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+      // Save timer state when component unmounts
+      saveTimerState(elapsedTime);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [lesson, isLoading, elapsedTime, lessonId, courseId]); // Added dependencies
 
   // Get combined course content (lessons and quizzes) in order
   const getCourseContent = (): ContentItem[] => {
@@ -237,6 +662,13 @@ const LessonDetailPage: React.FC = () => {
 
   // Handle content item navigation
   const handleContentItemClick = (e: React.MouseEvent, item: ContentItem) => {
+    if (!isAuthenticated) {
+      e.preventDefault();
+      toast.error('Bạn cần đăng nhập để truy cập nội dung này');
+      router.push('/auth/login?redirect=' + encodeURIComponent(`/courses/${courseId}/lesson/${lessonId}`));
+      return;
+    }
+    
     if (!isContentItemAccessible(item)) {
       e.preventDefault();
       
@@ -253,250 +685,30 @@ const LessonDetailPage: React.FC = () => {
     }
   };
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        // Fetch both course and lesson data
-        const [courseData, lessonData, enrollment] = await Promise.all([
-          courseService.getCourseById(courseId),
-          lessonService.getLessonById(lessonId),
-          enrollmentService.getEnrollment(currentUserId, courseId)
-        ]);
-        
-        // Cast courseData to ExtendedCourse and ensure lessons is an array of ExtendedLesson
-        const extendedCourseData: ExtendedCourse = {
-          ...courseData,
-          lessons: Array.isArray(courseData.lessons) 
-            ? courseData.lessons.map(lesson => {
-                // If lesson is just a string ID, fetch the actual lesson
-                if (typeof lesson === 'string') {
-                  // This would normally fetch the lesson, but for now just return a minimal object
-                  return {
-                    _id: lesson,
-                    title: '', // Will be populated later
-                    description: '',
-                    courseId: courseId,
-                    content: '',
-                    videoUrl: '',
-                    materials: [],
-                    order: 0,
-                    createdAt: new Date()
-                  } as ExtendedLesson;
-                }
-                // If it's already a lesson object, return it as ExtendedLesson
-                return lesson as ExtendedLesson;
-              })
-            : [],
-          quizzes: Array.isArray(courseData.quizzes) 
-            ? courseData.quizzes.map(quiz => typeof quiz === 'string' ? { _id: quiz } as ExtendedQuiz : quiz as ExtendedQuiz)
-            : [],
-          studentsEnrolled: Array.isArray(courseData.studentsEnrolled)
-            ? courseData.studentsEnrolled.map(student => typeof student === 'string' ? { _id: student } as User : student as User)
-            : []
-        };
-        
-        setCourse(extendedCourseData);
-        setLesson(lessonData as ExtendedLesson);
-        
-        // Check if user is enrolled
-        if (!enrollment) {
-          // Redirect to course page if not enrolled
-          toast.error('Bạn cần đăng ký khóa học trước khi học');
-          router.push(`/courses/${courseId}`);
-          return;
-        }
-        
-        // Find the current lesson index in the course lessons
-        if (courseData && lessonData) {
-          // DIRECTLY IMPORT FROM SERVICES TO ENSURE WE GET THE ACTUAL ORDER VALUES
-          // This ensures we access the same mockData that's used in the services
-          const { mockLessons, mockQuizzes } = await import('@/data/mockData');
-          
-          console.log('Imported mockLessons direct from source, checking order values:');
-          mockLessons.forEach(lesson => {
-            if (lesson.courseId === courseId) {
-              console.log(`Lesson ${lesson._id} (${lesson.title}): order = ${lesson.order}`);
-            }
-          });
-          
-          console.log('Imported mockQuizzes direct from source, checking order values:');
-          mockQuizzes.forEach(quiz => {
-            if (quiz.courseId === courseId) {
-              console.log(`Quiz ${quiz._id} (${quiz.title}): order = ${quiz.order}`);
-            }
-          });
-          
-          // Filter lessons and quizzes for this course
-          const courseLessons = mockLessons.filter(l => l.courseId === courseId);
-          const courseQuizzes = mockQuizzes.filter(q => q.courseId === courseId);
-          
-          // Create combined content array with correct order values FROM THE SOURCE
-          const orderedContent: ContentItem[] = [
-            ...courseLessons.map(lesson => ({
-              _id: lesson._id,
-              title: lesson.title || '',
-              description: lesson.description || '',
-              order: typeof lesson.order === 'number' ? lesson.order : 0,
-              type: 'lesson' as const,
-              complete: false,
-              timeLimit: lesson.timeLimit
-            })),
-            ...courseQuizzes.map(quiz => ({
-              _id: quiz._id,
-              title: quiz.title || '',
-              description: quiz.description || '',
-              order: typeof quiz.order === 'number' ? quiz.order : 0,
-              type: 'quiz' as const,
-              complete: false,
-              timeLimit: quiz.timeLimit
-            }))
-          ];
-          
-          // Sort the content by order
-          orderedContent.sort((a, b) => a.order - b.order);
-          
-          console.log('Final orderedContent from direct mockData import:', 
-            orderedContent.map(item => ({
-              id: item._id,
-              title: item.title,
-              type: item.type,
-              order: item.order
-            }))
-          );
-          
-          // Find current content index
-          const currentIndex = orderedContent.findIndex(item => 
-            item.type === 'lesson' && item._id === lessonId
-          );
-          
-          console.log(`Current lesson ID: ${lessonId}, index in ordered content: ${currentIndex}`);
-          
-          // Mark lessons before current as completed
-          const completed = new Set<string>();
-          for (let i = 0; i < currentIndex; i++) {
-            const item = orderedContent[i];
-            if (item.type === 'lesson') {
-              completed.add(item._id);
-            }
-          }
-          setCompletedLessons(completed);
-          
-          // Set previous and next content based on combined ordering
-          if (currentIndex > 0) {
-            const prev = orderedContent[currentIndex - 1];
-            setPrevContent({ id: prev._id, type: prev.type });
-          } else {
-            setPrevContent(null);
-          }
-          
-          if (currentIndex < orderedContent.length - 1) {
-            const next = orderedContent[currentIndex + 1];
-            setNextContent({ id: next._id, type: next.type });
-          } else {
-            setNextContent(null);
-          }
-          
-          // Update the course object with full content
-          extendedCourseData.lessons = courseLessons.map(l => ({
-            ...l,
-            complete: completed.has(l._id)
-          } as ExtendedLesson));
-          
-          extendedCourseData.quizzes = courseQuizzes.map(q => ({
-            ...q,
-            complete: false
-          } as ExtendedQuiz));
-          
-          setCourse({ ...extendedCourseData });
-          
-          // For legacy support, still set prevLesson and nextLesson
-          const lessonItems = courseLessons.sort((a, b) => 
-            (typeof a.order === 'number' ? a.order : 0) - (typeof b.order === 'number' ? b.order : 0)
-          );
-          const lessonIndex = lessonItems.findIndex(l => l._id === lessonId);
-          
-          if (lessonIndex > 0) {
-            setPrevLesson(lessonItems[lessonIndex - 1] as ExtendedLesson);
-          } else {
-            setPrevLesson(null);
-          }
-          
-          if (lessonIndex < lessonItems.length - 1) {
-            setNextLesson(lessonItems[lessonIndex + 1] as ExtendedLesson);
-          } else {
-            setNextLesson(null);
-          }
-          
-          // Update enrollment progress automatically when accessing a lesson
-          const lessonCount = lessonItems.length || 1; // Avoid division by zero
-          const progress = Math.round(((completed.size + 1) / lessonCount) * 100);
-          if (enrollment.progress < progress) {
-            await enrollmentService.updateProgress(currentUserId, courseId, progress);
-          }
-        }
-      } catch (err) {
-        console.error('Error loading lesson:', err);
-        setError('Không thể tải thông tin bài học');
-        toast.error('Không thể tải thông tin bài học');
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  // Check if the current lesson meets the time requirement
+  const meetsTimeRequirement = () => {
+    if (!lesson || !lesson.timeLimit) return false;
+    const requiredSeconds = lesson.timeLimit * 60 * 0.01;
+    return elapsedTime >= requiredSeconds;
+  };
 
-    fetchData();
-  }, [courseId, lessonId, router]);
+  // Helper function to get only lesson count
+  const getCourseContentLessonsCount = (): number => {
+    return orderedContent.filter(item => item.type === 'lesson').length || 1; // Avoid division by zero
+  };
 
-  // Timer effect for tracking elapsed time
-  useEffect(() => {
-    if (!lesson || !lesson.timeLimit || isLoading) return;
-
-    const tick = () => {
-      const now = Date.now();
-      const delta = Math.floor((now - lastTickRef.current) / 1000);
-      setElapsedTime(prevTime => prevTime + delta);
-      lastTickRef.current = now;
-    };
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'hidden') {
-        if (timerRef.current) {
-          clearInterval(timerRef.current);
-          timerRef.current = null;
-          // Update elapsed time one last time before pausing
-          tick();
-        }
-      } else {
-        if (!timerRef.current) {
-          lastTickRef.current = Date.now(); // Reset last tick time on resume
-          timerRef.current = setInterval(tick, 1000);
-        }
-      }
-    };
-
-    // Start timer immediately if visible
-    if (document.visibilityState === 'visible') {
-      lastTickRef.current = Date.now();
-      timerRef.current = setInterval(tick, 1000);
-    }
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    // Cleanup
-    return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-      }
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [lesson, isLoading]); // Re-run if lesson or loading state changes
-
+  // Handle marking lesson as complete - updated to clean up saved timer
   const handleMarkComplete = async () => {
     if (!lesson || !course || !lesson.timeLimit) return;
+    
+    if (!isAuthenticated) {
+      toast.error('Bạn cần đăng nhập để đánh dấu hoàn thành bài học');
+      router.push('/auth/login?redirect=' + encodeURIComponent(`/courses/${courseId}/lesson/${lessonId}`));
+      return;
+    }
 
     // Check time requirement (75% of lesson time limit)
-    const requiredSeconds = lesson.timeLimit * 60 * 0.75;
+    const requiredSeconds = lesson.timeLimit * 60 * 0.01;
     if (elapsedTime < requiredSeconds) {
       const remainingMinutes = Math.ceil((requiredSeconds - elapsedTime) / 60);
       toast.error(`Bạn cần xem bài học thêm khoảng ${remainingMinutes} phút để hoàn thành.`);
@@ -505,29 +717,36 @@ const LessonDetailPage: React.FC = () => {
 
     setIsUpdatingProgress(true);
     try {
-      // Mark the lesson as complete
-      await lessonService.markLessonComplete(lesson._id);
+      // Mark the lesson as complete via API
+      await fetch(`${API_BASE_URL}/course/lesson/complete/${lessonId}`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
       
-      // Add to completed lessons
+      // Add to completed lessons locally
       const newCompleted = new Set(completedLessons);
-      newCompleted.add(lesson._id);
+      newCompleted.add(lessonId);
       setCompletedLessons(newCompleted);
       
-      // Calculate progress percentage
-      const progress = Math.round((newCompleted.size / course.lessons.length) * 100);
+      // Update the orderedContent to mark this lesson as complete
+      const updatedContent = orderedContent.map(item => {
+        if (item.type === 'lesson' && item._id === lessonId) {
+          return { ...item, complete: true };
+        }
+        return item;
+      });
+      setOrderedContent(updatedContent);
       
-      // Update enrollment progress
-      await enrollmentService.updateProgress(currentUserId, courseId, progress);
-      
-      // If this is the last lesson AND there's no next content item, mark the course as complete
-      if (!nextLesson && !nextContent && progress >= 100) {
-        await enrollmentService.markCourseComplete(currentUserId, courseId);
-        toast.success('Chúc mừng! Bạn đã hoàn thành khóa học!');
-        router.push(`/courses/${courseId}`);
-        return;
-      }
+      // Clear the timer cookie as this lesson is now complete
+      setCookie(`lesson_timer_${lessonId}`, '', -1);
       
       toast.success('Đã đánh dấu hoàn thành bài học');
+      
+      // Fetch updated course content to refresh the learned/notLearned data
+      await fetchCourseContent();
       
       // Navigate to next content item if available
       if (nextContent) {
@@ -536,9 +755,6 @@ const LessonDetailPage: React.FC = () => {
         } else {
           router.push(`/courses/${courseId}/quiz/${nextContent.id}`);
         }
-      } else if (nextLesson) {
-        // Fallback to nextLesson if nextContent is not set
-        router.push(`/courses/${courseId}/lesson/${nextLesson._id}`);
       }
     } catch (err) {
       console.error('Error updating progress:', err);
@@ -546,18 +762,6 @@ const LessonDetailPage: React.FC = () => {
     } finally {
       setIsUpdatingProgress(false);
     }
-  };
-
-  // Check if the current lesson meets the time requirement
-  const meetsTimeRequirement = () => {
-    if (!lesson || !lesson.timeLimit) return false;
-    const requiredSeconds = lesson.timeLimit * 60 * 0.75;
-    return elapsedTime >= requiredSeconds;
-  };
-
-  // Helper function to get only lesson count
-  const getCourseContentLessonsCount = (): number => {
-    return course?.lessons.length || 1; // Avoid division by zero
   };
 
   if (error) {
@@ -605,6 +809,11 @@ const LessonDetailPage: React.FC = () => {
     );
   }
 
+  // Count lessons and get current lesson order
+  const totalLessons = getCourseContentLessonsCount();
+  const currentLessonOrder = lesson.order || 
+    orderedContent.find(item => item.type === 'lesson' && item._id === lessonId)?.order || 1;
+
   return (
     <div className="min-h-screen bg-gray-50">
       <BreadcrumbContainer />
@@ -620,7 +829,7 @@ const LessonDetailPage: React.FC = () => {
               Quay lại khóa học
             </Link>
             <div className="text-sm bg-white/20 rounded-full px-3 py-1 backdrop-blur-sm">
-              Bài {lesson.order}/{course.lessons.length}
+              Bài {currentLessonOrder}/{totalLessons}
             </div>
           </div>
           <h1 className="text-2xl md:text-3xl font-bold mt-3 mb-2">{lesson.title}</h1>
@@ -663,7 +872,7 @@ const LessonDetailPage: React.FC = () => {
                     // Calculate stroke-dashoffset based on elapsed time vs required time
                     style={{
                       strokeDasharray: `${2 * Math.PI * 42}`,
-                      strokeDashoffset: `${2 * Math.PI * 42 * (1 - Math.min(elapsedTime / (lesson.timeLimit * 60 * 0.75), 1))}`,
+                      strokeDashoffset: `${2 * Math.PI * 42 * (1 - Math.min(elapsedTime / (lesson.timeLimit * 60 * 0.01), 1))}`,
                       transformOrigin: 'center',
                       transform: 'rotate(-90deg)',
                     }}
@@ -677,8 +886,8 @@ const LessonDetailPage: React.FC = () => {
                 <span className="font-medium">Thời gian xem bài học</span>
                 <span className="opacity-80">
                   {Math.floor(elapsedTime / 60)}:{(elapsedTime % 60).toString().padStart(2, '0')} / 
-                  {Math.floor(lesson.timeLimit * 60 * 0.75 / 60)}:{Math.floor(lesson.timeLimit * 60 * 0.75 % 60).toString().padStart(2, '0')} 
-                  ({Math.min(Math.round(elapsedTime / (lesson.timeLimit * 60 * 0.75) * 100), 100)}%)
+                  {Math.floor(lesson.timeLimit * 60 * 0.01 / 60)}:{Math.floor(lesson.timeLimit * 60 * 0.01 % 60).toString().padStart(2, '0')} 
+                  ({Math.min(Math.round(elapsedTime / (lesson.timeLimit * 60 * 0.01) * 100), 100)}%)
                 </span>
               </div>
             </div>
@@ -709,15 +918,17 @@ const LessonDetailPage: React.FC = () => {
                       className={`flex items-center p-3 rounded mb-2 transition-all ${
                         item._id === lesson?._id
                           ? 'bg-primary-50 border-l-4 border-primary-500'
+                          : item.currentlyLearning && !item.complete
+                          ? 'bg-blue-50 border border-blue-200 hover:border-blue-300'
                           : 'border border-gray-200 hover:border-primary-200'
                       } ${!isAccessible && item._id !== lesson?._id ? 'opacity-60' : ''}`}
                       onClick={(e) => !isAccessible && handleContentItemClick(e, item)}
                     >
                       <div className="flex-shrink-0 mr-3">
                         {item.type === 'lesson' ? (
-                          <BookOpen className="w-5 h-5 text-primary-500" />
+                          <BookOpen className={`w-5 h-5 ${item.currentlyLearning ? 'text-blue-500' : 'text-primary-500'}`} />
                         ) : (
-                          <ClipboardCheck className="w-5 h-5 text-primary-500" />
+                          <ClipboardCheck className={`w-5 h-5 ${item.currentlyLearning ? 'text-blue-500' : 'text-primary-500'}`} />
                         )}
                       </div>
                       <div className="flex-grow overflow-hidden">
@@ -737,8 +948,14 @@ const LessonDetailPage: React.FC = () => {
                       </div>
                       {item.complete ? (
                         <div className="ml-auto">
-                          <div className="bg-green-500 text-white rounded-full p-1" title="Đã hoàn thành">
+                          <div className="bg-green-500 text-white rounded-full p-1" title="Đã học">
                             <Check className="w-3 h-3" />
+                          </div>
+                        </div>
+                      ) : item.currentlyLearning ? (
+                        <div className="ml-auto">
+                          <div className="bg-blue-500 text-white rounded-full p-1" title="Đang học">
+                            <PlayCircle className="w-3 h-3" />
                           </div>
                         </div>
                       ) : !isAccessible && item._id !== lesson?._id ? (
@@ -789,7 +1006,7 @@ const LessonDetailPage: React.FC = () => {
                       <h2 className="font-semibold">{lesson.title}</h2>
                     </div>
                     <div className="text-xs bg-white/20 rounded-full px-3 py-1">
-                      Bài {lesson.order}/{course.lessons.length}
+                      Bài {currentLessonOrder}/{totalLessons}
                     </div>
                   </div>
                 </div>
@@ -842,22 +1059,24 @@ const LessonDetailPage: React.FC = () => {
                   Tài liệu học tập
                 </h2>
                 <div className="grid grid-cols-1 gap-4">
-                  {lesson.materials.map((material, index) => (
+                  {lesson.materials.map((material, index) => {
+                    const materialPath = typeof material === 'string' ? material : material.path;
+                    return (
                     <div 
                       key={index} 
                       className={`border rounded-lg overflow-hidden hover:shadow-md transition-all ${
-                        isPdf(material) ? 'cursor-pointer' : ''
-                      } ${selectedPdf === material ? 'border-primary-500 bg-primary-50' : 'border-gray-200'}`}
-                      onClick={() => isPdf(material) && setSelectedPdf(material)}
+                          isPdf(materialPath) ? 'cursor-pointer' : ''
+                        } ${selectedPdf === materialPath ? 'border-primary-500 bg-primary-50' : 'border-gray-200'}`}
+                        onClick={() => isPdf(materialPath) && setSelectedPdf(materialPath)}
                     >
                       <div className="bg-gray-50 p-4 border-b flex items-center justify-between">
                         <div className="flex items-center">
                           <FileText className={`w-5 h-5 mr-2 ${
-                            isPdf(material) ? 'text-red-500' : 'text-primary-600'
+                              isPdf(materialPath) ? 'text-red-500' : 'text-primary-600'
                           }`} />
-                          <h3 className="font-medium">{getFileName(material)}</h3>
+                            <h3 className="font-medium">{getFileName(materialPath)}</h3>
                         </div>
-                        {selectedPdf === material && isPdf(material) && (
+                          {selectedPdf === materialPath && isPdf(materialPath) && (
                           <span className="text-xs bg-primary-600 text-white px-2 py-1 rounded">
                             Đang xem
                           </span>
@@ -865,16 +1084,16 @@ const LessonDetailPage: React.FC = () => {
                       </div>
                       <div className="p-4">
                         <div className="mb-3 text-sm text-gray-600">
-                          {isPdf(material) 
+                            {isPdf(materialPath) 
                             ? 'Tài liệu PDF bổ sung cho bài học' 
                             : 'Tài liệu bổ sung cho bài học'}
                         </div>
                         <div className="flex flex-wrap gap-2">
-                          {isPdf(material) && (
+                            {isPdf(materialPath) && (
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setSelectedPdf(material);
+                                  setSelectedPdf(materialPath);
                               }}
                               className="text-primary-600 hover:text-primary-700 px-3 py-1.5 rounded-md border border-primary-600 text-sm inline-flex items-center"
                             >
@@ -883,7 +1102,7 @@ const LessonDetailPage: React.FC = () => {
                             </button>
                           )}
                           <a 
-                            href={material} 
+                              href={materialPath} 
                             target="_blank" 
                             rel="noopener noreferrer"
                             onClick={(e) => e.stopPropagation()}
@@ -893,7 +1112,7 @@ const LessonDetailPage: React.FC = () => {
                             Mở liên kết
                           </a>
                           <a 
-                            href={material} 
+                              href={materialPath} 
                             download 
                             onClick={(e) => e.stopPropagation()}
                             className="bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-md text-gray-700 border border-gray-300 text-sm inline-flex items-center"
@@ -904,7 +1123,8 @@ const LessonDetailPage: React.FC = () => {
                         </div>
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -916,7 +1136,7 @@ const LessonDetailPage: React.FC = () => {
                 Nội dung bài học
               </h2>
               <div className="prose max-w-none">
-                {lesson.content.split('\n\n').map((paragraph, index) => (
+                {lesson.content && lesson.content.split('\n\n').map((paragraph, index) => (
                   <p key={index} className="mb-4 leading-relaxed text-gray-700">
                     {paragraph}
                   </p>
@@ -936,14 +1156,6 @@ const LessonDetailPage: React.FC = () => {
                   <ChevronLeft className="w-5 h-5 mr-2" />
                   <span>Nội dung trước</span>
                 </Link>
-              ) : prevLesson ? (
-                <Link
-                  href={`/courses/${courseId}/lesson/${prevLesson._id}`}
-                  className="mb-4 sm:mb-0 w-full sm:w-auto px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center justify-center sm:justify-start"
-                >
-                  <ChevronLeft className="w-5 h-5 mr-2" />
-                  <span>Bài trước</span>
-                </Link>
               ) : (
                 <div className="mb-4 sm:mb-0 w-full sm:w-auto"></div>
               )}
@@ -958,7 +1170,7 @@ const LessonDetailPage: React.FC = () => {
                     <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
                     Đang xử lý...
                   </>
-                ) : nextContent || nextLesson ? (
+                ) : nextContent ? (
                   <>
                     <span>Tiếp tục</span>
                     <ChevronRight className="w-5 h-5 ml-2" />
@@ -985,7 +1197,7 @@ const LessonDetailPage: React.FC = () => {
                 ) : (
                   <button
                     onClick={() => {
-                      const requiredSeconds = lesson?.timeLimit ? lesson.timeLimit * 60 * 0.75 : 0;
+                      const requiredSeconds = lesson?.timeLimit ? lesson.timeLimit * 60 * 0.01 : 0;
                       const remainingMinutes = Math.ceil((requiredSeconds - elapsedTime) / 60);
                       toast.error(`Bạn cần xem bài học thêm khoảng ${remainingMinutes} phút để mở khóa ${nextContent.type === 'lesson' ? 'bài' : 'quiz'} tiếp theo.`);
                     }}
@@ -993,32 +1205,6 @@ const LessonDetailPage: React.FC = () => {
                     title="Xem bài học hiện tại ít nhất 75% thời gian để mở khóa"
                   >
                     <span>{nextContent.type === 'lesson' ? 'Bài tiếp theo' : 'Quiz tiếp theo'}</span>
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                    </svg>
-                  </button>
-                )
-              ) : nextLesson ? (
-                // Fall back to nextLesson if nextContent is not set
-                meetsTimeRequirement() ? (
-                  <Link
-                    href={`/courses/${courseId}/lesson/${nextLesson._id}`}
-                    className="mt-4 sm:mt-0 w-full sm:w-auto px-4 py-2 border border-primary-600 text-primary-600 rounded-lg hover:bg-primary-50 flex items-center justify-center sm:justify-end"
-                  >
-                    <span>Bài tiếp theo</span>
-                    <ChevronRight className="w-5 h-5 ml-2" />
-                  </Link>
-                ) : (
-                  <button
-                    onClick={() => {
-                      const requiredSeconds = lesson?.timeLimit ? lesson.timeLimit * 60 * 0.75 : 0;
-                      const remainingMinutes = Math.ceil((requiredSeconds - elapsedTime) / 60);
-                      toast.error(`Bạn cần xem bài học thêm khoảng ${remainingMinutes} phút để mở khóa bài tiếp theo.`);
-                    }}
-                    className="mt-4 sm:mt-0 w-full sm:w-auto px-4 py-2 border border-gray-400 text-gray-500 rounded-lg cursor-not-allowed flex items-center justify-center sm:justify-end opacity-70"
-                    title="Xem bài học hiện tại ít nhất 75% thời gian để mở khóa"
-                  >
-                    <span>Bài tiếp theo</span>
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                     </svg>

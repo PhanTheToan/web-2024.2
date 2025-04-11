@@ -1,31 +1,35 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { courseService } from '@/services/courseService';
-import { quizService } from '@/services/quizService';
 import { 
   ArrowLeft, AlertCircle, CheckCircle, Loader2, 
-  Plus, Trash, Save, Edit
+  Plus, Trash, Save, Edit, Image, X
 } from 'lucide-react';
-import { Course } from '@/app/types';
 import { toast } from 'react-hot-toast';
+import { Course } from '@/app/types';
 
-// Define Quiz-related types based on quizService.ts
+// API Base URL
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8082/api';
+
+// Define Quiz-related types based on API response
 interface QuizQuestion {
   question: string;
   options: string[];
   correctAnswer: string;
+  material?: string | null;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 interface Quiz {
   _id: string;
   courseId: string;
   title: string;
+  description?: string;
   questions: QuizQuestion[];
   passingScore: number;
-  createdAt: Date;
+  timeLimit?: number;
+  order?: number;
+  createdAt?: Date;
 }
 
 export default function EditQuizPage() {
@@ -33,12 +37,14 @@ export default function EditQuizPage() {
   const router = useRouter();
   const courseId = params.id as string;
   const quizId = params.quizId as string;
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [course, setCourse] = useState<Course | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   // Quiz information state
   const [quizInfo, setQuizInfo] = useState({
@@ -46,6 +52,7 @@ export default function EditQuizPage() {
     description: '',
     timeLimit: 30, // in minutes
     passingScore: 70, // percentage
+    order: 1,
   });
 
   // Questions state
@@ -56,6 +63,7 @@ export default function EditQuizPage() {
     question: '',
     options: ['', '', '', ''],
     correctAnswer: '',
+    material: null
   });
 
   // Track if we're editing an existing question
@@ -63,44 +71,117 @@ export default function EditQuizPage() {
   const [isEditMode, setIsEditMode] = useState(false);
 
   useEffect(() => {
-    const fetchData = async () => {
+    const checkAuth = async () => {
       try {
-        setLoading(true);
-        // Fetch course data
-        const courseData = await courseService.getCourseById(courseId);
-        setCourse(courseData as Course);
-        
-        // Fetch quiz data
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const quizData = await quizService.getQuizById(quizId) as any;
-        
-        // Set quiz info with optional fields that might not be in the type
-        setQuizInfo({
-          title: quizData.title,
-          description: quizData.description || '',
-          timeLimit: quizData.timeLimit || 30,
-          passingScore: quizData.passingScore,
+        console.log("Checking admin authentication...");
+        const response = await fetch(`${API_BASE_URL}/auth/check`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          }
         });
         
-        // Set questions
-        setQuestions(quizData.questions.map((q: QuizQuestion) => ({
-          question: q.question,
-          options: q.options,
-          correctAnswer: q.correctAnswer
-        })));
+        if (!response.ok) {
+          throw new Error('Bạn cần đăng nhập để tiếp tục');
+        }
         
+        const data = await response.json();
+        const userData = data.data;
+        
+        if (userData.role !== 'ROLE_ADMIN') {
+          toast.error('Bạn không có quyền truy cập trang này');
+          router.push('/login?redirect=/admin/couserscontrol');
+          return;
+        }
+        
+        console.log("Authenticated admin:", userData);
+        
+        // Continue with fetching data
+        fetchData();
       } catch (error) {
-        console.error('Failed to fetch data:', error);
-        setError('Không thể tải thông tin bài kiểm tra. Vui lòng thử lại sau.');
-      } finally {
-        setLoading(false);
+        console.error('Auth check error:', error);
+        setError('Vui lòng đăng nhập để tiếp tục');
+        router.push('/login?redirect=/admin/couserscontrol');
       }
     };
     
-    if (courseId && quizId) {
-      fetchData();
+    checkAuth();
+  }, [router]);
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      
+      // Fetch course data
+      console.log("Fetching course:", courseId);
+      const courseResponse = await fetch(`${API_BASE_URL}/course/info/${courseId}`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!courseResponse.ok) {
+        throw new Error("Failed to fetch course");
+      }
+
+      const courseData = await courseResponse.json();
+      let parsedCourse;
+      
+      if (courseData.body) {
+        parsedCourse = courseData.body;
+      } else {
+        parsedCourse = courseData;
+      }
+      
+      console.log("Course data:", parsedCourse);
+      setCourse(parsedCourse);
+      
+      // Fetch quiz data using the API from screenshot
+      console.log("Fetching quiz:", quizId);
+      const quizResponse = await fetch(`${API_BASE_URL}/course/get-quiz/${quizId}`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!quizResponse.ok) {
+        throw new Error("Failed to fetch quiz");
+      }
+
+      const quizData = await quizResponse.json() as Quiz;
+      console.log("Quiz data:", quizData);
+      
+      // Set quiz info with optional fields that might not be in the type
+      setQuizInfo({
+        title: quizData.title || '',
+        description: quizData.description || '',
+        timeLimit: quizData.timeLimit || 30,
+        passingScore: quizData.passingScore || 70,
+        order: quizData.order || 1,
+      });
+      
+      // Set questions
+      if (Array.isArray(quizData.questions)) {
+        setQuestions(quizData.questions.map((q: QuizQuestion) => ({
+          question: q.question,
+          options: q.options || [],
+          correctAnswer: q.correctAnswer,
+          material: q.material || null
+        })));
+      }
+      
+    } catch (error) {
+      console.error('Failed to fetch data:', error);
+      setError('Không thể tải thông tin bài kiểm tra. Vui lòng thử lại sau.');
+    } finally {
+      setLoading(false);
     }
-  }, [courseId, quizId]);
+  };
 
   // Handler for quiz info changes
   const handleQuizInfoChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -133,11 +214,81 @@ export default function EditQuizPage() {
   };
 
   // Handler for correct answer selection
-  const handleCorrectAnswerChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+  const handleCorrectAnswerChange = (option: string) => {
     setCurrentQuestion({
       ...currentQuestion,
-      correctAnswer: e.target.value,
+      correctAnswer: option,
     });
+  };
+
+  // Handler for image upload
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    
+    const file = files[0];
+    
+    // Check file size (5MB max)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Kích thước tệp quá lớn. Tối đa 5MB');
+      return;
+    }
+    
+    // Check file type (image only)
+    if (!file.type.startsWith('image/')) {
+      toast.error('Chỉ chấp nhận tệp hình ảnh');
+      return;
+    }
+    
+    setUploadingImage(true);
+    
+    try {
+      // Use the image upload API from screenshot
+      const formData = new FormData();
+      formData.append('image', file);
+      
+      console.log('Uploading image...');
+      
+      const response = await fetch(`${API_BASE_URL}/upload/image/r2`, {
+        method: 'POST',
+        credentials: 'include',
+        body: formData
+      });
+      
+      if (!response.ok) {
+        throw new Error('Không thể tải lên hình ảnh');
+      }
+      
+      // API returns URL directly as text
+      const imageUrl = await response.text();
+      console.log('Image URL:', imageUrl);
+      
+      setCurrentQuestion({
+        ...currentQuestion,
+        material: imageUrl
+      });
+      
+      toast.success('Tải lên hình ảnh thành công');
+      
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    } catch (err) {
+      console.error('Error uploading image:', err);
+      toast.error('Không thể tải lên hình ảnh. Vui lòng thử lại sau.');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+  
+  // Remove image from current question
+  const removeImage = () => {
+    setCurrentQuestion({
+      ...currentQuestion,
+      material: null
+    });
+    toast.success('Đã xóa hình ảnh');
   };
 
   // Load a question for editing
@@ -244,42 +395,70 @@ export default function EditQuizPage() {
     setSubmitting(true);
     setError(null);
     setSuccess(null);
-    
+
     try {
-      // Validate form
+      // Validate form data
       if (!quizInfo.title.trim()) {
         throw new Error('Vui lòng nhập tiêu đề bài kiểm tra');
       }
-      
+
       if (questions.length === 0) {
         throw new Error('Vui lòng thêm ít nhất một câu hỏi');
       }
-      
-      // Prepare quiz data
-      const quizData = {
-        _id: quizId,
-        courseId,
+
+      // Prepare request data for API
+      const requestData = {
         title: quizInfo.title,
         description: quizInfo.description,
-        questions,
+        order: quizInfo.order,
         passingScore: quizInfo.passingScore,
         timeLimit: quizInfo.timeLimit,
+        questions: questions.map(q => ({
+          question: q.question,
+          options: q.options,
+          correctAnswer: q.correctAnswer,
+          material: q.material || null
+        }))
       };
+
+      console.log("Updating quiz with data:", requestData);
       
-      // Update quiz
-      await quizService.updateQuiz(quizId, quizData);
+      // Use the update-quiz API from screenshot
+      const response = await fetch(`${API_BASE_URL}/course/update-quiz/${quizId}?courseId=${courseId}`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestData)
+      });
       
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Server error:", errorText);
+        throw new Error("Không thể cập nhật bài kiểm tra");
+      }
+      
+      const data = await response.json();
+      console.log("Quiz updated successfully:", data);
+
+      // Show success message and redirect
       setSuccess('Cập nhật bài kiểm tra thành công!');
       toast.success('Cập nhật bài kiểm tra thành công!');
       
-      // Redirect after success
       setTimeout(() => {
         router.push(`/admin/couserscontrol/${courseId}/quizzes/${quizId}`);
       }, 1500);
+
     } catch (err) {
       console.error('Failed to update quiz:', err);
-      setError((err as Error).message || 'Không thể cập nhật bài kiểm tra. Vui lòng thử lại sau.');
-      toast.error((err as Error).message || 'Không thể cập nhật bài kiểm tra');
+      if (err instanceof Error) {
+        setError(err.message);
+        toast.error(err.message);
+      } else {
+        setError('Không thể cập nhật bài kiểm tra. Vui lòng thử lại sau.');
+        toast.error('Không thể cập nhật bài kiểm tra. Vui lòng thử lại sau.');
+      }
     } finally {
       setSubmitting(false);
     }
@@ -505,8 +684,59 @@ export default function EditQuizPage() {
                   value={currentQuestion.question}
                   onChange={handleQuestionChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-                  placeholder="Nhập câu hỏi"
+                  placeholder="Nhập nội dung câu hỏi"
                 />
+              </div>
+              
+              <div className="mb-4">
+                <label htmlFor="material" className="block text-sm font-medium text-gray-700 mb-1">
+                  Hình ảnh cho câu hỏi (tùy chọn)
+                </label>
+                
+                {currentQuestion.material ? (
+                  <div className="mt-2 relative">
+                    <img 
+                      src={currentQuestion.material} 
+                      alt="Hình ảnh câu hỏi" 
+                      className="max-h-48 max-w-full rounded border border-gray-300"
+                    />
+                    <button
+                      type="button"
+                      onClick={removeImage}
+                      className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full hover:bg-red-600 transition"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="mt-1 flex items-center">
+                    <input
+                      type="file"
+                      id="material"
+                      ref={fileInputRef}
+                      accept="image/*"
+                      className="sr-only"
+                      onChange={handleImageUpload}
+                    />
+                    <label
+                      htmlFor="material"
+                      className="cursor-pointer bg-white py-2 px-3 border border-gray-300 rounded-md shadow-sm text-sm leading-4 font-medium text-gray-700 hover:bg-gray-50 focus:outline-none"
+                    >
+                      {uploadingImage ? (
+                        <span className="flex items-center">
+                          <Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-700" />
+                          Đang tải lên...
+                        </span>
+                      ) : (
+                        <span className="flex items-center">
+                          <Image className="h-4 w-4 mr-2" />
+                          Tải lên hình ảnh
+                        </span>
+                      )}
+                    </label>
+                    <p className="ml-2 text-xs text-gray-500">PNG, JPG, GIF, WEBP lên đến 5MB</p>
+                  </div>
+                )}
               </div>
               
               <div>
@@ -536,7 +766,7 @@ export default function EditQuizPage() {
                   id="correctAnswer"
                   name="correctAnswer"
                   value={currentQuestion.correctAnswer}
-                  onChange={handleCorrectAnswerChange}
+                  onChange={(e) => handleCorrectAnswerChange(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500"
                 >
                   <option value="">Chọn đáp án đúng</option>

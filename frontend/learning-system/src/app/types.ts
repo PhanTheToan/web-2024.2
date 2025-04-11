@@ -79,23 +79,30 @@ export interface CourseData {
   
   export interface Course {
     _id: string;
+    id?: string;
     title: string;
     description: string;
-    thumbnail?: string;
-    totalDuration: number; // in minutes
+    thumbnail: string;
     price: number;
+    categories: string[];
+    createdAt: string | Date;
+    updatedAt?: string | Date;
+    teacherId: string | User;
     lessons: Lesson[] | string[];
     quizzes: Quiz[] | string[];
     studentsEnrolled: User[] | string[];
-    teacherId: User | string;
-    categories: string[];
-    category?: string | { name: string; _id: string }; // For backward compatibility
-    rating: number;
-    registrations: number; // Number of registrations
-    isPopular?: boolean; // Whether the course is marked as popular
-    isPublished?: boolean; // Whether the course is published
-    createdAt: Date;
-    updatedAt?: Date;
+    isPublished?: boolean;
+    isPopular?: boolean;
+    totalDuration?: number;
+    registrations?: number;
+    
+    // Add new properties from API responses
+    teacherFullName?: string;
+    teacherName?: string;
+    courseStatus?: string;
+    totalTimeLimit?: number;
+    studentsCount?: number;
+    contentCount?: number;
   }
 
   export interface LessonMaterial {
@@ -121,6 +128,7 @@ export interface CourseData {
     question: string;
     options: string[];
     correctAnswer: string;
+    material?: string | null;
   }
 
   export interface Category {

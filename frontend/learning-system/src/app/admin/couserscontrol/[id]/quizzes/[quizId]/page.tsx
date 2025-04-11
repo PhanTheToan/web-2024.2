@@ -2,8 +2,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { courseService } from '@/services/courseService';
-import { quizService } from '@/services/quizService';
 import { 
   ArrowLeft, Edit, Trash, Clock, Calendar, 
   AlertCircle, Loader2, CheckCircle, X, 
@@ -11,12 +9,17 @@ import {
 } from 'lucide-react';
 import { Course } from '@/app/types';
 import { formatDate } from '@/lib/utils';
+import { toast } from 'react-hot-toast';
 
-// Define Quiz-related types based on quizService.ts
+// API Base URL
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8082/api';
+
+// Define Quiz-related types based on API response
 interface QuizQuestion {
   question: string;
   options: string[];
   correctAnswer: string;
+  material?: string | null;
 }
 
 interface Quiz {
@@ -27,7 +30,9 @@ interface Quiz {
   questions: QuizQuestion[];
   passingScore: number;
   timeLimit?: number;
-  createdAt: Date;
+  order?: number;
+  createdAt: string | Date;
+  updatedAt?: string | Date;
 }
 
 export default function QuizDetailPage() {
@@ -44,37 +49,122 @@ export default function QuizDetailPage() {
   const [deleting, setDeleting] = useState(false);
   
   useEffect(() => {
-    const fetchData = async () => {
+    const checkAuth = async () => {
       try {
-        setLoading(true);
+        console.log("Checking admin authentication...");
+        const response = await fetch(`${API_BASE_URL}/auth/check`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
         
-        // Fetch course data
-        const courseData = await courseService.getCourseById(courseId);
-        setCourse(courseData as Course);
+        if (!response.ok) {
+          throw new Error('Bạn cần đăng nhập để tiếp tục');
+        }
         
-        // Fetch quiz data
-        const quizData = await quizService.getQuizById(quizId);
-        setQuiz(quizData as Quiz);
-      } catch (err) {
-        console.error('Failed to fetch data:', err);
-        setError('Không thể tải dữ liệu. Vui lòng thử lại sau.');
-      } finally {
-        setLoading(false);
+        const data = await response.json();
+        const userData = data.data;
+        
+        if (userData.role !== 'ROLE_ADMIN') {
+          toast.error('Bạn không có quyền truy cập trang này');
+          router.push('/login?redirect=/admin/couserscontrol');
+          return;
+        }
+        
+        console.log("Authenticated admin:", userData);
+        
+        // Continue with fetching data
+        fetchData();
+      } catch (error) {
+        console.error('Auth check error:', error);
+        setError('Vui lòng đăng nhập để tiếp tục');
+        router.push('/login?redirect=/admin/couserscontrol');
       }
     };
     
-    if (courseId && quizId) {
-      fetchData();
+    checkAuth();
+  }, [router]);
+  
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      
+      // Fetch course data from API
+      console.log("Fetching course:", courseId);
+      const courseResponse = await fetch(`${API_BASE_URL}/course/info/${courseId}`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!courseResponse.ok) {
+        throw new Error("Failed to fetch course");
+      }
+
+      const courseData = await courseResponse.json();
+      let parsedCourse;
+      
+      if (courseData.body) {
+        parsedCourse = courseData.body;
+      } else {
+        parsedCourse = courseData;
+      }
+      
+      console.log("Course data:", parsedCourse);
+      setCourse(parsedCourse);
+      
+      // Fetch quiz data using the API from screenshot
+      console.log("Fetching quiz:", quizId);
+      const quizResponse = await fetch(`${API_BASE_URL}/course/get-quiz/${quizId}`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!quizResponse.ok) {
+        throw new Error("Failed to fetch quiz");
+      }
+
+      const quizData = await quizResponse.json();
+      console.log("Quiz data:", quizData);
+      
+      setQuiz(quizData);
+    } catch (err) {
+      console.error('Error fetching data:', err);
+      setError('Có lỗi xảy ra khi tải dữ liệu. Vui lòng thử lại sau.');
+    } finally {
+      setLoading(false);
     }
-  }, [courseId, quizId]);
+  };
   
   const handleDeleteQuiz = async () => {
     if (!course || !quiz) return;
     
     try {
       setDeleting(true);
-      // Delete the quiz using the quizService
-      await quizService.deleteQuiz(courseId, quizId);
+      
+      // Delete the quiz using the API
+      const response = await fetch(`${API_BASE_URL}/course/delete-quiz/${quizId}?courseId=${courseId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Delete quiz error:', errorText);
+        throw new Error('Không thể xóa bài kiểm tra');
+      }
+      
+      toast.success('Đã xóa bài kiểm tra thành công');
       
       // Redirect after successful deletion
       router.push(`/admin/couserscontrol/${courseId}`);
@@ -82,6 +172,7 @@ export default function QuizDetailPage() {
       console.error('Failed to delete quiz:', err);
       setError('Không thể xóa bài kiểm tra. Vui lòng thử lại sau.');
       setDeleteModalOpen(false);
+      toast.error('Không thể xóa bài kiểm tra');
     } finally {
       setDeleting(false);
     }

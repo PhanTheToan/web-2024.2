@@ -2,9 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { courseService } from '@/services/courseService';
 import { ArrowLeft, Upload, X, Save, Loader2 } from 'lucide-react';
-import { CategoryItem, Course } from '@/app/types';
+import { CategoryItem } from '@/app/types';
 import { toast } from 'react-hot-toast';
 
 // Define the CourseData interface for the form
@@ -46,45 +45,88 @@ export default function EditCoursePage() {
   const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [thumbnailPreview, setThumbnailPreview] = useState<string>('');
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
 
   // Fetch course data and categories
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        // Fetch course details
-        const course = await courseService.getCourseById(courseId) as Course;
+        // Fetch course details via API
+        const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8082/api';
         
+        // Fetch course details
+        const courseResponse = await fetch(`${API_BASE_URL}/course/info/${courseId}`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (!courseResponse.ok) {
+          throw new Error('Không thể tải thông tin khóa học');
+        }
+        
+        const courseData = await courseResponse.json();
+        const course = courseData.body || courseData;
+        
+        // Format course data
         setCourseData({
-          title: course.title,
-          description: course.description,
-          price: course.price,
+          title: course.title || '',
+          description: course.description || '',
+          price: course.price || 0,
           thumbnail: course.thumbnail || '',
           totalDuration: course.totalDuration || 0,
           categories: Array.isArray(course.categories) 
-            ? course.categories.map(cat => {
+            ? course.categories.map((cat: CategoryData | string) => {
                 // Safely handle the category which could be a string or an object
                 if (typeof cat === 'object' && cat !== null && 'name' in cat) {
-                  return (cat as CategoryData).name;
+                  return cat.name;
                 }
                 return String(cat);
               }) 
             : [],
-          isPublished: course.isPublished || false,
+          isPublished: course.isPublished || course.courseStatus === 'ACTIVE' || false,
         });
         
         setThumbnailPreview(course.thumbnail || '');
         
-        // Fetch categories
-        const categoriesData = await courseService.getCategories();
-        setCategories(categoriesData);
+        // Fetch featured categories
+        const categoriesResponse = await fetch(`${API_BASE_URL}/categories/featured-category`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (!categoriesResponse.ok) {
+          throw new Error('Không thể tải danh mục khóa học');
+        }
+        
+        const categoriesData = await categoriesResponse.json();
+        const categories = categoriesData.body || [];
+        
+        // Format categories based on the API response
+        setCategories(categories.map((cat: {
+          categoryId?: string; 
+          categoryName?: string;
+          categoryDisplayName?: string | null;
+        }) => ({
+          name: cat.categoryName || '',
+          displayName: cat.categoryDisplayName || cat.categoryName || '',
+          id: cat.categoryId || '',
+          count: 0,
+          isActive: false
+        })));
         
         // Set selected categories to match course categories
         setSelectedCategories(Array.isArray(course.categories) 
-          ? course.categories.map(cat => {
+          ? course.categories.map((cat: CategoryData | string) => {
               // Safely handle the category which could be a string or an object
               if (typeof cat === 'object' && cat !== null && 'name' in cat) {
-                return (cat as CategoryData).name;
+                return cat.name;
               }
               return String(cat);
             }) 
@@ -92,6 +134,7 @@ export default function EditCoursePage() {
       } catch (error) {
         console.error('Failed to fetch data:', error);
         setError('Không thể tải dữ liệu khóa học. Vui lòng thử lại sau.');
+        toast.error('Không thể tải dữ liệu khóa học');
       } finally {
         setLoading(false);
       }
@@ -154,7 +197,10 @@ export default function EditCoursePage() {
       const previewUrl = URL.createObjectURL(file);
       setThumbnailPreview(previewUrl);
       
-      // Update course data with the file name (in a real app, this would be the URL after upload)
+      // Store the file for later upload
+      setThumbnailFile(file);
+      
+      // Update course data with the preview URL temporarily
       setCourseData({
         ...courseData,
         thumbnail: previewUrl,
@@ -178,13 +224,63 @@ export default function EditCoursePage() {
         throw new Error('Mô tả khóa học không được để trống');
       }
       
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8082/api';
+      
       // Prepare the updated course data
       const updatedCourse = {
-        ...courseData,
+        title: courseData.title,
+        description: courseData.description,
+        price: courseData.price,
+        thumbnail: courseData.thumbnail,
+        categories: courseData.categories,
+        courseStatus: courseData.isPublished ? 'ACTIVE' : 'INACTIVE',
       };
       
-      // Update the course
-      await courseService.updateCourse(courseId, updatedCourse);
+      // Handle file upload if there's a new thumbnail
+      if (thumbnailFile) {
+        // Create FormData for file upload
+        const formData = new FormData();
+        formData.append('file', thumbnailFile);
+        
+        try {
+          // Upload the thumbnail file
+          const uploadResponse = await fetch(`${API_BASE_URL}/upload/image/r2`, {
+            method: 'POST',
+            credentials: 'include',
+            body: formData,
+          });
+          
+          if (!uploadResponse.ok) {
+            throw new Error('Không thể tải lên ảnh thumbnail');
+          }
+          
+          const uploadData = await uploadResponse.json();
+          const thumbnailUrl = uploadData.body?.url || uploadData.url;
+          
+          if (thumbnailUrl) {
+            updatedCourse.thumbnail = thumbnailUrl;
+          } else {
+            console.warn("Thumbnail URL not found in upload response");
+          }
+        } catch (error) {
+          console.error("Error uploading thumbnail:", error);
+          throw new Error('Lỗi khi tải lên ảnh thumbnail');
+        }
+      }
+      
+      // Update the course via API
+      const updateResponse = await fetch(`${API_BASE_URL}/course/update/${courseId}`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updatedCourse),
+      });
+      
+      if (!updateResponse.ok) {
+        throw new Error('Không thể cập nhật khóa học');
+      }
       
       // Show success message
       setSuccess(true);

@@ -2,45 +2,148 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { courseService } from '@/services/courseService';
 import { ArrowLeft, Upload, X } from 'lucide-react';
-import { CategoryItem } from '@/app/types';
+import { toast } from 'react-hot-toast';
+
+// Định nghĩa interface cho dữ liệu người dùng
+interface UserData {
+  _id: string;
+  firstName: string;
+  lastName: string;
+  username: string;
+  email: string;
+  role: string;
+  profileImage: string | null;
+}
+
+// Định nghĩa interface cho Category
+interface Category {
+  categoryId: string;
+  categoryName: string;
+  categoryDisplayName: string;
+}
+
+// API Base URL
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8082/api';
 
 export default function CreateCoursePage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [categories, setCategories] = useState<CategoryItem[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [userData, setUserData] = useState<UserData | null>(null);
   
   // Form state
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    price: 0,
+    price: '',
     categories: [] as string[],
     thumbnail: '',
-    isPublished: false,
-    isPopular: false, // Added for admin control (teacher can't toggle this)
-    lessons: [] as string[],
-    quizzes: [] as string[],
-    studentsEnrolled: [] as string[],
-    registrations: 0,
-    rating: 0,
-    totalDuration: 0,
+    status: 'DRAFT',
+    teacherId: ''
   });
   
   // Preview image
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   
+  // Lấy thông tin người dùng hiện tại
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        console.log("Checking authentication...");
+        const response = await fetch(`http://localhost:8082/api/auth/check`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        console.log("Response:", response);
+        if (!response.ok) {
+          throw new Error('Bạn cần đăng nhập để tiếp tục');
+        }
+        
+        const data = await response.json();
+        const userData = data.data;
+        
+        if (userData.role !== 'ROLE_TEACHER') {
+          console.log("User role:", userData.role);
+          toast.error('Bạn không có quyền truy cập trang này');
+          router.push('/login?redirect=/teacher/courses/create');
+          return;
+        }
+        
+        console.log("Authenticated user:", userData);
+        setUserData(userData);
+        setFormData(prev => ({
+          ...prev,
+          teacherId: userData._id
+        }));
+      } catch (error) {
+        console.error('Auth check error:', error);
+        setError('Vui lòng đăng nhập để tiếp tục');
+        router.push('/login?redirect=/teacher/courses/create');
+      }
+    };
+    
+    checkAuth();
+  }, [router]);
+  
+  // Lấy danh sách danh mục
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const data = await courseService.getCategories();
-        setCategories(data);
+        console.log("Fetching categories...");
+        const response = await fetch(`http://localhost:8082/api/categories/featured-category`, {
+          method: 'GET',
+          credentials: 'include'
+        });
+        
+        if (!response.ok) {
+          throw new Error('Không thể tải danh mục');
+        }
+        
+        const data = await response.json();
+        console.log("Categories data:", data);
+        
+        // Hàm để kiểm tra xem một object có phải là Category không
+        const isCategory = (item: unknown): item is Category => {
+          return item !== null && 
+                 typeof item === 'object' && 
+                 'categoryId' in (item as Record<string, unknown>) && 
+                 typeof (item as Record<string, unknown>).categoryId === 'string';
+        };
+        
+        // Kiểm tra cấu trúc dữ liệu API trả về và xử lý phù hợp
+        if (Array.isArray(data)) {
+          // Lọc để đảm bảo chỉ có đối tượng Category hợp lệ
+          const validCategories = data.filter(isCategory);
+          setCategories(validCategories);
+        } else if (data && typeof data === 'object' && 'body' in data && Array.isArray(data.body)) {
+          const validCategories = data.body.filter(isCategory);
+          setCategories(validCategories);
+        } else if (data && typeof data === 'object') {
+          // Nếu data là object, kiểm tra xem có phải mảng các danh mục không
+          console.log("Data structure:", Object.keys(data));
+          const categoryArray = Object.values(data);
+          if (categoryArray.length > 0) {
+            const validCategories = categoryArray.filter(isCategory);
+            setCategories(validCategories);
+          } else {
+            console.error("Unexpected data structure:", data);
+            setCategories([]);
+          }
+        } else {
+          console.error("Invalid categories data format:", data);
+          setCategories([]);
+        }
       } catch (error) {
         console.error('Failed to fetch categories:', error);
         setError('Không thể tải danh mục. Vui lòng thử lại sau.');
+        setCategories([]);
       }
     };
     
@@ -51,29 +154,57 @@ export default function CreateCoursePage() {
     const { name, value, type } = e.target;
     setFormData({
       ...formData,
-      [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : 
-              type === 'number' ? parseFloat(value) || 0 : value,
+      [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value,
     });
   };
   
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      setSelectedFile(file);
       const imageUrl = URL.createObjectURL(file);
       setPreviewImage(imageUrl);
-      setFormData({
-        ...formData,
-        thumbnail: imageUrl,
-      });
     }
   };
   
   const clearPreviewImage = () => {
     setPreviewImage(null);
+    setSelectedFile(null);
     setFormData({
       ...formData,
       thumbnail: '',
     });
+  };
+  
+  const uploadImage = async (file: File): Promise<string> => {
+    const formData = new FormData();
+    formData.append('image', file);
+    
+    try {
+      console.log("Uploading image...");
+      const response = await fetch(`http://localhost:8082/api/upload/image/r2`, {
+        method: 'POST',
+        credentials: 'include',
+        body: formData
+      });
+      
+      if (!response.ok) {
+        throw new Error('Không thể tải lên hình ảnh');
+      }
+      
+      // Xử lý khi API trả về trực tiếp URL dạng text
+      const imageUrl = await response.text();
+      console.log("Upload result (URL):", imageUrl);
+      
+      if (!imageUrl || imageUrl.trim() === '') {
+        throw new Error('Không nhận được URL hình ảnh');
+      }
+      
+      return imageUrl.trim();
+    } catch (error) {
+      console.error('Upload error:', error);
+      throw new Error('Không thể tải lên hình ảnh. Vui lòng thử lại sau.');
+    }
   };
   
   const handleSubmit = async (e: React.FormEvent) => {
@@ -88,37 +219,65 @@ export default function CreateCoursePage() {
         throw new Error('Vui lòng chọn ít nhất một danh mục cho khóa học');
       }
       
-      // Get current user ID from authentication context
-      const teacherId = 'teacher1'; // This should come from auth context in a real app
+      // Validate title and description
+      if (!formData.title.trim()) {
+        throw new Error('Vui lòng nhập tên khóa học');
+      }
       
+      if (!formData.description.trim()) {
+        throw new Error('Vui lòng nhập mô tả khóa học');
+      }
+      
+      // Upload image if selected
+      let thumbnailUrl = formData.thumbnail;
+      if (selectedFile) {
+        thumbnailUrl = await uploadImage(selectedFile);
+      }
+      
+      // Prepare course data
       const courseData = {
-        ...formData,
-        teacherId,
-        lessons: [],
-        quizzes: [],
-        studentsEnrolled: [],
-        registrations: 0,
-        rating: 0,
-        totalDuration: 0,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        _id: 'new-' + Date.now().toString(), // Temporary ID for mock data
+        title: formData.title,
+        description: formData.description,
+        price: formData.price,
+        categories: formData.categories,
+        thumbnail: thumbnailUrl,
+        status: formData.status,
+        teacherId: userData?._id || ''
       };
       
-      // In a real implementation, this would be an API call
-      // await courseService.createCourse(courseData);
-      console.log('Creating course:', courseData);
+      console.log("Creating course with data:", courseData);
+      
+      // Submit course data
+      const response = await fetch(`${API_BASE_URL}/course/create`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(courseData),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Không thể tạo khóa học');
+      }
+      
+      const result = await response.json();
+      console.log("Course created:", result);
       
       setSuccess('Khóa học đã được tạo thành công!');
+      toast.success('Khóa học đã được tạo thành công!');
       
       // Redirect to course detail page after 1 second
       setTimeout(() => {
-        router.push(`/teacher/courses/${courseData._id}`);
+        router.push(`/teacher/courses/${result._id || result.courseId}`);
       }, 1000);
       
     } catch (error) {
       console.error('Failed to create course:', error);
-      setError(error instanceof Error ? error.message : 'Không thể tạo khóa học. Vui lòng thử lại sau.');
+      const errorMessage = error instanceof Error ? error.message : 'Không thể tạo khóa học. Vui lòng thử lại sau.';
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -204,74 +363,101 @@ export default function CreateCoursePage() {
             </div>
             
             <div>
-              <label className="block text-gray-700 font-medium mb-2" htmlFor="categories">
-                Danh mục <span className="text-red-500">*</span>
+              <label className="block text-gray-700 font-medium mb-2" htmlFor="status">
+                Trạng thái <span className="text-red-500">*</span>
               </label>
+              <select
+                id="status"
+                name="status"
+                required
+                className="w-full px-3 py-2 border rounded-md"
+                value={formData.status}
+                onChange={handleChange}
+              >
+                <option value="INACTIVE">Vô hiệu hóa</option>
+                <option value="ACTIVE">Đang hoạt động</option>
+              </select>
+            </div>
+          </div>
+            
+          <div className="mb-6">
+            <label className="block text-gray-700 font-medium mb-2" htmlFor="categories">
+              Danh mục <span className="text-red-500">*</span>
+            </label>
               
-              <div className="border rounded-lg overflow-hidden">
-                <div className="p-4 bg-gray-50 border-b">
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-medium text-gray-700">Chọn danh mục cho khóa học</h4>
-                    <span className="text-sm text-gray-500">Đã chọn: {formData.categories.length}</span>
-                  </div>
+            <div className="border rounded-lg overflow-hidden">
+              <div className="p-4 bg-gray-50 border-b">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-medium text-gray-700">Chọn danh mục cho khóa học</h4>
+                  <span className="text-sm text-gray-500">Đã chọn: {formData.categories.length}</span>
                 </div>
+              </div>
                 
-                <div className="p-4 max-h-72 overflow-y-auto">
-                  {categories.length === 0 ? (
-                    <p className="text-gray-500 text-sm italic">Không có danh mục nào</p>
-                  ) : (
-                    <div className="space-y-3">
-                      {categories.map(cat => {
-                        const isSelected = formData.categories.includes(cat.name);
-                        return (
-                          <div 
-                            key={cat.name} 
-                            className={`flex items-center p-3 rounded-lg border cursor-pointer transition-all
-                              ${isSelected ? 'border-indigo-200 bg-indigo-50' : 'border-gray-200 hover:border-indigo-200 hover:bg-gray-50'}`}
-                            onClick={() => {
-                              const updatedCategories = isSelected 
-                                ? formData.categories.filter(c => c !== cat.name)
-                                : [...formData.categories, cat.name];
-                                
-                              setFormData({
-                                ...formData,
-                                categories: updatedCategories
-                              });
-                            }}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={() => {}} // Controlled by the div onClick
-                              className="h-5 w-5 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
-                            />
-                            <div className="ml-3 flex-1">
-                              <span className="text-gray-800 font-medium">{cat.name}</span>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-                
-                {formData.categories.length > 0 && (
-                  <div className="p-4 border-t bg-white">
-                    <div className="text-sm font-medium text-gray-700 mb-2">Danh mục đã chọn:</div>
-                    <div className="flex flex-wrap gap-2">
-                      {formData.categories.map(categoryName => (
+              <div className="p-4 max-h-72 overflow-y-auto">
+                {!Array.isArray(categories) || categories.length === 0 ? (
+                  <p className="text-gray-500 text-sm italic">Không có danh mục nào</p>
+                ) : (
+                  <div className="space-y-3">
+                    {categories.map(cat => {
+                      // Thêm kiểm tra an toàn cho cat
+                      if (!cat || !cat.categoryId) {
+                        console.log("Invalid category object:", cat);
+                        return null;
+                      }
+                      
+                      const isSelected = formData.categories.includes(cat.categoryId);
+                      return (
                         <div 
-                          key={categoryName}
+                          key={cat.categoryId} 
+                          className={`flex items-center p-3 rounded-lg border cursor-pointer transition-all
+                            ${isSelected ? 'border-indigo-200 bg-indigo-50' : 'border-gray-200 hover:border-indigo-200 hover:bg-gray-50'}`}
+                          onClick={() => {
+                            const updatedCategories = isSelected 
+                              ? formData.categories.filter(c => c !== cat.categoryId)
+                              : [...formData.categories, cat.categoryId];
+                                
+                            setFormData({
+                              ...formData,
+                              categories: updatedCategories
+                            });
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => {}} // Controlled by the div onClick
+                            className="h-5 w-5 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
+                          />
+                          <div className="ml-3 flex-1">
+                            <span className="text-gray-800 font-medium">{cat.categoryDisplayName || cat.categoryName || "Danh mục"}</span>
+                            {cat.categoryName && <span className="text-gray-500 text-sm ml-2">({cat.categoryName})</span>}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+                
+              {formData.categories.length > 0 && (
+                <div className="p-4 border-t bg-white">
+                  <div className="text-sm font-medium text-gray-700 mb-2">Danh mục đã chọn:</div>
+                  <div className="flex flex-wrap gap-2">
+                    {formData.categories.map(categoryId => {
+                      const category = categories.find(c => c.categoryId === categoryId);
+                      return (
+                        <div 
+                          key={categoryId}
                           className="flex items-center bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded-full text-sm"
                         >
-                          {categoryName}
+                          {category?.categoryDisplayName || categoryId}
                           <button
                             type="button"
                             className="ml-1.5 text-indigo-500 hover:text-indigo-700"
                             onClick={() => {
                               setFormData({
                                 ...formData,
-                                categories: formData.categories.filter(c => c !== categoryName)
+                                categories: formData.categories.filter(c => c !== categoryId)
                               });
                             }}
                           >
@@ -280,47 +466,18 @@ export default function CreateCoursePage() {
                             </svg>
                           </button>
                         </div>
-                      ))}
-                    </div>
+                      );
+                    })}
                   </div>
-                )}
-              </div>
-              
-              {formData.categories.length === 0 && (
-                <div className="mt-1 text-sm text-gray-500">
-                  Vui lòng chọn ít nhất một danh mục cho khóa học
                 </div>
               )}
             </div>
-          </div>
-
-          <div className="mb-6">
-            <label className="block text-gray-700 font-medium mb-2" htmlFor="totalDuration">
-              Tổng thời gian (phút)
-            </label>
-            <input
-              id="totalDuration"
-              name="totalDuration"
-              type="number"
-              value="0"
-              className="w-full px-3 py-2 border rounded-md bg-gray-100 cursor-not-allowed"
-              disabled
-            />
-            <p className="text-sm text-gray-500 mt-1">Sẽ được tự động tính từ thời gian của các bài học và bài kiểm tra</p>
-          </div>
-
-          <div className="mb-6">
-            <label className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                name="isPublished"
-                checked={formData.isPublished}
-                onChange={handleChange}
-                className="form-checkbox h-4 w-4 text-blue-600"
-              />
-              <span className="text-gray-700">Đang hoạt động</span>
-            </label>
-            <p className="text-sm text-gray-500 ml-6">Nếu được chọn, khóa học sẽ được hiển thị cho học viên</p>
+              
+            {formData.categories.length === 0 && (
+              <div className="mt-1 text-sm text-gray-500">
+                Vui lòng chọn ít nhất một danh mục cho khóa học
+              </div>
+            )}
           </div>
           
           <div className="mb-6">

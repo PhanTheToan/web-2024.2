@@ -1,21 +1,23 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { courseService } from '@/services/courseService';
-import { quizService } from '@/services/quizService';
 import { 
   ArrowLeft, AlertCircle, CheckCircle, Loader2, 
-  Plus, Trash, Save, Edit
+  Plus, Trash, Save, Edit, Image
 } from 'lucide-react';
 import { Course } from '@/app/types';
 import { toast } from 'react-hot-toast';
 
-// Define Quiz-related types based on quizService.ts
+// API Base URL
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8082/api';
+
+// Define Quiz-related types based on API response
 interface QuizQuestion {
   question: string;
   options: string[];
   correctAnswer: string;
+  material?: string | null;
 }
 
 interface Quiz {
@@ -26,7 +28,8 @@ interface Quiz {
   questions: QuizQuestion[];
   passingScore: number;
   timeLimit?: number;
-  createdAt: Date;
+  order?: number;
+  createdAt?: Date;
 }
 
 export default function EditQuizPage() {
@@ -34,12 +37,14 @@ export default function EditQuizPage() {
   const router = useRouter();
   const courseId = params.id as string;
   const quizId = params.quizId as string;
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [course, setCourse] = useState<Course | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   // Basic quiz information
   const [quizInfo, setQuizInfo] = useState({
@@ -47,6 +52,7 @@ export default function EditQuizPage() {
     description: '',
     timeLimit: 30, // in minutes
     passingScore: 70, // percentage
+    order: 1,
   });
 
   // Questions state
@@ -57,6 +63,7 @@ export default function EditQuizPage() {
     question: '',
     options: ['', '', '', ''],
     correctAnswer: '',
+    material: null
   });
   
   // Track if we're editing an existing question
@@ -67,27 +74,68 @@ export default function EditQuizPage() {
     const fetchData = async () => {
       try {
         setLoading(true);
-        // Fetch course data
-        const courseData = await courseService.getCourseById(courseId);
-        setCourse(courseData as Course);
         
-        // Fetch quiz data
-        const quizData = await quizService.getQuizById(quizId) as Quiz;
+        // Fetch course data
+        console.log("Fetching course:", courseId);
+        const courseResponse = await fetch(`${API_BASE_URL}/course/info/${courseId}`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!courseResponse.ok) {
+          throw new Error("Failed to fetch course");
+        }
+
+        const courseData = await courseResponse.json();
+        let parsedCourse;
+        
+        if (courseData.body) {
+          parsedCourse = courseData.body;
+        } else {
+          parsedCourse = courseData;
+        }
+        
+        console.log("Course data:", parsedCourse);
+        setCourse(parsedCourse);
+        
+        // Fetch quiz data using the API from screenshot
+        console.log("Fetching quiz:", quizId);
+        const quizResponse = await fetch(`${API_BASE_URL}/course/get-quiz/${quizId}`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!quizResponse.ok) {
+          throw new Error("Failed to fetch quiz");
+        }
+
+        const quizData = await quizResponse.json();
+        console.log("Quiz data:", quizData);
         
         // Set quiz info with optional fields that might not be in the type
         setQuizInfo({
-          title: quizData.title,
+          title: quizData.title || '',
           description: quizData.description || '',
           timeLimit: quizData.timeLimit || 30,
-          passingScore: quizData.passingScore,
+          passingScore: quizData.passingScore || 70,
+          order: quizData.order || 1,
         });
         
         // Set questions
-        setQuestions(quizData.questions.map((q: QuizQuestion) => ({
-          question: q.question,
-          options: q.options,
-          correctAnswer: q.correctAnswer
-        })));
+        if (Array.isArray(quizData.questions)) {
+          setQuestions(quizData.questions.map((q: QuizQuestion) => ({
+            question: q.question,
+            options: q.options || [],
+            correctAnswer: q.correctAnswer,
+            material: q.material || null
+          })));
+        }
         
       } catch (error) {
         console.error('Failed to fetch data:', error);
@@ -107,7 +155,7 @@ export default function EditQuizPage() {
     const { name, value } = e.target;
     setQuizInfo({
       ...quizInfo,
-      [name]: name === 'passingScore' || name === 'timeLimit' 
+      [name]: name === 'passingScore' || name === 'timeLimit' || name === 'order'
         ? parseInt(value) || 0 
         : value,
     });
@@ -140,6 +188,75 @@ export default function EditQuizPage() {
     });
   };
 
+  // Handler for image upload
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    
+    const file = files[0];
+    
+    // Check file size (5MB max)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Kích thước tệp quá lớn. Tối đa 5MB');
+      return;
+    }
+    
+    // Check file type (image only)
+    if (!file.type.startsWith('image/')) {
+      toast.error('Chỉ chấp nhận tệp hình ảnh');
+      return;
+    }
+    
+    setUploadingImage(true);
+    
+    try {
+      // Use the image upload API from screenshot
+      const formData = new FormData();
+      formData.append('image', file);
+      
+      console.log('Uploading image...');
+      
+      const response = await fetch(`${API_BASE_URL}/upload/image/r2`, {
+        method: 'POST',
+        credentials: 'include',
+        body: formData
+      });
+      
+      if (!response.ok) {
+        throw new Error('Không thể tải lên hình ảnh');
+      }
+      
+      // API returns URL directly as text
+      const imageUrl = await response.text();
+      console.log('Image URL:', imageUrl);
+      
+      setCurrentQuestion({
+        ...currentQuestion,
+        material: imageUrl
+      });
+      
+      toast.success('Tải lên hình ảnh thành công');
+      
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    } catch (err) {
+      console.error('Error uploading image:', err);
+      toast.error('Không thể tải lên hình ảnh. Vui lòng thử lại sau.');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+  
+  // Remove image from current question
+  const removeImage = () => {
+    setCurrentQuestion({
+      ...currentQuestion,
+      material: null
+    });
+  };
+
   // Load a question for editing
   const editQuestion = (index: number) => {
     const questionToEdit = questions[index];
@@ -154,6 +271,7 @@ export default function EditQuizPage() {
       question: questionToEdit.question,
       options: options,
       correctAnswer: questionToEdit.correctAnswer,
+      material: questionToEdit.material || null
     });
     
     setEditingQuestionIndex(index);
@@ -169,6 +287,7 @@ export default function EditQuizPage() {
       question: '',
       options: ['', '', '', ''],
       correctAnswer: '',
+      material: null
     });
     
     setEditingQuestionIndex(null);
@@ -218,6 +337,7 @@ export default function EditQuizPage() {
         question: '',
         options: ['', '', '', ''],
         correctAnswer: '',
+        material: null
       });
     }
   };
@@ -254,21 +374,48 @@ export default function EditQuizPage() {
         throw new Error('Vui lòng thêm ít nhất một câu hỏi');
       }
 
-      // Prepare data for API
-      const quizData = {
-        ...quizInfo,
-        questions: questions,
+      // Prepare request data for API
+      const requestData = {
+        title: quizInfo.title,
+        description: quizInfo.description,
+        order: quizInfo.order,
+        passingScore: quizInfo.passingScore,
+        timeLimit: quizInfo.timeLimit,
+        questions: questions.map(q => ({
+          question: q.question,
+          options: q.options,
+          correctAnswer: q.correctAnswer,
+          material: q.material || null
+        }))
       };
 
-      // Call API to update quiz
-      await quizService.updateQuiz(quizId, quizData);
+      console.log("Updating quiz with data:", requestData);
+      
+      // Use the update-quiz API from screenshot
+      const response = await fetch(`${API_BASE_URL}/course/update-quiz/${quizId}?courseId=${courseId}`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestData)
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Server error:", errorText);
+        throw new Error("Không thể cập nhật bài kiểm tra");
+      }
+      
+      const data = await response.json();
+      console.log("Quiz updated successfully:", data);
 
       // Show success message and redirect
       setSuccess('Cập nhật bài kiểm tra thành công!');
       toast.success('Cập nhật bài kiểm tra thành công!');
       
       setTimeout(() => {
-        router.push(`/teacher/courses/${courseId}/quizzes/${quizId}`);
+        router.push(`/teacher/courses/${courseId}`);
       }, 1500);
 
     } catch (err) {
@@ -318,7 +465,7 @@ export default function EditQuizPage() {
       {/* Header */}
       <div className="flex items-center mb-2">
         <Link 
-          href={`/teacher/courses/${courseId}/quizzes/${quizId}`}
+          href={`/teacher/courses/${courseId}`}
           className="text-gray-500 hover:text-gray-700 mr-2"
         >
           <ArrowLeft className="w-5 h-5" />
@@ -383,6 +530,21 @@ export default function EditQuizPage() {
               ></textarea>
             </div>
             
+            <div>
+              <label htmlFor="order" className="block text-sm font-medium text-gray-700 mb-1">
+                Thứ tự
+              </label>
+              <input
+                type="number"
+                id="order"
+                name="order"
+                value={quizInfo.order}
+                onChange={handleQuizInfoChange}
+                min="1"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+              />
+            </div>
+            
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label htmlFor="passingScore" className="block text-sm font-medium text-gray-700 mb-1">
@@ -432,6 +594,16 @@ export default function EditQuizPage() {
                       <div className="font-medium mb-2">
                         Câu {index + 1}: {question.question}
                       </div>
+                      
+                      {question.material && (
+                        <div className="mb-2">
+                          <img 
+                            src={question.material} 
+                            alt={`Hình ảnh cho câu hỏi ${index + 1}`} 
+                            className="max-h-24 rounded border"
+                          />
+                        </div>
+                      )}
                       
                       <div className="space-y-1 pl-4">
                         {question.options.map((option, optIdx) => (
@@ -493,6 +665,60 @@ export default function EditQuizPage() {
               />
             </div>
             
+            {/* Image Upload Section */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Hình ảnh minh họa
+              </label>
+              
+              {currentQuestion.material ? (
+                <div className="relative mb-3">
+                  <img 
+                    src={currentQuestion.material} 
+                    alt="Question material" 
+                    className="max-h-32 rounded border"
+                  />
+                  <button
+                    type="button"
+                    onClick={removeImage}
+                    className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full hover:bg-red-600"
+                  >
+                    <Trash className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <div>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="hidden"
+                  />
+                  
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex items-center px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
+                    disabled={uploadingImage}
+                  >
+                    {uploadingImage ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Đang tải...
+                      </>
+                    ) : (
+                      <>
+                        <Image className="w-4 h-4 mr-2" />
+                        Tải lên hình ảnh
+                      </>
+                    )}
+                  </button>
+                  <p className="mt-1 text-xs text-gray-500">Chấp nhận: JPG, PNG, GIF. Tối đa 5MB</p>
+                </div>
+              )}
+            </div>
+            
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Các phương án trả lời <span className="text-red-500">*</span>
@@ -549,7 +775,7 @@ export default function EditQuizPage() {
         {/* Form Actions */}
         <div className="bg-gray-50 px-6 py-4 flex justify-between items-center border-t">
           <Link
-            href={`/teacher/courses/${courseId}/quizzes/${quizId}`}
+            href={`/teacher/courses/${courseId}`}
             className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100"
           >
             Hủy

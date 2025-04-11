@@ -2,10 +2,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { courseService } from '@/services/courseService';
-import { ArrowLeft, Upload, X, Save } from 'lucide-react';
+import { ArrowLeft, Upload, X, Save, Loader2 } from 'lucide-react';
 import { CategoryItem, Category } from '@/app/types';
 import Image from 'next/image';
+import { toast } from 'react-hot-toast';
 
 // Define the CourseData interface for the form
 interface CourseData {
@@ -47,66 +47,127 @@ export default function EditCoursePage() {
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8082/api';
   // Fetch course data on component mount
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        // Fetch course data
-        const data = await courseService.getCourseById(courseId);
+        console.log("fetching course data...", {courseId});
         
-        // Fetch categories
-        const categoriesData = await courseService.getCategories();
+        // Fetch course info using the /api/course/info/:id endpoint
+        const courseResponse = await fetch(`${API_BASE_URL}/course/info/${courseId}`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
         
-        // Setup mock teachers for now
-        const teachersData = [
-          { _id: 'teacher1', firstName: 'Google', lastName: 'Career Certificates' },
-          { _id: 'teacher2', firstName: 'Alice', lastName: 'Johnson' },
-          { _id: 'teacher3', firstName: 'Bob', lastName: 'Smith' },
-        ];
+        if (!courseResponse.ok) {
+          throw new Error('Không thể tải thông tin khóa học');
+        }
         
-        // Set categories and teachers
-        setCategories(categoriesData);
-        setAvailableTeachers(teachersData);
+        const courseData = await courseResponse.json();
+        const course = courseData.body || courseData;
+        
+        // Fetch featured categories using the /api/categories/featured-category endpoint
+        const categoriesResponse = await fetch(`${API_BASE_URL}/categories/featured-category`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (!categoriesResponse.ok) {
+          throw new Error('Không thể tải danh mục khóa học');
+        }
+        
+        const categoriesData = await categoriesResponse.json();
+        const categories = categoriesData.body || [];
+        
+        // Format categories based on the actual API response format
+        setCategories(categories.map((cat: {
+          categoryId?: string; 
+          categoryName?: string;
+          categoryDisplayName?: string | null;
+        }) => ({
+          name: cat.categoryName || '',
+          displayName: cat.categoryDisplayName || cat.categoryName || '',
+          id: cat.categoryId || '',
+          count: 0,
+          isActive: false
+        })));
+        
+        // Fetch teachers from API
+        const teachersResponse = await fetch(`${API_BASE_URL}/user/all-teacher`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (teachersResponse.ok) {
+          const teachersData = await teachersResponse.json();
+          if (teachersData.body && Array.isArray(teachersData.body)) {
+            setAvailableTeachers(teachersData.body.map((teacher: {
+              _id?: string;
+              id?: string;
+              firstName?: string;
+              lastName?: string;
+            }) => ({
+              _id: teacher._id || teacher.id || '',
+              firstName: teacher.firstName || '',
+              lastName: teacher.lastName || ''
+            })));
+          }
+        } else {
+          console.error("Failed to fetch teachers");
+          toast.error("Không thể tải danh sách giảng viên");
+          setAvailableTeachers([]);
+        }
         
         // Process teacher ID
-        const teacherId = typeof data.teacherId === 'object' 
-          ? data.teacherId._id 
-          : data.teacherId;
+        const teacherId = typeof course.teacherId === 'object' 
+          ? course.teacherId._id 
+          : course.teacherId;
         
-        // Process categories with proper typing
-        const processedCategories = Array.isArray(data.categories) 
-          ? data.categories.map(cat => {
+        // Process categories with proper typing (similar to teacher page)
+        const processedCategories = Array.isArray(course.categories) 
+          ? course.categories.map((cat: Category | string) => {
               if (typeof cat === 'object' && cat !== null && 'name' in cat) {
                 return (cat as Category).name;
               }
-              return cat as string;
+              return String(cat);
             }) 
           : [];
         
         // Set course data in the form
         setCourseData({
-          title: data.title || '',
-          description: data.description || '',
-          price: data.price || 0,
-          thumbnail: data.thumbnail || '',
-          totalDuration: data.totalDuration || 0,
+          title: course.title || '',
+          description: course.description || '',
+          price: course.price || 0,
+          thumbnail: course.thumbnail || '',
+          totalDuration: course.totalDuration || 0,
           categories: processedCategories,
           teacherId: teacherId || '',
-          isPopular: !!data.isPopular,
-          isPublished: !!data.isPublished,
+          isPopular: !!course.isPopular,
+          isPublished: !!course.isPublished,
         });
         
         // Set selected categories to match course categories
         setSelectedCategories(processedCategories);
         
         // Set thumbnail preview
-        if (data.thumbnail) {
-          setThumbnailPreview(data.thumbnail);
+        if (course.thumbnail) {
+          setThumbnailPreview(course.thumbnail);
         }
       } catch (error) {
         console.error("Error fetching course:", error);
         setError("Không thể tải thông tin khóa học. Vui lòng thử lại sau.");
+        toast.error("Không thể tải thông tin khóa học");
       } finally {
         setLoading(false);
       }
@@ -195,23 +256,65 @@ export default function EditCoursePage() {
       
       // Prepare the updated course data
       const updatedCourse = {
-        ...courseData,
+        title: courseData.title,
+        description: courseData.description,
+        price: courseData.price,
+        thumbnail: courseData.thumbnail,
+        categories: courseData.categories,
+        teacherId: courseData.teacherId,
+        isPopular: courseData.isPopular,
+        courseStatus: courseData.isPublished ? 'ACTIVE' : 'INACTIVE',
       };
       
       // Handle file upload if there's a new thumbnail
       if (thumbnailFile) {
-        // In a real implementation, you would upload the file here
-        console.log("Uploading thumbnail file:", thumbnailFile.name);
-        // For now, we're just simulating the upload
-        updatedCourse.thumbnail = URL.createObjectURL(thumbnailFile);
+        // Create FormData for file upload
+        const formData = new FormData();
+        formData.append('file', thumbnailFile);
+        
+        try {
+          // Upload the thumbnail file using the /api/upload/image endpoint
+          const uploadResponse = await fetch(`${API_BASE_URL}/upload/image/r2`, {
+            method: 'POST',
+            credentials: 'include',
+            body: formData,
+          });
+          
+          if (!uploadResponse.ok) {
+            throw new Error('Không thể tải lên ảnh thumbnail');
+          }
+          
+          const uploadData = await uploadResponse.json();
+          const thumbnailUrl = uploadData.body?.url || uploadData.url;
+          
+          if (thumbnailUrl) {
+            updatedCourse.thumbnail = thumbnailUrl;
+          } else {
+            console.warn("Thumbnail URL not found in upload response");
+          }
+        } catch (error) {
+          console.error("Error uploading thumbnail:", error);
+          throw new Error('Lỗi khi tải lên ảnh thumbnail');
+        }
       }
       
-      // Update the course
-      console.log("Updating course with data:", updatedCourse);
-      await courseService.updateCourse(courseId, updatedCourse);
+      // Update the course using API
+      const updateResponse = await fetch(`${API_BASE_URL}/course/update/${courseId}`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updatedCourse),
+      });
+      
+      if (!updateResponse.ok) {
+        throw new Error('Không thể cập nhật khóa học');
+      }
       
       // Show success message
       setSuccess(true);
+      toast.success('Cập nhật khóa học thành công!');
       
       // Redirect after a delay
       setTimeout(() => {
@@ -219,7 +322,9 @@ export default function EditCoursePage() {
       }, 2000);
     } catch (err) {
       console.error("Error updating course:", err);
-      setError(err instanceof Error ? err.message : "Không thể cập nhật khóa học. Vui lòng thử lại sau.");
+      const errorMessage = err instanceof Error ? err.message : "Không thể cập nhật khóa học. Vui lòng thử lại sau.";
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setSaving(false);
     }
@@ -228,13 +333,9 @@ export default function EditCoursePage() {
   if (loading) {
     return (
       <div className="p-6 max-w-4xl mx-auto">
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <div className="h-8 bg-gray-200 rounded w-1/4 mb-6 animate-pulse"></div>
-          <div className="space-y-4">
-            {[1, 2, 3, 4, 5].map(item => (
-              <div key={item} className="h-10 bg-gray-200 rounded animate-pulse"></div>
-            ))}
-          </div>
+        <div className="flex items-center justify-center py-10">
+          <Loader2 className="w-10 h-10 animate-spin text-primary-600" />
+          <span className="ml-2 text-gray-600">Đang tải dữ liệu...</span>
         </div>
       </div>
     );

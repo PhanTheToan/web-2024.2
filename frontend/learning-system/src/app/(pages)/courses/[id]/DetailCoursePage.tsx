@@ -2,9 +2,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { Course } from "@/app/types";
-import { courseService } from "@/services/courseService";
-import { enrollmentService } from "@/services/enrollmentService";
-import { quizService } from "@/services/quizService";
 import { toast } from "react-hot-toast";
 import BreadcrumbContainer from "@/app/components/breadcrumb/BreadcrumbContainer";
 import CourseItem from '@/app/components/courseitem/courseItem';
@@ -12,10 +9,30 @@ import { BookOpen, Clock, Users, Star, CheckCircle, ClipboardCheck, PlayCircle, 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
+// API Base URL
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8082/api';
+
+// Add interfaces for lesson and quiz responses
+interface LessonResponse {
+  lessonId: string;
+  lessonTitle: string;
+  lessonShortTitle?: string;
+  orderLesson: number;
+}
+
+interface QuizResponse {
+  quizId: string;
+  title: string;
+  questionCount: number;
+  passingScore: number;
+  orderQuiz: number;
+}
+
 // Extended Course interface with additional optional properties
 interface ExtendedCourse extends Omit<Course, 'totalDuration'> {
   requirements?: string[];
   totalDuration?: number;
+  averageRating?: number;
 }
 
 // Combined content item interface to handle both lessons and quizzes
@@ -26,12 +43,16 @@ interface ContentItem {
   description?: string;
   timeLimit?: number;
   order?: number;
-  questions?: Array<{
-    question: string;
-    options: string[];
-    correctAnswer: string;
-  }>;
+  orderLesson?: number;
+  orderQuiz?: number;
+  lessonId?: string;
+  quizId?: string;
+  lessonTitle?: string;
+  lessonShortTitle?: string;
+  questionCount?: number;
   passingScore?: number;
+  isCompleted?: boolean;
+  currentlyLearning?: boolean;
 }
 
 // Last accessed content interface to track user's progress
@@ -44,6 +65,8 @@ interface LastAccessedContent {
 const DetailCoursePage: React.FC = () => {
   const params = useParams();
   const router = useRouter();
+  const courseId = params.id as string;
+  
   const [course, setCourse] = useState<ExtendedCourse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -54,88 +77,50 @@ const DetailCoursePage: React.FC = () => {
   const [contentItems, setContentItems] = useState<ContentItem[]>([]);
   const [loadingContent, setLoadingContent] = useState(false);
   const [lastAccessedContent, setLastAccessedContent] = useState<LastAccessedContent | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  // Mock user ID for demonstration
-  const currentUserId = 'student1';
-
+  // Fetch course details
   const fetchCourse = async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const courseId = params.id as string;
-      const courseData = await courseService.getCourseById(courseId) as ExtendedCourse;
-      setCourse(courseData);
-      
-      // Check if user is enrolled
-      const enrollment = await enrollmentService.getEnrollment(currentUserId, courseId);
-      if (enrollment) {
-        setIsEnrolled(true);
-        setEnrollmentStatus(enrollment.status);
-        setEnrollmentProgress(enrollment.progress);
-        
-        // Try to determine the last accessed content
-        await checkUserProgress(courseId, enrollment.progress);
+      // Use the API endpoint from first screenshot
+      const courseResponse = await fetch(`${API_BASE_URL}/course/info/${courseId}`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!courseResponse.ok) {
+        throw new Error('Failed to fetch course data');
       }
 
-      // Load course content - combines lessons and quizzes
-      setLoadingContent(true);
+      const courseData = await courseResponse.json();
+      console.log('Course data:', courseData);
       
+      const parsedCourse = courseData.body || courseData;
+      
+      setCourse({
+        ...parsedCourse,
+        requirements: ['Basic programming knowledge', 'Understanding of web concepts'],
+        averageRating: parsedCourse.averageRating || 4.5
+      });
+
+      // Try to check user authentication, but don't block if it fails
+      let userIsEnrolled = false;
       try {
-        // First try to get ordered content from the API
-        const orderedContent = await courseService.getCourseContent(courseId);
-        setContentItems(orderedContent as ContentItem[]);
-      } catch (contentError) {
-        console.error('Error loading ordered content:', contentError);
-        
-        // Fallback: Create our own content list
-        const items: ContentItem[] = [];
-        
-        // Process lessons
-        if (courseData.lessons && courseData.lessons.length > 0) {
-          courseData.lessons.forEach(lesson => {
-            const lessonItem: ContentItem = {
-              _id: typeof lesson === 'string' ? lesson : lesson._id,
-              type: 'lesson',
-              title: typeof lesson === 'string' ? 'Lesson' : lesson.title,
-              description: typeof lesson === 'string' ? '' : lesson.description,
-              timeLimit: typeof lesson === 'string' ? undefined : lesson.timeLimit,
-              order: typeof lesson === 'string' ? undefined : lesson.order
-            };
-            items.push(lessonItem);
-          });
-        }
-        
-        // Process quizzes
-        if (courseData.quizzes && courseData.quizzes.length > 0) {
-          try {
-            const quizData = await quizService.getQuizzesByCourseId(courseId);
-            quizData.forEach(quiz => {
-              items.push({
-                _id: quiz._id,
-                type: 'quiz',
-                title: quiz.title,
-                questions: quiz.questions,
-                passingScore: quiz.passingScore,
-                order: quiz.order || 999 // Default order for quizzes
-              });
-            });
-          } catch (quizError) {
-            console.error('Error loading quizzes:', quizError);
-          }
-        }
-        
-        // Sort by order if available
-        items.sort((a, b) => {
-          if (a.order === undefined && b.order === undefined) return 0;
-          if (a.order === undefined) return 1;
-          if (b.order === undefined) return -1;
-          return a.order - b.order;
-        });
-        
-        setContentItems(items);
-      } finally {
-        setLoadingContent(false);
+        userIsEnrolled = await checkUserAuth();
+      } catch (authError) {
+        console.error('Auth check failed, but continuing to show course content:', authError);
+        setIsAuthenticated(false);
+        setIsEnrolled(false);
       }
+      
+      // Load course content and pass the enrollment status
+      await fetchCourseContent(userIsEnrolled);
+      
     } catch (err) {
       console.error('Error loading course:', err);
       setError('Không thể tải thông tin khóa học');
@@ -145,72 +130,352 @@ const DetailCoursePage: React.FC = () => {
     }
   };
   
-  // Check for user's progress and determine continuing point
-  const checkUserProgress = async (courseId: string, progress: number) => {
+  // Check user authentication
+  const checkUserAuth = async () => {
     try {
-      // Get ordered content
-      const orderedContent = await courseService.getCourseContent(courseId);
-      const contentArray = orderedContent as ContentItem[];
+      // Use the auth/check endpoint from third screenshot
+      const authResponse = await fetch(`${API_BASE_URL}/auth/check`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!authResponse.ok) {
+        console.log('User is not authenticated');
+        setIsAuthenticated(false);
+        setIsEnrolled(false);
+        return false;
+      }
+
+      const authData = await authResponse.json();
+      console.log('Auth data:', authData);
       
-      if (contentArray.length === 0) return;
+      let userIsEnrolled = false;
       
-      // If progress is 0, return the first item
-      if (progress === 0) {
-        const firstItem = contentArray[0];
-        setLastAccessedContent({
-          type: firstItem.type,
-          id: firstItem._id,
-          title: firstItem.title || 'Bài học'
-        });
-        return;
+      if (authData.status === 200 && authData.data) {
+        setIsAuthenticated(true);
+        
+        // Check if user is enrolled in this course
+        if (Array.isArray(authData.data.coursesEnrolled) && 
+            authData.data.coursesEnrolled.includes(courseId)) {
+          console.log('authData.data.coursesEnrolled:', authData.data.coursesEnrolled, courseId);
+          userIsEnrolled = true;
+          setIsEnrolled(true);
+          setEnrollmentStatus('ENROLLED');
+          setEnrollmentProgress(50); // Will be updated from content
+        }
       }
       
-      // If progress is 100, all content is completed
-      if (progress === 100) {
-        // Return the last item for review
-        const lastItem = contentArray[contentArray.length - 1];
+      return userIsEnrolled;
+    } catch (error) {
+      console.error('Error checking authentication:', error);
+      setIsAuthenticated(false);
+      throw error; // Re-throw to be caught by caller
+    }
+  };
+  
+  // Fetch course content (lessons and quizzes)
+  const fetchCourseContent = async (userIsEnrolled = false) => {
+    setLoadingContent(true);
+    try {
+      // Use the current value passed in or the state value as a fallback
+      const isUserEnrolled = userIsEnrolled || isEnrolled;
+      console.log('fetchCourseContent - isUserEnrolled:', isUserEnrolled);
+      
+      // Use lesson-quiz (with hyphen) for enrolled users to get learned/not learned content
+      // Use lesson_quiz (with underscore) for public/unauthenticated users
+      const endpoint = isUserEnrolled 
+        ? `${API_BASE_URL}/course/lesson-quiz/${courseId}`
+        : `${API_BASE_URL}/course/lesson_quiz/${courseId}`;
+      
+      console.log('Using endpoint:', endpoint);
+        
+      const contentResponse = await fetch(endpoint, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!contentResponse.ok) {
+        throw new Error('Failed to fetch course content');
+      }
+
+      const contentData = await contentResponse.json();
+      console.log('Content data:', contentData);
+      
+      const combinedItems: ContentItem[] = [];
+      
+      // Check if we have a valid response with learned/notLearned sections
+      if (contentData.body && contentData.body.notLearned) {
+        // Process not learned lessons
+        if (contentData.body.notLearned.lessons && Array.isArray(contentData.body.notLearned.lessons)) {
+          contentData.body.notLearned.lessons.forEach((lesson: LessonResponse) => {
+            combinedItems.push({
+              _id: lesson.lessonId,
+              type: 'lesson',
+              title: lesson.lessonTitle || lesson.lessonShortTitle || 'Untitled Lesson',
+              description: lesson.lessonShortTitle || '',
+              orderLesson: lesson.orderLesson || 0,
+              order: lesson.orderLesson || 0,
+              isCompleted: false,
+              currentlyLearning: false
+            });
+          });
+        }
+        
+        // Process not learned quizzes
+        if (contentData.body.notLearned.quizzes && Array.isArray(contentData.body.notLearned.quizzes)) {
+          contentData.body.notLearned.quizzes.forEach((quiz: QuizResponse) => {
+            combinedItems.push({
+              _id: quiz.quizId,
+              type: 'quiz',
+              title: quiz.title || 'Untitled Quiz',
+              questionCount: quiz.questionCount || 0,
+              passingScore: quiz.passingScore || 70,
+              orderQuiz: quiz.orderQuiz || 999,
+              order: quiz.orderQuiz || 999,
+              isCompleted: false,
+              currentlyLearning: false
+            });
+          });
+        }
+      }
+      
+      // Add learned content
+      if (contentData.body && contentData.body.learned) {
+        // Process learned lessons
+        if (contentData.body.learned.lessons && Array.isArray(contentData.body.learned.lessons)) {
+          contentData.body.learned.lessons.forEach((lesson: LessonResponse) => {
+            combinedItems.push({
+              _id: lesson.lessonId,
+              type: 'lesson',
+              title: lesson.lessonTitle || lesson.lessonShortTitle || 'Untitled Lesson',
+              description: lesson.lessonShortTitle || '',
+              orderLesson: lesson.orderLesson || 0,
+              order: lesson.orderLesson || 0,
+              isCompleted: true,
+              currentlyLearning: false
+            });
+          });
+        }
+        
+        // Process learned quizzes
+        if (contentData.body.learned.quizzes && Array.isArray(contentData.body.learned.quizzes)) {
+          contentData.body.learned.quizzes.forEach((quiz: QuizResponse) => {
+            combinedItems.push({
+              _id: quiz.quizId,
+              type: 'quiz',
+              title: quiz.title || 'Untitled Quiz',
+              questionCount: quiz.questionCount || 0,
+              passingScore: quiz.passingScore || 70,
+              orderQuiz: quiz.orderQuiz || 999,
+              order: quiz.orderQuiz || 999,
+              isCompleted: true,
+              currentlyLearning: false
+            });
+          });
+        }
+      }
+      
+      // If we don't have the learned/notLearned format, fall back to the original format
+      if (combinedItems.length === 0 && contentData.body) {
+        // Process lessons
+        if (contentData.body.lessons && Array.isArray(contentData.body.lessons)) {
+          contentData.body.lessons.forEach((lesson: LessonResponse) => {
+            combinedItems.push({
+              _id: lesson.lessonId,
+              type: 'lesson',
+              title: lesson.lessonTitle || 'Untitled Lesson',
+              description: lesson.lessonShortTitle || '',
+              orderLesson: lesson.orderLesson || 0,
+              order: lesson.orderLesson || 0,
+              isCompleted: false,
+              currentlyLearning: false
+            });
+          });
+        }
+        
+        // Process quizzes
+        if (contentData.body.quizzes && Array.isArray(contentData.body.quizzes)) {
+          contentData.body.quizzes.forEach((quiz: QuizResponse) => {
+            combinedItems.push({
+              _id: quiz.quizId,
+              type: 'quiz',
+              title: quiz.title || 'Untitled Quiz',
+              questionCount: quiz.questionCount || 0,
+              passingScore: quiz.passingScore || 70,
+              orderQuiz: quiz.orderQuiz || 999,
+              order: quiz.orderQuiz || 999,
+              isCompleted: false,
+              currentlyLearning: false
+            });
+          });
+        }
+      }
+      
+      // Sort items by order
+      combinedItems.sort((a, b) => (a.order || 0) - (b.order || 0));
+      
+      // Mark the next unfinished item as "currently learning"
+      if (isUserEnrolled) {
+        // Find the first incomplete item
+        const firstIncompleteIndex = combinedItems.findIndex(item => !item.isCompleted);
+        
+        if (firstIncompleteIndex !== -1) {
+          // Mark this item as currently learning
+          combinedItems[firstIncompleteIndex].currentlyLearning = true;
+          
+          // Set as last accessed content for navigation
+          setLastAccessedContent({
+            type: combinedItems[firstIncompleteIndex].type,
+            id: combinedItems[firstIncompleteIndex]._id,
+            title: combinedItems[firstIncompleteIndex].title
+          });
+        } else if (combinedItems.length > 0) {
+          // If all items are complete, set the last one as "currently learning" for review
+          const lastItem = combinedItems[combinedItems.length - 1];
+          lastItem.currentlyLearning = true;
+          
         setLastAccessedContent({
           type: lastItem.type,
           id: lastItem._id,
-          title: lastItem.title || 'Bài học'
-        });
-        return;
+            title: lastItem.title
+          });
+        }
       }
       
-      // Calculate which item corresponds to the progress percentage
-      const progressIndex = Math.floor((progress / 100) * contentArray.length);
-      const nextItem = contentArray[Math.min(progressIndex, contentArray.length - 1)];
+      setContentItems(combinedItems);
       
-      setLastAccessedContent({
-        type: nextItem.type,
-        id: nextItem._id,
-        title: nextItem.title || 'Bài học'
-      });
+      // Calculate enrollment progress based on completed items
+      if (isUserEnrolled && combinedItems.length > 0) {
+        const completedItems = combinedItems.filter(item => item.isCompleted);
+        const progressPercentage = Math.round((completedItems.length / combinedItems.length) * 100);
+        setEnrollmentProgress(progressPercentage);
+        
+        // Set enrollment status to DONE if all items are completed
+        if (completedItems.length === combinedItems.length) {
+          setEnrollmentStatus('DONE');
+        }
+      }
       
-      console.log(`User progress: ${progress}%, continuing from item: ${nextItem.title}`);
-      
-    } catch (err) {
-      console.error('Error determining continue point:', err);
+    } catch (error) {
+      console.error('Error fetching course content:', error);
+      toast.error('Không thể tải nội dung khóa học');
+    } finally {
+      setLoadingContent(false);
     }
   };
 
   useEffect(() => {
     fetchCourse();
-  }, [params.id, currentUserId]);
+  }, [courseId]);
+
+  // Add safety check for courseId
+  const ensureCourseId = (): string => {
+    // Use params.id (which is extracted from the URL) if it exists
+    if (typeof params.id === 'string') {
+      return params.id;
+    }
+    
+    // Fallback to course._id or course.id if available
+    if (course?._id) {
+      return course._id;
+    }
+    
+    if (course?.id) {
+      return course.id;
+    }
+    
+    // Last resort, parse from URL directly
+    const pathParts = window.location.pathname.split('/');
+    const idFromPath = pathParts[pathParts.indexOf('courses') + 1];
+    if (idFromPath) {
+      return idFromPath;
+    }
+    
+    console.error('Could not determine course ID');
+    return '';
+  };
 
   const handleEnroll = async () => {
     if (!course) return;
     
+    const safeCourseId = ensureCourseId();
+    
+    if (!isAuthenticated) {
+      // Redirect to login page if user is not authenticated
+      toast.error('Bạn cần đăng nhập để đăng ký khóa học');
+      router.push('/auth/login?redirect=' + encodeURIComponent(`/courses/${safeCourseId}`));
+      return;
+    }
+    
+    // Check if user is already enrolled via auth/check
+    try {
+      // Get fresh authentication data
+      const authResponse = await fetch(`${API_BASE_URL}/auth/check`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!authResponse.ok) {
+        throw new Error('Authentication check failed');
+      }
+
+      const authData = await authResponse.json();
+      
+      // If user is already enrolled, just update UI state
+      if (authData.status === 200 && 
+          authData.data && 
+          Array.isArray(authData.data.coursesEnrolled) && 
+          authData.data.coursesEnrolled.includes(safeCourseId)) {
+        setIsEnrolled(true);
+        setEnrollmentStatus('ENROLLED');
+        setEnrollmentProgress(0);
+        toast.success('Bạn đã đăng ký khóa học này!');
+        
+        // Refresh content to get progress information
+        await fetchCourseContent();
+        return;
+      }
+    } catch (error) {
+      console.error('Error checking enrollment:', error);
+    }
+    
+    // Not enrolled, proceed with enrollment
     setIsEnrolling(true);
     try {
-      await enrollmentService.enrollCourse(currentUserId, course._id);
+      // Call the enrollment API
+      const enrollResponse = await fetch(`${API_BASE_URL}/course/enroll`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          courseId: course._id || course.id || safeCourseId
+        })
+      });
+      
+      if (!enrollResponse.ok) {
+        throw new Error('Failed to enroll in course');
+      }
+      
+      // Update local state
       setIsEnrolled(true);
       setEnrollmentStatus('ENROLLED');
       setEnrollmentProgress(0);
       toast.success('Đăng ký khóa học thành công!');
       
-      // Refresh the page to show updated UI
-      await fetchCourse();
+      // Refresh data to get updated enrollment info
+      await checkUserAuth();
+      await fetchCourseContent();
     } catch (err) {
       console.error('Enrollment error:', err);
       toast.error('Không thể đăng ký khóa học. Vui lòng thử lại sau.');
@@ -220,15 +485,13 @@ const DetailCoursePage: React.FC = () => {
   };
 
   const getFirstLessonUrl = () => {
-    if (!course || !course.lessons || course.lessons.length === 0) {
+    if (!contentItems || contentItems.length === 0) {
       return null;
     }
     
-    // Access course.lessons safely - check if it's array of objects or strings
-    const firstLesson = course.lessons[0];
-    const lessonId = typeof firstLesson === 'string' ? firstLesson : firstLesson._id;
-    
-    return `/courses/${course._id}/lesson/${lessonId}`;
+    const firstItem = contentItems[0];
+    const safeCourseId = ensureCourseId();
+    return `/courses/${safeCourseId}/${firstItem.type}/${firstItem._id}`;
   };
   
   const getContinueLearningUrl = () => {
@@ -236,7 +499,8 @@ const DetailCoursePage: React.FC = () => {
       return getFirstLessonUrl();
     }
     
-    return `/courses/${course?._id}/${lastAccessedContent.type}/${lastAccessedContent.id}`;
+    const safeCourseId = ensureCourseId();
+    return `/courses/${safeCourseId}/${lastAccessedContent.type}/${lastAccessedContent.id}`;
   };
 
   // Add a helper function to calculate the number of completed items
@@ -256,6 +520,9 @@ const DetailCoursePage: React.FC = () => {
     // If user is not enrolled, no items are accessible
     if (!isEnrolled) return false;
     
+    // If item is already marked as completed, it's accessible
+    if (item.isCompleted) return true;
+    
     // First item is always accessible to enrolled users
     if (index === 0) return true;
     
@@ -267,11 +534,11 @@ const DetailCoursePage: React.FC = () => {
     if (lastAccessedContent && lastAccessedContent.id === item._id) return true;
     
     // Check if all previous items are completed
-    const previousItemsCompleted = contentItems
+    const allPreviousItemsCompleted = contentItems
       .slice(0, index)
-      .every((_, i) => i < completedItemsCount);
+      .every(prevItem => prevItem.isCompleted);
     
-    return previousItemsCompleted;
+    return allPreviousItemsCompleted;
   };
 
   if (error) {
@@ -332,7 +599,9 @@ const DetailCoursePage: React.FC = () => {
                 ? lastAccessedContent 
                   ? `Tiếp tục học: ${lastAccessedContent.title}` 
                   : 'Tiếp tục khóa học của bạn từ đúng nơi bạn đã dừng lại.'
-                : 'Đăng ký khóa học này để truy cập vào toàn bộ nội dung.'}
+                : isAuthenticated
+                  ? 'Đăng ký khóa học này để truy cập vào toàn bộ nội dung.'
+                  : 'Đăng nhập và đăng ký khóa học để truy cập vào toàn bộ nội dung.'}
             </p>
           </div>
           
@@ -342,7 +611,11 @@ const DetailCoursePage: React.FC = () => {
               disabled={isEnrolling}
               className="mt-4 md:mt-0 px-6 py-3 bg-orange-500 text-white font-semibold rounded-lg hover:bg-orange-600 transition disabled:opacity-70"
             >
-              {isEnrolling ? 'Đang đăng ký...' : 'Đăng ký khóa học'}
+              {isEnrolling 
+                ? 'Đang đăng ký...' 
+                : isAuthenticated 
+                  ? 'Đăng ký khóa học' 
+                  : 'Đăng nhập để đăng ký'}
             </button>
           ) : (
             <div className="mt-4 md:mt-0 flex flex-col items-center">
@@ -400,16 +673,15 @@ const DetailCoursePage: React.FC = () => {
               ) : (
                 <div className="space-y-3">
                   {contentItems.map((item, index) => {
-                    // Calculate if this item should be marked as completed based on progress
-                    const completedItemsCount = isEnrolled ? getCompletedItemCount(contentItems.length, enrollmentProgress) : 0;
-                    const isCompleted = isEnrolled && index < completedItemsCount;
-                    const isCurrentItem = lastAccessedContent && lastAccessedContent.id === item._id;
+                    // Use the item's isCompleted property directly
+                    const isCompleted = item.isCompleted || false;
+                    const isCurrentlyLearning = item.currentlyLearning || false;
                     const isAccessible = isContentItemAccessible(
                       item,
                       index,
                       contentItems,
                       isEnrolled,
-                      completedItemsCount,
+                      getCompletedItemCount(contentItems.length, enrollmentProgress),
                       lastAccessedContent
                     );
                     
@@ -418,10 +690,18 @@ const DetailCoursePage: React.FC = () => {
                         key={index}
                         className={`flex items-center p-4 rounded-lg border ${
                           isEnrolled && isAccessible
-                            ? 'hover:bg-gray-50 cursor-pointer' 
+                            ? isCurrentlyLearning 
+                              ? 'border-blue-300 bg-blue-50 hover:bg-blue-100'
+                              : 'hover:bg-gray-50 cursor-pointer' 
                             : 'bg-gray-50 cursor-not-allowed opacity-70'
                         }`}
                         onClick={() => {
+                          if (!isAuthenticated) {
+                            toast.error('Bạn cần đăng nhập để truy cập nội dung');
+                            router.push('/auth/login?redirect=' + encodeURIComponent(`/courses/${courseId}`));
+                            return;
+                          }
+                          
                           if (!isEnrolled) {
                             toast.error('Bạn cần đăng ký khóa học để truy cập nội dung');
                             return;
@@ -433,9 +713,9 @@ const DetailCoursePage: React.FC = () => {
                           }
                           
                           if (item.type === 'lesson') {
-                            router.push(`/courses/${course?._id}/lesson/${item._id}`);
+                            router.push(`/courses/${ensureCourseId()}/lesson/${item._id}`);
                           } else {
-                            router.push(`/courses/${course?._id}/quiz/${item._id}`);
+                            router.push(`/courses/${ensureCourseId()}/quiz/${item._id}`);
                           }
                         }}
                       >
@@ -452,12 +732,18 @@ const DetailCoursePage: React.FC = () => {
                             <p className="text-sm text-gray-500">{item.description || 'Nội dung bài học'}</p>
                           ) : (
                             <p className="text-sm text-gray-500">
-                              {item.questions?.length || 0} câu hỏi • Điểm đạt: {item.passingScore || 70}%
+                              {item.questionCount || 0} câu hỏi • Điểm đạt: {item.passingScore || 70}%
                             </p>
                           )}
                         </div>
                         
-                        {!isEnrolled && (
+                        {!isAuthenticated && (
+                          <div className="ml-4 text-sm text-red-600">
+                            Cần đăng nhập
+                          </div>
+                        )}
+                        
+                        {isAuthenticated && !isEnrolled && (
                           <div className="ml-4 text-sm text-red-600">
                             Cần đăng ký
                           </div>
@@ -473,13 +759,14 @@ const DetailCoursePage: React.FC = () => {
                               </div>
                             )}
                             
-                            {isCurrentItem && !isCompleted && (
-                              <div className="ml-4 text-sm text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                            {isCurrentlyLearning && !isCompleted && (
+                              <div className="ml-4 text-sm text-blue-600 bg-blue-50 px-2 py-1 rounded flex items-center">
+                                <PlayCircle className="w-4 h-4 mr-1" />
                                 Đang học
                               </div>
                             )}
                             
-                            {isEnrolled && !isAccessible && !isCompleted && !isCurrentItem && (
+                            {isEnrolled && !isAccessible && !isCompleted && !isCurrentlyLearning && (
                               <div className="ml-4 text-sm text-gray-600 bg-gray-50 px-2 py-1 rounded flex items-center">
                                 <Lock className="w-4 h-4 mr-1" />
                                 Chưa mở khóa
@@ -503,15 +790,15 @@ const DetailCoursePage: React.FC = () => {
               <div className="space-y-4">
                 <div className="flex items-center">
                   <Clock className="text-orange-500 mr-3" />
-                  <span>Thời lượng: {course.totalDuration ? course.totalDuration : "Không xác định"}</span>
+                  <span>Thời lượng: {course.totalDuration || course.totalTimeLimit || 0} mins</span>
                 </div>
                 <div className="flex items-center">
                   <Users className="text-orange-500 mr-3" />
-                  <span>{course.studentsEnrolled.length} học viên</span>
+                  <span>{course.studentsCount || 0} học viên</span>
                 </div>
                 <div className="flex items-center">
                   <Star className="text-orange-500 mr-3" />
-                  <span>Đánh giá: {course.rating}/5</span>
+                  <span>Đánh giá: {course.averageRating || 0}/5</span>
                 </div>
               </div>
             </div>

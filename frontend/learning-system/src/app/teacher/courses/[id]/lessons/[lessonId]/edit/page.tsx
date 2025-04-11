@@ -2,11 +2,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { courseService } from '@/services/courseService';
-import { lessonService } from '@/services/lessonService';
 import { ArrowLeft, AlertCircle, CheckCircle, Loader2, X, File } from 'lucide-react';
-import { Course, Lesson } from '@/app/types';
+import { Course } from '@/app/types';
 import { toast } from 'react-hot-toast';
+
+// API Base URL
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8082/api';
 
 export default function EditLessonPage() {
   const params = useParams();
@@ -24,11 +25,11 @@ export default function EditLessonPage() {
   // Form state
   const [formData, setFormData] = useState({
     title: '',
-    description: '',
+    shortTile: '',
     content: '',
     videoUrl: '',
-    order: 0,
-    timeLimit: 0,
+    orderLesson: 1,
+    timeLimit: 45,
     materials: [] as {name: string, path: string, size: string}[],
   });
 
@@ -41,14 +42,50 @@ export default function EditLessonPage() {
       try {
         setLoading(true);
         
-        // Fetch course data
-        const courseData = await courseService.getCourseById(courseId);
-        setCourse(courseData as Course);
+        // Fetch course data directly using API
+        console.log("Fetching course:", courseId);
+        const courseResponse = await fetch(`${API_BASE_URL}/course/info/${courseId}`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!courseResponse.ok) {
+          throw new Error("Failed to fetch course");
+        }
+
+        const courseData = await courseResponse.json();
+        let parsedCourse;
         
-        // Fetch lesson data
-        const lessonData = await lessonService.getLessonById(lessonId) as Lesson;
+        if (courseData.body) {
+          parsedCourse = courseData.body;
+        } else {
+          parsedCourse = courseData;
+        }
         
-        // Convert string materials to file objects
+        console.log("Course data:", parsedCourse);
+        setCourse(parsedCourse);
+        
+        // Fetch lesson data using API as shown in the screenshot
+        console.log("Fetching lesson:", lessonId);
+        const lessonResponse = await fetch(`${API_BASE_URL}/course/get-lesson/${lessonId}`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!lessonResponse.ok) {
+          throw new Error("Failed to fetch lesson");
+        }
+
+        const lessonData = await lessonResponse.json();
+        console.log("Lesson data:", lessonData);
+        
+        // Convert materials to file objects
         const materialFiles = Array.isArray(lessonData.materials) 
           ? lessonData.materials.map((path: string) => {
               const fileName = path.split('/').pop() || 'unknown';
@@ -60,14 +97,14 @@ export default function EditLessonPage() {
             })
           : [];
         
-        // Populate form
+        // Populate form with lesson data from API response
         setFormData({
-          title: lessonData.title,
-          description: lessonData.description || '',
-          content: lessonData.content,
+          title: lessonData.title || '',
+          shortTile: lessonData.shortTitle || '',
+          content: lessonData.content || '',
           videoUrl: lessonData.videoUrl || '',
-          order: lessonData.order || 0,
-          timeLimit: lessonData.timeLimit || 0,
+          orderLesson: lessonData.order || lessonData.orderLesson || 1,
+          timeLimit: lessonData.timeLimit || 45,
           materials: materialFiles,
         });
         
@@ -92,7 +129,7 @@ export default function EditLessonPage() {
     const { name, value } = e.target;
     setFormData({
       ...formData,
-      [name]: name === 'order' || name === 'timeLimit' ? parseInt(value) || 0 : value,
+      [name]: name === 'orderLesson' || name === 'timeLimit' ? parseInt(value) || 0 : value,
     });
   };
   
@@ -127,40 +164,72 @@ export default function EditLessonPage() {
     }
   };
   
+  // Helper function to format file size
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) {
+      return `${bytes} B`;
+    } else if (bytes < 1024 * 1024) {
+      return `${(bytes / 1024).toFixed(1)} KB`;
+    } else {
+      return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    }
+  };
+  
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
     
     setUploadingFile(true);
+    setError(null);
     
     try {
-      // In a real app, you would upload to a server here
-      // For now, we'll simulate a file upload with a timeout
+      // Sử dụng API upload PDF như trong ảnh
+      const formDataToUpload = new FormData();
       
-      const newMaterials = Array.from(files).map(file => {
-        // Generate a mock path that would normally come from your server
-        const mockPath = `/uploads/lessons/${Date.now()}-${file.name}`;
-        
-        // Format the file size
-        let size = '';
-        if (file.size < 1024) {
-          size = `${file.size} B`;
-        } else if (file.size < 1024 * 1024) {
-          size = `${(file.size / 1024).toFixed(1)} KB`;
-        } else {
-          size = `${(file.size / (1024 * 1024)).toFixed(1)} MB`;
-        }
-        
+      // Thêm tất cả các file vào formData với key 'files'
+      Array.from(files).forEach(file => {
+        formDataToUpload.append('files', file);
+      });
+      
+      console.log("Uploading files with formData key 'files'");
+      
+      const response = await fetch(`${API_BASE_URL}/upload/pdf`, {
+        method: 'POST',
+        credentials: 'include',
+        body: formDataToUpload
+      });
+      
+      if (!response.ok) {
+        throw new Error('Không thể tải lên tài liệu');
+      }
+      
+      // Parse response to get file URLs
+      const data = await response.json();
+      console.log('PDF upload response:', data);
+      
+      // Process URLs based on API response format
+      let fileUrls: string[] = [];
+      if (Array.isArray(data)) {
+        // If response is an array of URLs
+        fileUrls = data;
+      } else if (data && data.body && Array.isArray(data.body.urls)) {
+        // If response has a body.urls array
+        fileUrls = data.body.urls;
+      } else {
+        throw new Error('Không nhận được URL tài liệu từ API');
+      }
+      
+      // Create new material objects
+      const newMaterials = fileUrls.map((url, index) => {
+        const fileName = url.split('/').pop() || `File ${index + 1}`;
         return {
-          name: file.name,
-          path: mockPath,
-          size
+          name: fileName,
+          path: url,
+          size: files[index] ? formatFileSize(files[index].size) : 'Unknown'
         };
       });
       
-      // Simulate upload delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+      // Update form data with new materials
       setFormData({
         ...formData,
         materials: [...formData.materials, ...newMaterials]
@@ -171,9 +240,11 @@ export default function EditLessonPage() {
         fileInputRef.current.value = '';
       }
       
+      toast.success('Tải lên tài liệu thành công');
     } catch (err) {
       console.error('Error uploading file:', err);
-      toast.error('Không thể tải lên tập tin. Vui lòng thử lại.');
+      setError('Không thể tải lên tài liệu. Vui lòng thử lại sau.');
+      toast.error('Không thể tải lên tài liệu. Vui lòng thử lại sau.');
     } finally {
       setUploadingFile(false);
     }
@@ -211,18 +282,44 @@ export default function EditLessonPage() {
       // Extract just the paths for API call
       const materialPaths = formData.materials.map(m => m.path);
       
-      // Update lesson data
-      await lessonService.updateLesson(lessonId, {
-        ...formData,
-        materials: materialPaths
+      // Prepare request data
+      const requestData = {
+        title: formData.title,
+        shortTile: formData.shortTile || formData.title,
+        content: formData.content,
+        videoUrl: formData.videoUrl,
+        materials: materialPaths,
+        order: formData.orderLesson,
+        timeLimit: formData.timeLimit
+      };
+      
+      console.log("Updating lesson with data:", requestData);
+      
+      // Update lesson using the API from screenshot
+      const response = await fetch(`${API_BASE_URL}/course/update-lesson/${lessonId}?courseId=${courseId}`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestData)
       });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Server error:", errorText);
+        throw new Error("Không thể cập nhật bài học");
+      }
+      
+      const data = await response.json();
+      console.log("Lesson updated successfully:", data);
       
       setSuccess('Bài học đã được cập nhật thành công!');
       toast.success('Bài học đã được cập nhật thành công!');
       
       // Redirect after success
       setTimeout(() => {
-        router.push(`/teacher/courses/${courseId}/lessons/${lessonId}`);
+        router.push(`/teacher/courses/${courseId}`);
       }, 1500);
       
     } catch (error: unknown) {
@@ -272,7 +369,7 @@ export default function EditLessonPage() {
       {/* Header */}
       <div className="flex items-center mb-2">
         <Link 
-          href={`/teacher/courses/${courseId}/lessons/${lessonId}`} 
+          href={`/teacher/courses/${courseId}`} 
           className="text-gray-500 hover:text-gray-700 mr-2"
         >
           <ArrowLeft className="w-5 h-5" />
@@ -317,16 +414,16 @@ export default function EditLessonPage() {
           </div>
           
           <div className="mb-6">
-            <label className="block text-gray-700 font-medium mb-2" htmlFor="description">
-              Mô tả ngắn
+            <label className="block text-gray-700 font-medium mb-2" htmlFor="shortTitle">
+              Tiêu đề ngắn
             </label>
             <input
-              id="description"
-              name="description"
+              id="shortTitle"
+              name="shortTitle"
               type="text"
-              placeholder="Mô tả ngắn về bài học"
+              placeholder="Tiêu đề hiển thị ngắn gọn (nếu để trống sẽ sử dụng tiêu đề chính)"
               className="w-full px-3 py-2 border rounded-md"
-              value={formData.description}
+              value={formData.shortTile}
               onChange={handleChange}
             />
           </div>
@@ -379,17 +476,17 @@ export default function EditLessonPage() {
           </div>
           
           <div className="mb-6">
-            <label className="block text-gray-700 font-medium mb-2" htmlFor="order">
+            <label className="block text-gray-700 font-medium mb-2" htmlFor="orderLesson">
               Thứ tự bài học
             </label>
             <input
-              id="order"
-              name="order"
+              id="orderLesson"
+              name="orderLesson"
               type="number"
               min="1"
               placeholder="Nhập thứ tự bài học"
               className="w-full px-3 py-2 border rounded-md"
-              value={formData.order}
+              value={formData.orderLesson}
               onChange={handleChange}
             />
           </div>
@@ -469,7 +566,7 @@ export default function EditLessonPage() {
         
         <div className="px-6 py-4 bg-gray-50 border-t flex justify-between">
           <Link 
-            href={`/teacher/courses/${courseId}/lessons/${lessonId}`} 
+            href={`/teacher/courses/${courseId}`} 
             className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-200 font-medium shadow-sm hover:shadow transition"
           >
             Hủy
