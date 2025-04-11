@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { FaTwitter, FaFacebookF, FaInstagram } from "react-icons/fa";
-
+import Image from "next/image";
 export const Footer = () => {
     return (
         <>
@@ -11,10 +11,11 @@ export const Footer = () => {
                     <div className="sm:flex justify-between flex-wrap gap-[32px] grid grid-cols-2">
                         <div className="lg:w-[248px] sm:w-full col-span-2">
                             <Link href="#" className="font-[700] sm:text-[34px] text-[28px] sm:mb-[25px]  text-black mb-[20px] ">
-                                EduPress
+                                AlphaEducation
+
                             </Link>
                             <p className="font-[400] text-[14px] text-black sm:mb-[35px] mb-[20px]">
-                            LearnPress là một Plugin WordPress LMS toàn diện dành cho WordPress.
+                                Nền tảng học online hàng đầu Việt Nam. Cung cấp các khóa học chất lượng cao từ các giảng viên hàng đầu.
                             </p>
                             <div className="flex gap-[12px]">
                                 <Link href="#" target="_blank" className="border border-[#00000033] bg-white hover:bg-black rounded-[50%] w-[28px] h-[28px] text-[14px] inline-flex items-center justify-center text-black hover:text-white">
@@ -30,20 +31,20 @@ export const Footer = () => {
                         </div>
                         <div className="sm:w-auto">
                             <h2 className="font-[500] font-bold text-[16px] text-black mb-[26px] uppercase">
-                                CÔNG TY
+                                Thành Viên
                             </h2>
                             <div className="flex flex-col gap-[12px]">
                                 <Link href="#" className="font-[400] text-[16px] text-black hover:text-[#FF782D]">
-                                    Giới Thiệu
+                                    Phan Thế Toàn
                                 </Link>
                                 <Link href="#" className="font-[400] text-[16px] text-black hover:text-[#FF782D]">
-                                    Sản Phẩm
+                                    Nguyễn Việt Thành
                                 </Link>
                                 <Link href="#" className="font-[400] text-[16px] text-black hover:text-[#FF782D]">
-                                    Công Việc
+                                    Trần Thị Minh Thu
                                 </Link>
                                 <Link href="#" className="font-[400] text-[16px] text-black hover:text-[#FF782D]">
-                                    Việc Làm
+                                    Nguyễn Trí Trai
                                 </Link>
                             </div>
                         </div>
@@ -52,11 +53,8 @@ export const Footer = () => {
                                 Trợ giúp
                             </h2>
                             <div className="flex flex-col gap-[12px]">
-                                <Link href="#" className="font-[400] text-[16px] text-black hover:text-[#FF782D]">
+                                <Link href="/contact" className="font-[400] text-[16px] text-black hover:text-[#FF782D]">
                                     Hỗ Trợ Khách Hàng
-                                </Link>
-                                <Link href="#" className="font-[400] text-[16px] text-black hover:text-[#FF782D]">
-                                    Thông Tin Đơn Hàng
                                 </Link>
                                 <Link href="#" className="font-[400] text-[16px] text-black hover:text-[#FF782D]">
                                     Điều Khoản & Điều Kiện
@@ -66,25 +64,7 @@ export const Footer = () => {
                                 </Link>
                             </div>
                         </div>
-                        <div className="sm:w-auto">
-                            <h2 className="font-[500] text-[16px] font-bold text-black mb-[26px] uppercase">
-                                FAQ
-                            </h2>
-                            <div className="flex flex-col gap-[12px]">
-                                <Link href="#" className="font-[400] text-[16px] text-black hover:text-[#FF782D]">
-                                    Tài Khoản
-                                </Link>
-                                <Link href="#" className="font-[400] text-[16px] text-black hover:text-[#FF782D]">
-                                    Quản Lý Đơn Hàng
-                                </Link>
-                                <Link href="#" className="font-[400] text-[16px] text-black hover:text-[#FF782D]">
-                                    Đơn Hàng
-                                </Link>
-                                <Link href="#" className="font-[400] text-[16px] text-black hover:text-[#FF782D]">
-                                    Thanh Toán
-                                </Link>
-                            </div>
-                        </div>
+
                         <div className="sm:w-auto">
                             <h2 className="font-[500] text-[16px] font-bold text-black mb-[26px] uppercase">
                                 Tài nguyên
