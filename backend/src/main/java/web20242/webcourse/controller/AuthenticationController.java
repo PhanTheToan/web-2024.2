@@ -97,8 +97,19 @@ public class AuthenticationController {
 
     // Login
     @PostMapping("/login")
-    public ResponseEntity<AuthenticationResponse> login(@RequestBody AuthenticationRequest request, HttpServletResponse response) {
+    public ResponseEntity<?> login(@RequestBody AuthenticationRequest request, HttpServletResponse response) {
         AuthenticationResponse authResponse = authenticationService.authenticate(request);
+        User user = userService.findByUsername(request.getUsername());
+
+        if (user == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ApiResponse<>(HttpStatus.NOT_FOUND.value(), "User not found!", null));
+        }
+
+        if (!EStatus.ACTIVE.equals(user.getStatus())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(new ApiResponse<>(HttpStatus.FORBIDDEN.value(), "User is not active!", null));
+        }
         Cookie cookie = new Cookie("jwtToken", authResponse.getToken());
         cookie.setHttpOnly(true);
         cookie.setPath("/");
@@ -106,56 +117,56 @@ public class AuthenticationController {
         response.addCookie(cookie);
         return ResponseEntity.ok(authResponse);
     }
-    @PostMapping("/login-with-token")
-    public ResponseEntity<ApiResponse<UserDetails>> loginWithToken(@RequestHeader("Authorization") String authHeader) {
-        try {
-            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-                ApiResponse<UserDetails> errorResponse = new ApiResponse<>(
-                        HttpStatus.BAD_REQUEST.value(),
-                        "Token không hợp lệ hoặc thiếu",
-                        null
-                );
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
-            }
-
-            String token = authHeader.substring(7); // Bỏ "Bearer " (7 ký tự)
-            String username = jwtService.extractUsername(token);
-
-            if (username == null) {
-                ApiResponse<UserDetails> errorResponse = new ApiResponse<>(
-                        HttpStatus.UNAUTHORIZED.value(),
-                        "Token không chứa thông tin user",
-                        null
-                );
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
-            }
-
-            UserDetails userDetails = userDetailsService.loadUserByUsername(username);
-            if (!jwtService.isTokenValid(token, userDetails)) {
-                ApiResponse<UserDetails> errorResponse = new ApiResponse<>(
-                        HttpStatus.UNAUTHORIZED.value(),
-                        "Token không hợp lệ hoặc đã hết hạn",
-                        null
-                );
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
-            }
-
-            ApiResponse<UserDetails> response = new ApiResponse<>(
-                    HttpStatus.OK.value(),
-                    "Đăng nhập bằng token thành công",
-                    userDetails
-            );
-            return ResponseEntity.ok(response);
-
-        } catch (Exception e) {
-            ApiResponse<UserDetails> errorResponse = new ApiResponse<>(
-                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                    "Lỗi server: " + e.getMessage(),
-                    null
-            );
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
-        }
-    }
+//    @PostMapping("/login-with-token")
+//    public ResponseEntity<ApiResponse<UserDetails>> loginWithToken(@RequestHeader("Authorization") String authHeader) {
+//        try {
+//            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+//                ApiResponse<UserDetails> errorResponse = new ApiResponse<>(
+//                        HttpStatus.BAD_REQUEST.value(),
+//                        "Token không hợp lệ hoặc thiếu",
+//                        null
+//                );
+//                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+//            }
+//
+//            String token = authHeader.substring(7); // Bỏ "Bearer " (7 ký tự)
+//            String username = jwtService.extractUsername(token);
+//
+//            if (username == null) {
+//                ApiResponse<UserDetails> errorResponse = new ApiResponse<>(
+//                        HttpStatus.UNAUTHORIZED.value(),
+//                        "Token không chứa thông tin user",
+//                        null
+//                );
+//                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
+//            }
+//
+//            UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+//            if (!jwtService.isTokenValid(token, userDetails)) {
+//                ApiResponse<UserDetails> errorResponse = new ApiResponse<>(
+//                        HttpStatus.UNAUTHORIZED.value(),
+//                        "Token không hợp lệ hoặc đã hết hạn",
+//                        null
+//                );
+//                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
+//            }
+//
+//            ApiResponse<UserDetails> response = new ApiResponse<>(
+//                    HttpStatus.OK.value(),
+//                    "Đăng nhập bằng token thành công",
+//                    userDetails
+//            );
+//            return ResponseEntity.ok(response);
+//
+//        } catch (Exception e) {
+//            ApiResponse<UserDetails> errorResponse = new ApiResponse<>(
+//                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
+//                    "Lỗi server: " + e.getMessage(),
+//                    null
+//            );
+//            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+//        }
+//    }
 
     private String generateOTP() {
         return String.format("%06d", new Random().nextInt(999999));
@@ -205,22 +216,12 @@ public class AuthenticationController {
     // Đăng ký User
     @PostMapping("/signup")
     public ResponseEntity<ApiResponse<String>> signup(@RequestBody User user) {
-        return handleSignup(user, ERole.ROLE_USER);
+        if(user.getRole() == ERole.ROLE_ADMIN)
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ApiResponse<>(HttpStatus.BAD_REQUEST.value(), "Không thể đăng ký với vai trò ADMIN", null));
+        return handleSignup(user, user.getRole());
     }
 
-    // Đăng ký Teacher
-    @PreAuthorize("hasRole('ADMIN')")
-    @PostMapping("/teacher/signup")
-    public ResponseEntity<ApiResponse<String>> signupTeacher(@RequestBody User user) {
-        return handleSignup(user, ERole.ROLE_TEACHER);
-    }
-
-    // Đăng ký Admin
-    @PreAuthorize("hasRole('ADMIN')")
-    @PostMapping("/admin/signup")
-    public ResponseEntity<ApiResponse<String>> signupAdmin(@RequestBody User user) {
-        return handleSignup(user, ERole.ROLE_ADMIN);
-    }
 
     private ResponseEntity<ApiResponse<String>> handleSignup(User user, ERole role) {
         try {
@@ -261,7 +262,10 @@ public class AuthenticationController {
             }
 
             User user = otpData.getUser();
-            user.setStatus(EStatus.ACTIVE);
+            if(user.getRole() == ERole.ROLE_USER)
+                user.setStatus(EStatus.ACTIVE);
+            else
+                user.setStatus(EStatus.INACTIVE);
             user.setCreatedAt(LocalDateTime.now());
             user.setUpdatedAt(LocalDateTime.now());
             User createdUser = userService.createUser(user);

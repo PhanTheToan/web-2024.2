@@ -1,5 +1,6 @@
 package web20242.webcourse.model;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.databind.annotation.EnumNaming;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -49,6 +50,7 @@ public class User {
     @Field(name = "phone")
     private String phone;
 
+    @JsonFormat(pattern = "yyyy-MM-dd")
     @Field(name = "date_of_birth", targetType = FieldType.DATE_TIME)
     private LocalDate dateOfBirth;
 

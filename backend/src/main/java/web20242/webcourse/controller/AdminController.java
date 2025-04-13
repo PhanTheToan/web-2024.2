@@ -85,29 +85,28 @@ public class AdminController {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                         .body(new ApiResponse<>(HttpStatus.BAD_REQUEST.value(), "Email đã tồn tại", null));
             }
-            String otp = generateOTP();
             user.setRole(role); // Đặt role tương ứng
-            otpStorage.put(user.getEmail(), new OtpData(otp, user));
-            sendOtpEmail(user.getEmail(), otp);
+            user.setStatus(EStatus.ACTIVE);
+            user.setCreatedAt(LocalDateTime.now());
+            user.setUpdatedAt(LocalDateTime.now());
+            User createdUser = userService.createUser(user);
 
-            return ResponseEntity.ok(new ApiResponse<>(HttpStatus.OK.value(), "OTP đã được gửi đến email", null));
+
+
+
+            return ResponseEntity.ok(new ApiResponse<>(HttpStatus.OK.value(), "Tạo tài khoản thành công!", null));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ApiResponse<>(HttpStatus.INTERNAL_SERVER_ERROR.value(), "Lỗi server: " + e.getMessage(), null));
         }
     }
-    // Đăng ký Teacher
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
-    @PostMapping("/teacher-signup")
-    public ResponseEntity<ApiResponse<String>> signupTeacher(@RequestBody User user) {
-        return handleSignup(user, ERole.ROLE_TEACHER);
-    }
+
 
     // Đăng ký Admin
     @PreAuthorize("hasRole('ROLE_ADMIN')")
     @PostMapping("/admin-signup")
     public ResponseEntity<ApiResponse<String>> signupAdmin(@RequestBody User user) {
-        return handleSignup(user, ERole.ROLE_ADMIN);
+        return handleSignup(user,user.getRole());
     }
     @PostMapping("/verify-otp")
     public ResponseEntity<ApiResponse<AuthenticationResponse>> verifyOtp(@RequestBody Map<String, String> request) {

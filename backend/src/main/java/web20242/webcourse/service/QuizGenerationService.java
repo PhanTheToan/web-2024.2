@@ -118,7 +118,7 @@ public class QuizGenerationService {
                 "    }\n" +
                 "  ]\n" +
                 "}\n" +
-                "Hãy các số thứ tự câu hỏi và đáp án, các đáp án chỉ cần hiển thị A, B, C,... tương ứng với chọn trắc nghiệm mà không cần phải có giá trị và đáp án đúng từ nội dung PDF (Các đáp án đúng có thể được lưu ở bảng cuối của file hoặc ngay bên cạnh đáp án có (KEY) dấu hiệu đây là đáp án, chỉ cần biết là án nào A, B, C, D,... không cần phải cụ thể chứa gì  ) và với loại câu hỏi không có đáp án A, B, C, D,... là loại câu hỏi điền đáp án thì chỉ cần ghi nhận số câu hỏi là bao nhiêu và ghi nhận toàn bộ đáp án đúng(ghi đày đủ giá trị ) và trả về dưới dạng JSON đúng định dạng trên. " +
+                "Hãy các số thứ tự câu hỏi và đáp án, các đáp án chỉ cần hiển thị A, B, C,... tương ứng với chọn trắc nghiệm mà không cần phải có giá trị và đáp án đúng từ nội dung PDF (Các đáp án đúng có thể được lưu ở bảng cuối của file hoặc ngay bên cạnh đáp án có (KEY) dấu hiệu đây là đáp án, chỉ cần biết là án nào A, B, C, D,... không cần phải cụ thể chứa gì  ) và với loại câu hỏi không có đáp án A, B, C, D,... là loại câu hỏi điền đáp án thì chỉ cần ghi nhận số câu hỏi là bao nhiêu và ghi nhận toàn bộ đáp án đúng(ghi đày đủ giá trị - Loại câu hỏi điền đáp án là câu mà đáp án chỉ có kết quả không có A, B hay C, D, ...) và trả về dưới dạng JSON đúng định dạng trên. " +
                 "Trả về JSON thuần túy, không bao bọc trong markdown code block (```json ... ```) hoặc bất kỳ nội dung nào khác ngoài JSON.\n" +
                 "Nội dung PDF:\n" + pdfContent;
 
