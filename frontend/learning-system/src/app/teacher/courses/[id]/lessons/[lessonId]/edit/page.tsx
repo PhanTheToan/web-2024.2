@@ -1,0 +1,592 @@
+"use client";
+import React, { useState, useEffect, useRef } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { ArrowLeft, AlertCircle, CheckCircle, Loader2, X, File } from 'lucide-react';
+import { Course } from '@/app/types';
+import { toast } from 'react-hot-toast';
+
+// API Base URL
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8082/api';
+
+export default function EditLessonPage() {
+  const params = useParams();
+  const router = useRouter();
+  const courseId = params.id as string;
+  const lessonId = params.lessonId as string;
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  const [course, setCourse] = useState<Course | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  
+  // Form state
+  const [formData, setFormData] = useState({
+    title: '',
+    shortTile: '',
+    content: '',
+    videoUrl: '',
+    orderLesson: 1,
+    timeLimit: 45,
+    materials: [] as {name: string, path: string, size: string}[],
+  });
+
+  // Additional state for file upload
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [videoPreview, setVideoPreview] = useState<string | null>(null);
+  
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        
+        // Fetch course data directly using API
+        console.log("Fetching course:", courseId);
+        const courseResponse = await fetch(`${API_BASE_URL}/course/info/${courseId}`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!courseResponse.ok) {
+          throw new Error("Failed to fetch course");
+        }
+
+        const courseData = await courseResponse.json();
+        let parsedCourse;
+        
+        if (courseData.body) {
+          parsedCourse = courseData.body;
+        } else {
+          parsedCourse = courseData;
+        }
+        
+        console.log("Course data:", parsedCourse);
+        setCourse(parsedCourse);
+        
+        // Fetch lesson data using API as shown in the screenshot
+        console.log("Fetching lesson:", lessonId);
+        const lessonResponse = await fetch(`${API_BASE_URL}/course/get-lesson/${lessonId}`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!lessonResponse.ok) {
+          throw new Error("Failed to fetch lesson");
+        }
+
+        const lessonData = await lessonResponse.json();
+        console.log("Lesson data:", lessonData);
+        
+        // Convert materials to file objects
+        const materialFiles = Array.isArray(lessonData.materials) 
+          ? lessonData.materials.map((path: string) => {
+              const fileName = path.split('/').pop() || 'unknown';
+              return {
+                name: fileName,
+                path: path,
+                size: 'Unknown'
+              };
+            })
+          : [];
+        
+        // Populate form with lesson data from API response
+        setFormData({
+          title: lessonData.title || '',
+          shortTile: lessonData.shortTitle || '',
+          content: lessonData.content || '',
+          videoUrl: lessonData.videoUrl || '',
+          orderLesson: lessonData.order || lessonData.orderLesson || 1,
+          timeLimit: lessonData.timeLimit || 45,
+          materials: materialFiles,
+        });
+        
+        // Set video preview if available
+        if (lessonData.videoUrl) {
+          setVideoPreview(lessonData.videoUrl);
+        }
+      } catch (err) {
+        console.error('Failed to fetch data:', err);
+        setError('Không thể tải dữ liệu. Vui lòng thử lại sau.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    if (courseId && lessonId) {
+      fetchData();
+    }
+  }, [courseId, lessonId]);
+  
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormData({
+      ...formData,
+      [name]: name === 'orderLesson' || name === 'timeLimit' ? parseInt(value) || 0 : value,
+    });
+  };
+  
+  const handleVideoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData({
+      ...formData,
+      [name]: value,
+    });
+    
+    // Set video preview URL
+    if (value) {
+      // For YouTube URLs, ensure we have the embed version
+      let previewUrl = value;
+      
+      // Check if it's a YouTube URL and convert to embed format if needed
+      if (value.includes('youtube.com/watch')) {
+        const videoId = new URL(value).searchParams.get('v');
+        if (videoId) {
+          previewUrl = `https://www.youtube.com/embed/${videoId}`;
+        }
+      } else if (value.includes('youtu.be/')) {
+        const videoId = value.split('youtu.be/')[1]?.split('?')[0];
+        if (videoId) {
+          previewUrl = `https://www.youtube.com/embed/${videoId}`;
+        }
+      }
+      
+      setVideoPreview(previewUrl);
+    } else {
+      setVideoPreview(null);
+    }
+  };
+  
+  // Helper function to format file size
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) {
+      return `${bytes} B`;
+    } else if (bytes < 1024 * 1024) {
+      return `${(bytes / 1024).toFixed(1)} KB`;
+    } else {
+      return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    }
+  };
+  
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    
+    setUploadingFile(true);
+    setError(null);
+    
+    try {
+      // Sử dụng API upload PDF như trong ảnh
+      const formDataToUpload = new FormData();
+      
+      // Thêm tất cả các file vào formData với key 'files'
+      Array.from(files).forEach(file => {
+        formDataToUpload.append('files', file);
+      });
+      
+      console.log("Uploading files with formData key 'files'");
+      
+      const response = await fetch(`${API_BASE_URL}/upload/pdf`, {
+        method: 'POST',
+        credentials: 'include',
+        body: formDataToUpload
+      });
+      
+      if (!response.ok) {
+        throw new Error('Không thể tải lên tài liệu');
+      }
+      
+      // Parse response to get file URLs
+      const data = await response.json();
+      console.log('PDF upload response:', data);
+      
+      // Process URLs based on API response format
+      let fileUrls: string[] = [];
+      if (Array.isArray(data)) {
+        // If response is an array of URLs
+        fileUrls = data;
+      } else if (data && data.body && Array.isArray(data.body.urls)) {
+        // If response has a body.urls array
+        fileUrls = data.body.urls;
+      } else {
+        throw new Error('Không nhận được URL tài liệu từ API');
+      }
+      
+      // Create new material objects
+      const newMaterials = fileUrls.map((url, index) => {
+        const fileName = url.split('/').pop() || `File ${index + 1}`;
+        return {
+          name: fileName,
+          path: url,
+          size: files[index] ? formatFileSize(files[index].size) : 'Unknown'
+        };
+      });
+      
+      // Update form data with new materials
+      setFormData({
+        ...formData,
+        materials: [...formData.materials, ...newMaterials]
+      });
+      
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      
+      toast.success('Tải lên tài liệu thành công');
+    } catch (err) {
+      console.error('Error uploading file:', err);
+      setError('Không thể tải lên tài liệu. Vui lòng thử lại sau.');
+      toast.error('Không thể tải lên tài liệu. Vui lòng thử lại sau.');
+    } finally {
+      setUploadingFile(false);
+    }
+  };
+  
+  const removeMaterial = (index: number) => {
+    const updatedMaterials = [...formData.materials];
+    updatedMaterials.splice(index, 1);
+    setFormData({
+      ...formData,
+      materials: updatedMaterials,
+    });
+  };
+  
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setError(null);
+    setSuccess(null);
+    
+    try {
+      // Validate form
+      if (!formData.title.trim()) {
+        throw new Error('Tiêu đề bài học không được để trống');
+      }
+      
+      if (!formData.content.trim()) {
+        throw new Error('Nội dung bài học không được để trống');
+      }
+      
+      if (formData.timeLimit <= 0) {
+        throw new Error('Thời gian học phải lớn hơn 0 phút');
+      }
+      
+      // Extract just the paths for API call
+      const materialPaths = formData.materials.map(m => m.path);
+      
+      // Prepare request data
+      const requestData = {
+        title: formData.title,
+        shortTile: formData.shortTile || formData.title,
+        content: formData.content,
+        videoUrl: formData.videoUrl,
+        materials: materialPaths,
+        order: formData.orderLesson,
+        timeLimit: formData.timeLimit
+      };
+      
+      console.log("Updating lesson with data:", requestData);
+      
+      // Update lesson using the API from screenshot
+      const response = await fetch(`${API_BASE_URL}/course/update-lesson/${lessonId}?courseId=${courseId}`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestData)
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Server error:", errorText);
+        throw new Error("Không thể cập nhật bài học");
+      }
+      
+      const data = await response.json();
+      console.log("Lesson updated successfully:", data);
+      
+      setSuccess('Bài học đã được cập nhật thành công!');
+      toast.success('Bài học đã được cập nhật thành công!');
+      
+      // Redirect after success
+      setTimeout(() => {
+        router.push(`/teacher/courses/${courseId}`);
+      }, 1500);
+      
+    } catch (error: unknown) {
+      console.error('Failed to update lesson:', error);
+      if (error instanceof Error) {
+        setError(error.message || 'Không thể cập nhật bài học. Vui lòng thử lại sau.');
+        toast.error(error.message || 'Không thể cập nhật bài học. Vui lòng thử lại sau.');
+      } else {
+        setError('Không thể cập nhật bài học. Vui lòng thử lại sau.');
+        toast.error('Không thể cập nhật bài học. Vui lòng thử lại sau.');
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+  
+  if (loading) {
+    return (
+      <div className="p-6 max-w-4xl mx-auto">
+        <div className="flex items-center justify-center py-10">
+          <Loader2 className="w-10 h-10 animate-spin text-primary-600" />
+          <span className="ml-2 text-gray-600">Đang tải dữ liệu...</span>
+        </div>
+      </div>
+    );
+  }
+  
+  if (!course) {
+    return (
+      <div className="p-6 max-w-4xl mx-auto">
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-4">
+          <div className="flex items-center">
+            <AlertCircle className="w-5 h-5 mr-2" />
+            <span>Không tìm thấy khóa học.</span>
+          </div>
+        </div>
+        <Link href="/teacher/courses" className="text-primary-600 hover:text-primary-800 flex items-center">
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Quay lại danh sách khóa học
+        </Link>
+      </div>
+    );
+  }
+  
+  return (
+    <div className="p-6 max-w-4xl mx-auto">
+      {/* Header */}
+      <div className="flex items-center mb-2">
+        <Link 
+          href={`/teacher/courses/${courseId}`} 
+          className="text-gray-500 hover:text-gray-700 mr-2"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </Link>
+        <h1 className="text-2xl font-bold">Chỉnh sửa bài học</h1>
+      </div>
+      
+      <p className="text-gray-500 mb-6">Khóa học: <span className="font-medium">{course.title}</span></p>
+      
+      {/* Alert messages */}
+      {error && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4 flex items-start">
+          <AlertCircle className="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" />
+          <span>{error}</span>
+        </div>
+      )}
+      
+      {success && (
+        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4 flex items-center">
+          <CheckCircle className="w-5 h-5 mr-2" />
+          <span>{success}</span>
+        </div>
+      )}
+      
+      {/* Form */}
+      <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow">
+        <div className="p-6">
+          <div className="mb-6">
+            <label className="block text-gray-700 font-medium mb-2" htmlFor="title">
+              Tiêu đề bài học <span className="text-red-500">*</span>
+            </label>
+            <input
+              id="title"
+              name="title"
+              type="text"
+              required
+              placeholder="Nhập tiêu đề bài học"
+              className="w-full px-3 py-2 border rounded-md"
+              value={formData.title}
+              onChange={handleChange}
+            />
+          </div>
+          
+          <div className="mb-6">
+            <label className="block text-gray-700 font-medium mb-2" htmlFor="shortTitle">
+              Tiêu đề ngắn
+            </label>
+            <input
+              id="shortTitle"
+              name="shortTitle"
+              type="text"
+              placeholder="Tiêu đề hiển thị ngắn gọn (nếu để trống sẽ sử dụng tiêu đề chính)"
+              className="w-full px-3 py-2 border rounded-md"
+              value={formData.shortTile}
+              onChange={handleChange}
+            />
+          </div>
+          
+          <div className="mb-6">
+            <label className="block text-gray-700 font-medium mb-2" htmlFor="content">
+              Nội dung bài học <span className="text-red-500">*</span>
+            </label>
+            <textarea
+              id="content"
+              name="content"
+              required
+              placeholder="Nhập nội dung chi tiết của bài học"
+              className="w-full px-3 py-2 border rounded-md h-40"
+              value={formData.content}
+              onChange={handleChange}
+            ></textarea>
+            <p className="text-gray-500 text-sm mt-1">Nội dung có thể bao gồm định dạng HTML</p>
+          </div>
+          
+          <div className="mb-6">
+            <label className="block text-gray-700 font-medium mb-2" htmlFor="videoUrl">
+              URL Video
+            </label>
+            <input
+              id="videoUrl"
+              name="videoUrl"
+              type="url"
+              placeholder="Nhập URL video từ YouTube, Vimeo, ..."
+              className="w-full px-3 py-2 border rounded-md"
+              value={formData.videoUrl}
+              onChange={handleVideoChange}
+            />
+            
+            {videoPreview && (
+              <div className="mt-3">
+                <p className="text-gray-700 font-medium mb-2">Xem trước video:</p>
+                <div className="relative aspect-video bg-gray-100 rounded-md overflow-hidden">
+                  <iframe
+                    src={videoPreview}
+                    title="Video Preview"
+                    className="absolute w-full h-full"
+                    frameBorder="0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  ></iframe>
+                </div>
+              </div>
+            )}
+          </div>
+          
+          <div className="mb-6">
+            <label className="block text-gray-700 font-medium mb-2" htmlFor="orderLesson">
+              Thứ tự bài học
+            </label>
+            <input
+              id="orderLesson"
+              name="orderLesson"
+              type="number"
+              min="1"
+              placeholder="Nhập thứ tự bài học"
+              className="w-full px-3 py-2 border rounded-md"
+              value={formData.orderLesson}
+              onChange={handleChange}
+            />
+          </div>
+          
+          <div className="mb-6">
+            <label className="block text-gray-700 font-medium mb-2" htmlFor="timeLimit">
+              Thời gian học (phút) <span className="text-red-500">*</span>
+            </label>
+            <input
+              id="timeLimit"
+              name="timeLimit"
+              type="number"
+              min="1"
+              required
+              className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+              value={formData.timeLimit}
+              onChange={handleChange}
+              placeholder="Nhập thời gian học (phút)"
+            />
+          </div>
+          
+          <div className="mb-6">
+            <label className="block text-gray-700 font-medium mb-2">
+              Tài liệu bài học (PDF)
+            </label>
+            <div className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-md p-6 text-center hover:border-gray-400 transition-colors">
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileUpload}
+                multiple
+                accept=".pdf,.doc,.docx,.ppt,.pptx,.txt"
+                className="hidden"
+              />
+              <div className="space-y-2 cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+                <File className="w-12 h-12 text-gray-400 mx-auto" />
+                <div className="text-gray-700 font-medium">
+                  {uploadingFile ? (
+                    <div className="flex items-center justify-center">
+                      <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                      <span>Đang tải lên...</span>
+                    </div>
+                  ) : (
+                    <>
+                      <span className="text-primary-600">Nhấp để tải lên</span> hoặc kéo thả tài liệu
+                    </>
+                  )}
+                </div>
+                <p className="text-gray-500 text-sm">Chấp nhận PDF, Word, PowerPoint, Text</p>
+              </div>
+            </div>
+            
+            <div className="mt-4 space-y-2">
+              {formData.materials.map((material, index) => (
+                <div key={index} className="flex items-center bg-gray-50 p-3 rounded-md">
+                  <File className="h-5 w-5 text-primary-600 mr-2 flex-shrink-0" />
+                  <div className="flex-grow">
+                    <p className="text-sm font-medium truncate">{material.name}</p>
+                    <p className="text-xs text-gray-500">{material.size}</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="text-red-600 ml-2"
+                    onClick={() => removeMaterial(index)}
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              ))}
+              
+              {formData.materials.length === 0 && (
+                <p className="text-gray-500 text-sm italic">Chưa có tài liệu nào được thêm</p>
+              )}
+            </div>
+          </div>
+        </div>
+        
+        <div className="px-6 py-4 bg-gray-50 border-t flex justify-between">
+          <Link 
+            href={`/teacher/courses/${courseId}`} 
+            className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-200 font-medium shadow-sm hover:shadow transition"
+          >
+            Hủy
+          </Link>
+          <button 
+            type="submit" 
+            className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 flex items-center font-medium shadow-md hover:shadow-lg transition"
+            disabled={submitting}
+          >
+            {submitting ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Đang lưu...
+              </>
+            ) : (
+              'Lưu thay đổi'
+            )}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+} 

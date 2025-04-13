@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { Sider } from "./components/sider/Sider";
-import { Search } from "./components/search/Search";
 import { Footer } from "./components/footer/Footer";
+import { Suspense } from "react";
+import { Header } from "./components/header/Header";
+import { usePathname } from "next/navigation";
 
 export const metadata: Metadata = {
   title: "Learning System",
@@ -14,17 +15,17 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+
   return (
     <html lang="vi">
-      <body>
-        <div className="container mx-auto">
+      <body className="">
+        <div className="">
           <div className="">
-            <div className="">
-              <Sider />
-            </div>
-            <div className="">
-              <Search />
-              <main className="">
+            <div className="flex-1">
+              <Suspense>
+                <Header />
+              </Suspense>
+              <main className="mt-[10px] mb-[150px]">
                 {children}
               </main>
             </div>
@@ -35,3 +36,4 @@ export default function RootLayout({
     </html>
   );
 }
+
