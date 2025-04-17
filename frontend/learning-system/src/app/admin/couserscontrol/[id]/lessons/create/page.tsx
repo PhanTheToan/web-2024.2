@@ -2,12 +2,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { courseService } from '@/services/courseService';
 import { ArrowLeft, AlertCircle, CheckCircle, Loader2, X, FileText } from 'lucide-react';
-import { Course } from '@/app/types';
+import { Course, LessonMaterial } from '@/app/types';
 import Image from 'next/image';
 import { toast } from 'react-hot-toast';
-import { lessonService } from '@/services/lessonService';
+
+// API Base URL
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8082/api';
 
 export default function CreateLessonPage() {
   const params = useParams();
@@ -24,49 +25,176 @@ export default function CreateLessonPage() {
   // Form state
   const [formData, setFormData] = useState({
     title: '',
+    shortTitle: '',
     description: '',
     content: '',
     videoUrl: '',
-    order: 0,
-    materials: [] as { name: string; path: string; size: number }[],
+    orderLesson: 1, // Default to 1, will be updated based on API response
+    timeLimit: 30, // Default to 30 minutes
+    materials: [] as LessonMaterial[],
   });
 
   // Additional state for file upload
   const [uploadingFiles, setUploadingFiles] = useState(false);
   const [videoPreview, setVideoPreview] = useState<string | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
+  const [orderInfo, setOrderInfo] = useState<{
+    maxOrder: number;
+    maxLessonOrder: number;
+    maxQuizOrder: number;
+    nextOrder: number;
+  }>({ maxOrder: 0, maxLessonOrder: 0, maxQuizOrder: 0, nextOrder: 1 });
   
   useEffect(() => {
-    const fetchCourse = async () => {
+    const checkAuth = async () => {
       try {
-        setLoading(true);
-        const courseData = await courseService.getCourseById(courseId);
-        setCourse(courseData as Course);
+        console.log("Checking admin authentication...");
+        const response = await fetch(`${API_BASE_URL}/auth/check`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
         
-        // Set default order to be after the last lesson
-        if (courseData && courseData.lessons && courseData.lessons.length > 0) {
-          setFormData(prev => ({
-            ...prev,
-            order: courseData.lessons.length + 1
-          }));
+        if (!response.ok) {
+          throw new Error('Bạn cần đăng nhập để tiếp tục');
         }
+        
+        const data = await response.json();
+        const userData = data.data;
+        
+        if (userData.role !== 'ROLE_ADMIN') {
+          toast.error('Bạn không có quyền truy cập trang này');
+          router.push('/login?redirect=/admin/couserscontrol');
+          return;
+        }
+        
+        console.log("Authenticated admin:", userData);
+        
+        // Continue with fetching course data
+        fetchCourse();
       } catch (error) {
-        console.error('Failed to fetch course:', error);
-        setError('Không thể tải thông tin khóa học. Vui lòng thử lại sau.');
-      } finally {
-        setLoading(false);
+        console.error('Auth check error:', error);
+        setError('Vui lòng đăng nhập để tiếp tục');
+        router.push('/login?redirect=/admin/couserscontrol');
       }
     };
     
-    if (courseId) {
-      fetchCourse();
+    checkAuth();
+  }, [router]);
+  
+  const fetchCourse = async () => {
+    try {
+      setLoading(true);
+      console.log("Fetching course:", courseId);
+      const response = await fetch(`${API_BASE_URL}/course/info/${courseId}`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch course");
+      }
+
+      const courseData = await response.json();
+      let parsedCourse;
+      
+      if (courseData.body) {
+        parsedCourse = courseData.body;
+      } else {
+        parsedCourse = courseData;
+      }
+      
+      console.log("Course data:", parsedCourse);
+      setCourse(parsedCourse);
+      
+      // Fetch lessons to determine order
+      fetchLessons(courseId);
+    } catch (err) {
+      console.error("Error fetching course:", err);
+      setError("Không thể tải thông tin khóa học. Vui lòng thử lại sau.");
+    } finally {
+      setLoading(false);
     }
-  }, [courseId]);
+  };
+  
+  // Hàm để lấy danh sách bài học và xác định orderLesson tiếp theo
+  const fetchLessons = async (courseId: string) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/course/lesson_quiz/${courseId}`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch lessons");
+      }
+
+      const data = await response.json();
+      console.log("Lessons and quizzes data:", data);
+      
+      let maxOrder = 0;
+      let maxLessonOrder = 0;
+      let maxQuizOrder = 0;
+      
+      // Xử lý mảng lessons từ API
+      const lessons = data.body?.lessons || [];
+      if (Array.isArray(lessons)) {
+        lessons.forEach(lesson => {
+          if (lesson.orderLesson && lesson.orderLesson > maxLessonOrder) {
+            maxLessonOrder = lesson.orderLesson;
+            maxOrder = Math.max(maxOrder, lesson.orderLesson);
+          }
+        });
+      }
+      
+      // Xử lý mảng quizzes từ API
+      const quizzes = data.body?.quizzes || [];
+      if (Array.isArray(quizzes)) {
+        quizzes.forEach(quiz => {
+          if (quiz.orderQuiz && quiz.orderQuiz > maxQuizOrder) {
+            maxQuizOrder = quiz.orderQuiz;
+            maxOrder = Math.max(maxOrder, quiz.orderQuiz);
+          }
+        });
+      }
+      
+      // Đặt orderLesson mới là maxOrder + 1
+      const nextOrder = maxOrder + 1;
+      
+      // Update form data with the calculated order
+      setFormData(prev => ({
+        ...prev,
+        orderLesson: nextOrder
+      }));
+      
+      console.log("Max order values:", { maxOrder, maxLessonOrder, maxQuizOrder, nextOrder });
+      
+      // Lưu thông tin để hiển thị UI
+      setOrderInfo({
+        maxOrder,
+        maxLessonOrder,
+        maxQuizOrder,
+        nextOrder
+      });
+    } catch (err) {
+      console.error("Error fetching lessons:", err);
+      // Keep default order value
+    }
+  };
   
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData({
       ...formData,
-      [name]: name === 'order' ? parseInt(value) || 0 : value,
+      [name]: ['orderLesson', 'timeLimit'].includes(name) ? parseInt(value) || 0 : value,
     });
   };
   
@@ -77,59 +205,117 @@ export default function CreateLessonPage() {
       videoUrl: value,
     });
     
-    // For demo purposes only - in real app, validate URL
+    // For preview purposes
     setVideoPreview(value);
   };
-  
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-    
-    setUploadingFiles(true);
-    
-    // Process each file
-    Array.from(files).forEach((file) => {
-      // Check if it's a PDF
-      if (file.type !== 'application/pdf') {
-        setError('Chỉ chấp nhận file PDF');
-        setUploadingFiles(false);
-        return;
+
+  // Hàm upload file tài liệu
+  const uploadFile = async (files: File[]): Promise<string[]> => {
+    try {
+      const formData = new FormData();
+      
+      // Thêm nhiều file vào formData
+      files.forEach(file => {
+        formData.append('files', file);
+      });
+
+      const response = await fetch(`${API_BASE_URL}/upload/pdf`, {
+        method: 'POST',
+        credentials: 'include',
+        body: formData
+      });
+
+      if (!response.ok) {
+        throw new Error(`Lỗi tải lên tài liệu: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log("File upload response:", data);
+      
+      // Dựa vào API response format
+      if (data && Array.isArray(data)) {
+        return data.filter(url => typeof url === 'string');
       }
       
-      // Check file size (limit to 10MB for example)
-      if (file.size > 10 * 1024 * 1024) {
-        setError('File quá lớn. Kích thước tối đa là 10MB');
-        setUploadingFiles(false);
-        return;
+      // Trường hợp khác
+      if (data && data.body && Array.isArray(data.body.urls)) {
+        return data.body.urls;
       }
       
-      // In a real app, you would upload the file to a server/storage
-      // For now, we'll simulate a successful upload
-      setTimeout(() => {
-        // Create a fake server path
-        const serverPath = `/uploads/materials/${file.name}`;
-        
-        // Add to materials
-        setFormData(prev => ({
-          ...prev,
-          materials: [
-            ...prev.materials,
-            {
-              name: file.name,
-              path: serverPath,
-              size: file.size
-            }
-          ]
-        }));
-        
-        setUploadingFiles(false);
-        setError(null);
-      }, 1000);
-    });
+      console.error("Response structure:", JSON.stringify(data));
+      throw new Error("Không nhận dạng được URL tệp sau khi tải lên");
+    } catch (error) {
+      console.error("Error uploading file:", error);
+      throw error;
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
     
-    // Clear file input
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+    setFileError(null);
+    const files = Array.from(e.target.files);
+    const validFiles: File[] = [];
+    
+    // Kiểm tra từng file
+    for (const file of files) {
+      // Check file type
+      const validTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'image/jpeg', 'image/png'];
+      if (!validTypes.includes(file.type)) {
+        setFileError(`File "${file.name}": Chỉ chấp nhận định dạng PDF, DOCX, JPEG và PNG.`);
+        continue;
+      }
+
+      // Check file size (5MB max)
+      if (file.size > 5 * 1024 * 1024) {
+        setFileError(`File "${file.name}": Kích thước tập tin vượt quá giới hạn 5MB.`);
+        continue;
+      }
+      
+      validFiles.push(file);
+    }
+    
+    if (validFiles.length === 0) {
+      return;
+    }
+
+    try {
+      setUploadingFiles(true);
+      // Upload nhiều file và lấy mảng URL
+      const fileUrls = await uploadFile(validFiles);
+      
+      // Tạo các object material mới với URL thực
+      const newMaterials = validFiles.map((file, index) => {
+        // Xác định loại file
+        const fileType = file.type.includes('pdf') ? 'pdf' : 
+                       file.type.includes('word') ? 'doc' : 'image';
+        
+        return {
+          name: file.name,
+          type: fileType as 'pdf' | 'doc' | 'image' | 'other',
+          path: fileUrls[index] || '',
+          size: file.size
+        };
+      }).filter(material => material.path !== ''); // Loại bỏ các material không có path
+
+      setFormData(prev => ({
+        ...prev,
+        materials: [...prev.materials, ...newMaterials]
+      }));
+      
+      if (newMaterials.length === 1) {
+        toast.success(`Tài liệu "${newMaterials[0].name}" đã được tải lên thành công`);
+      } else {
+        toast.success(`${newMaterials.length} tài liệu đã được tải lên thành công`);
+      }
+    } catch (error) {
+      console.error("Upload file error:", error);
+      setFileError("Lỗi khi tải tập tin lên máy chủ. Vui lòng thử lại.");
+    } finally {
+      setUploadingFiles(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
   
@@ -158,20 +344,44 @@ export default function CreateLessonPage() {
         throw new Error('Nội dung bài học không được để trống');
       }
       
-      // Prepare lesson data
+      // Prepare lesson data according to the API format - updated to match teacher implementation
       const lessonData = {
-        ...formData,
-        // Extract just the paths for the API
-        materials: formData.materials.map(material => material.path),
-        courseId,
-        _id: `lesson-${Date.now()}`, // In real app, this would be generated by the backend
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        title: formData.title.toString(),
+        shortTile: formData.shortTitle.toString() || formData.title.toString(),
+        content: formData.content.toString(),
+        order: formData.orderLesson, // Send as number like teacher implementation
+        timeLimit: formData.timeLimit, // Send as number like teacher implementation
+        videoUrl: formData.videoUrl.toString(),
+        materials: formData.materials.map(m => m.path), // Send as array like teacher implementation
       };
+      console.log('courseId:', courseId);
+      console.log('title:', formData.title);
+      console.log('shortTile:', formData.shortTitle || formData.title);
+      console.log('content:', formData.content);
+      console.log('order:', formData.orderLesson);
+      console.log('timeLimit:', formData.timeLimit);
+      console.log('videoUrl:', formData.videoUrl);
+      console.log('materials:', formData.materials.map(m => m.path));
+
+      console.log('Submitting lesson data:', lessonData);
       
-      // Call the lesson service API to create the lesson
-      const newLesson = await lessonService.createLesson(lessonData);
-      console.log('Lesson created successfully:', newLesson);
+      // Call the API to create lesson - updated to match teacher implementation
+      const response = await fetch(`${API_BASE_URL}/course/create-lesson?courseId=${courseId}`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(lessonData),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Không thể tạo bài học');
+      }
+      
+      const responseData = await response.json();
+      console.log('Lesson created successfully:', responseData);
       
       setSuccess('Bài học đã được tạo thành công!');
       toast.success('Bài học đã được tạo thành công!');
@@ -337,18 +547,41 @@ export default function CreateLessonPage() {
           </div>
           
           <div className="mb-6">
-            <label className="block text-gray-700 font-medium mb-2" htmlFor="order">
+            <label className="block text-gray-700 font-medium mb-2" htmlFor="orderLesson">
               Thứ tự bài học
             </label>
             <input
-              id="order"
-              name="order"
+              id="orderLesson"
+              name="orderLesson"
               type="number"
               min="1"
               className="w-full px-3 py-2 border rounded-md"
-              value={formData.order}
+              value={formData.orderLesson}
               onChange={handleChange}
             />
+            {orderInfo.maxOrder > 0 && (
+              <p className="text-sm text-gray-500 mt-1">
+                Thứ tự bài học cuối cùng: {orderInfo.maxLessonOrder}. Thứ tự quiz cuối cùng: {orderInfo.maxQuizOrder}.
+              </p>
+            )}
+          </div>
+          
+          <div className="mb-6">
+            <label className="block text-gray-700 font-medium mb-2" htmlFor="timeLimit">
+              Thời gian học (phút) <span className="text-red-500">*</span>
+            </label>
+            <input
+              id="timeLimit"
+              name="timeLimit"
+              type="number"
+              min="1"
+              required
+              className="w-full px-3 py-2 border rounded-md"
+              value={formData.timeLimit}
+              onChange={handleChange}
+              placeholder="Nhập thời gian học (phút)"
+            />
+            <p className="text-gray-500 text-sm mt-1">Thời gian ước tính để hoàn thành bài học này</p>
           </div>
           
           <div className="mb-6">
@@ -394,6 +627,12 @@ export default function CreateLessonPage() {
               </div>
             )}
             
+            {fileError && (
+              <div className="text-red-500 text-sm mt-3">
+                {fileError}
+              </div>
+            )}
+            
             {formData.materials.length > 0 ? (
               <ul className="space-y-2 mt-3">
                 {formData.materials.map((material, index) => (
@@ -402,7 +641,7 @@ export default function CreateLessonPage() {
                       <FileText className="w-4 h-4 mr-2 text-gray-500" />
                       <span className="truncate mr-2">{material.name}</span>
                       <span className="text-xs text-gray-500">
-                        ({(material.size / 1024).toFixed(1)} KB)
+                        {material.size ? `${Math.round(material.size / 1024)} KB` : 'Unknown size'}
                       </span>
                     </div>
                     <button

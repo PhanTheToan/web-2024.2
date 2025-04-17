@@ -17,7 +17,7 @@ export const mockCourses: Course[] = [
       lastName: 'Career Certificates',
       username: 'google',
       password: 'hashedpassword',
-      role: 'TEACHER',
+      role: 'teacher',
       email: 'google@certificates.com',
       phone: '0123456789',
       dateOfBirth: new Date('1990-01-01'),
@@ -37,7 +37,7 @@ export const mockCourses: Course[] = [
         lastName: 'Doe', 
         username: 'johndoe', 
         password: 'hashedpassword', 
-        role: 'USER', 
+        role: 'student', 
         email: 'john@example.com',
         phone: '0123456789',
         dateOfBirth: new Date('1995-01-01'),
@@ -53,7 +53,7 @@ export const mockCourses: Course[] = [
         lastName: 'Smith', 
         username: 'janesmith', 
         password: 'hashedpassword', 
-        role: 'USER', 
+        role: 'student', 
         email: 'jane@example.com',
         phone: '0123456789',
         dateOfBirth: new Date('1995-01-01'),
@@ -65,11 +65,14 @@ export const mockCourses: Course[] = [
       }
     ],
     lessons: getLessonsForCourse('1'),
-    quizzes: ['quiz1'],
+    quizzes: ['quiz1', 'quiz4'],
     rating: 4.8,
     createdAt: new Date(),
     updatedAt: new Date(),
-    duration: '40 minutes',
+    totalDuration: 210, // 45 + 60 + 75 minutes from lessons plus 30 minutes quiz
+    registrations: 2,
+    isPopular: true,
+    isPublished: true
   },
   {
     _id: '2',
@@ -81,7 +84,7 @@ export const mockCourses: Course[] = [
       lastName: 'Johnson',
       username: 'alicej',
       password: 'hashedpassword',
-      role: 'TEACHER',
+      role: 'teacher',
       email: 'alice@teach.com',
       phone: '0123456789',
       dateOfBirth: new Date('1990-01-01'),
@@ -100,7 +103,10 @@ export const mockCourses: Course[] = [
     rating: 4.5,
     createdAt: new Date(),
     updatedAt: new Date(),
-    duration: '20 minutes',
+    totalDuration: 40, // lesson timeLimit not specified but estimating 20 minutes + 20 minutes quiz
+    registrations: 0,
+    isPopular: false,
+    isPublished: true
   },
   {
     _id: '3',
@@ -112,7 +118,7 @@ export const mockCourses: Course[] = [
       lastName: 'Smith',
       username: 'bobsmith',
       password: 'hashedpassword',
-      role: 'TEACHER',
+      role: 'teacher',
       email: 'bob@teach.com',
       phone: '0123456789',
       dateOfBirth: new Date('1990-01-01'),
@@ -132,7 +138,7 @@ export const mockCourses: Course[] = [
         lastName: 'Brown', 
         username: 'mikebrown', 
         password: 'hashedpassword', 
-        role: 'USER', 
+        role: 'student', 
         email: 'mike@example.com',
         phone: '0123456789',
         dateOfBirth: new Date('1995-01-01'),
@@ -148,6 +154,9 @@ export const mockCourses: Course[] = [
     rating: 4.7,
     createdAt: new Date(),
     updatedAt: new Date(),
-    duration: '30 minutes',
+    totalDuration: 25, // lesson timeLimit not specified but estimating 0 minutes + 25 minutes quiz
+    registrations: 1,
+    isPopular: true,
+    isPublished: true
   }
 ];

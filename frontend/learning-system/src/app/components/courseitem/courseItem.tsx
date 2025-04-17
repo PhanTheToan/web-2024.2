@@ -15,8 +15,57 @@ function CardContent({ children, className }: { children: React.ReactNode; class
 }
 
 export default function CourseItem({ course }: CourseItemProps) {
-  // Determine the first lesson ID to link to
-  const firstLessonId = course.lessons[0]?._id;
+  // Add safety checks for all potentially undefined properties
+  // Helper function to get first lesson ID safely
+  const getFirstLessonId = () => {
+    if (!course.lessons || !Array.isArray(course.lessons) || course.lessons.length === 0) {
+      return null;
+    }
+    
+    const firstLesson = course.lessons[0];
+    return typeof firstLesson === 'string' ? firstLesson : firstLesson._id;
+  };
+  
+  // Helper function to get teacher name safely
+  const getTeacherName = () => {
+    if (!course.teacherId) {
+      return course.teacherName || course.teacherFullName || "Unknown Teacher";
+    }
+    
+    if (typeof course.teacherId === 'string') {
+      return course.teacherName || course.teacherFullName || course.teacherId;
+    }
+    
+    return `${course.teacherId.firstName || ''} ${course.teacherId.lastName || ''}`.trim() || "Unknown Teacher";
+  };
+  
+  // Helper function to get lessons count safely
+  const getLessonsCount = () => {
+    if (!course.lessons) {
+      return course.contentCount || 0;
+    }
+    
+    return Array.isArray(course.lessons) ? course.lessons.length : 0;
+  };
+  
+  // Helper function to get students count safely
+  const getStudentsCount = () => {
+    if (course.studentsCount !== undefined) {
+      return course.studentsCount;
+    }
+    
+    if (!course.studentsEnrolled) {
+      return 0;
+    }
+    
+    return Array.isArray(course.studentsEnrolled) ? course.studentsEnrolled.length : 0;
+  };
+  
+  // Use courseId from either _id or id property
+  const courseId = course._id || course.id;
+  
+  // Safely get first lesson ID
+  const firstLessonId = getFirstLessonId();
 
   return (
     <div 
@@ -29,11 +78,11 @@ export default function CourseItem({ course }: CourseItemProps) {
       <div className="flex w-full md:w-1/3">
         <div className="relative z-10 bg-white bg-opacity-40 p-6 md:p-8 rounded-lg text-center md:text-left  mx-auto">
             <h1 className="text-2xl md:text-4xl font-bold text-black">{course.title}</h1>
-            <p className="text-black mt-2">Giảng viên: <span className="text-orange-950 font-semibold cursor:pointer hover:text-orange-500 cursor: pointer">{course.teacherId.firstName} {course.teacherId.lastName}</span></p>
+            <p className="text-black mt-2">Giảng viên: <span className="text-orange-950 font-semibold cursor:pointer hover:text-orange-500 cursor: pointer">{getTeacherName()}</span></p>
             
             {firstLessonId ? (
               <Link 
-                href={`/courses/${course._id}/lesson/${firstLessonId}`}
+                href={`/courses/${courseId}/lesson/${firstLessonId}`}
                 className="mt-4 bg-orange-600 text-white px-6 py-2 rounded-lg hover:bg-orange-700 transition w-full md:w-auto inline-block text-center"
               >
                 Bắt đầu học
@@ -44,7 +93,7 @@ export default function CourseItem({ course }: CourseItemProps) {
               </button>
             )}
             
-            <p className="mt-2 text-gray-700">{course.studentsEnrolled.length} đã đăng ký</p>
+            <p className="mt-2 text-gray-700">{getStudentsCount()} đã đăng ký</p>
         </div>
       </div>
      
@@ -53,16 +102,16 @@ export default function CourseItem({ course }: CourseItemProps) {
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 text-center md:text-left">
           <div>
             {/* <CheckCircle className="text-blue-500" /> */}
-            <p className="font-bold ">{course.lessons.length} bài học</p>
+            <p className="font-bold ">{getLessonsCount()} bài học</p>
             <p className="text-gray-600 text-sm">Học tập hấp dẫn và thú vị</p>
           </div>
           <div>
             <h3 className="font-semibold">Danh mục</h3>
-            <p className="text-gray-600 text-sm">{course.categories.join(", ")}</p>
+            <p className="text-gray-600 text-sm">{course.categories && Array.isArray(course.categories) ? course.categories.join(", ") : "Uncategorized"}</p>
           </div>
           <div>
             <h3 className="font-semibold">Giá</h3>
-            <p className="text-gray-600 text-sm">${course.price}</p>
+            <p className="text-gray-600 text-sm">${course.price || 0}</p>
           </div>
           <div className="flex items-center justify-center md:justify-start space-x-2">
             <CheckCircle className="text-orange-500" />

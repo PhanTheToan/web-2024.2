@@ -3,8 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Upload, X, Save, Loader2 } from 'lucide-react';
-import { CategoryItem, Category } from '@/app/types';
-import Image from 'next/image';
+import { CategoryItem } from '@/app/types';
 import { toast } from 'react-hot-toast';
 
 // Define the CourseData interface for the form
@@ -15,9 +14,13 @@ interface CourseData {
   thumbnail: string;
   totalDuration: number; // in minutes, calculated from lessons and quizzes timeLimit
   categories: string[]; // Changed from category to categories array
-  teacherId: string;
-  isPopular: boolean; // Added isPopular field
   isPublished: boolean;
+}
+
+// Improve type safety for category objects
+interface CategoryData {
+  name: string;
+  [key: string]: string | number | boolean | null | undefined;
 }
 
 export default function EditCoursePage() {
@@ -32,8 +35,6 @@ export default function EditCoursePage() {
     thumbnail: '',
     totalDuration: 0, // in minutes
     categories: [], // Changed from category to categories array
-    teacherId: '',
-    isPopular: false, // Added isPopular field
     isPublished: false,
   });
   
@@ -42,20 +43,19 @@ export default function EditCoursePage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [categories, setCategories] = useState<CategoryItem[]>([]);
-  const [availableTeachers, setAvailableTeachers] = useState<{_id: string; firstName: string; lastName: string}[]>([]);
-  const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
-  const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
+  const [thumbnailPreview, setThumbnailPreview] = useState<string>('');
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8082/api';
-  // Fetch course data on component mount
+  const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
+
+  // Fetch course data and categories
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        console.log("fetching course data...", {courseId});
+        // Fetch course details via API
+        const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8082/api';
         
-        // Fetch course info using the /api/course/info/:id endpoint
+        // Fetch course details
         const courseResponse = await fetch(`${API_BASE_URL}/course/info/${courseId}`, {
           method: 'GET',
           credentials: 'include',
@@ -71,7 +71,28 @@ export default function EditCoursePage() {
         const courseData = await courseResponse.json();
         const course = courseData.body || courseData;
         
-        // Fetch featured categories using the /api/categories/featured-category endpoint
+        // Format course data
+        setCourseData({
+          title: course.title || '',
+          description: course.description || '',
+          price: course.price || 0,
+          thumbnail: course.thumbnail || '',
+          totalDuration: course.totalDuration || 0,
+          categories: Array.isArray(course.categories) 
+            ? course.categories.map((cat: CategoryData | string) => {
+                // Safely handle the category which could be a string or an object
+                if (typeof cat === 'object' && cat !== null && 'name' in cat) {
+                  return cat.name;
+                }
+                return String(cat);
+              }) 
+            : [],
+          isPublished: course.isPublished || course.courseStatus === 'ACTIVE' || false,
+        });
+        
+        setThumbnailPreview(course.thumbnail || '');
+        
+        // Fetch featured categories
         const categoriesResponse = await fetch(`${API_BASE_URL}/categories/featured-category`, {
           method: 'GET',
           credentials: 'include',
@@ -87,7 +108,7 @@ export default function EditCoursePage() {
         const categoriesData = await categoriesResponse.json();
         const categories = categoriesData.body || [];
         
-        // Format categories based on the actual API response format
+        // Format categories based on the API response
         setCategories(categories.map((cat: {
           categoryId?: string; 
           categoryName?: string;
@@ -100,82 +121,26 @@ export default function EditCoursePage() {
           isActive: false
         })));
         
-        // Fetch teachers from API
-        const teachersResponse = await fetch(`${API_BASE_URL}/user/all-teacher`, {
-          method: 'GET',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        });
-        
-        if (teachersResponse.ok) {
-          const teachersData = await teachersResponse.json();
-          if (teachersData.body && Array.isArray(teachersData.body)) {
-            setAvailableTeachers(teachersData.body.map((teacher: {
-              _id?: string;
-              id?: string;
-              firstName?: string;
-              lastName?: string;
-            }) => ({
-              _id: teacher._id || teacher.id || '',
-              firstName: teacher.firstName || '',
-              lastName: teacher.lastName || ''
-            })));
-          }
-        } else {
-          console.error("Failed to fetch teachers");
-          toast.error("Không thể tải danh sách giảng viên");
-          setAvailableTeachers([]);
-        }
-        
-        // Process teacher ID
-        const teacherId = typeof course.teacherId === 'object' 
-          ? course.teacherId._id 
-          : course.teacherId;
-        
-        // Process categories with proper typing (similar to teacher page)
-        const processedCategories = Array.isArray(course.categories) 
-          ? course.categories.map((cat: Category | string) => {
+        // Set selected categories to match course categories
+        setSelectedCategories(Array.isArray(course.categories) 
+          ? course.categories.map((cat: CategoryData | string) => {
+              // Safely handle the category which could be a string or an object
               if (typeof cat === 'object' && cat !== null && 'name' in cat) {
-                return (cat as Category).name;
+                return cat.name;
               }
               return String(cat);
             }) 
-          : [];
-        
-        // Set course data in the form
-        setCourseData({
-          title: course.title || '',
-          description: course.description || '',
-          price: course.price || 0,
-          thumbnail: course.thumbnail || '',
-          totalDuration: course.totalDuration || 0,
-          categories: processedCategories,
-          teacherId: teacherId || '',
-          isPopular: !!course.isPopular,
-          isPublished: !!course.isPublished,
-        });
-        
-        // Set selected categories to match course categories
-        setSelectedCategories(processedCategories);
-        
-        // Set thumbnail preview
-        if (course.thumbnail) {
-          setThumbnailPreview(course.thumbnail);
-        }
+          : []);
       } catch (error) {
-        console.error("Error fetching course:", error);
-        setError("Không thể tải thông tin khóa học. Vui lòng thử lại sau.");
-        toast.error("Không thể tải thông tin khóa học");
+        console.error('Failed to fetch data:', error);
+        setError('Không thể tải dữ liệu khóa học. Vui lòng thử lại sau.');
+        toast.error('Không thể tải dữ liệu khóa học');
       } finally {
         setLoading(false);
       }
     };
-
-    if (courseId) {
-      fetchData();
-    }
+    
+    fetchData();
   }, [courseId]);
   
   // Keep courseData.categories in sync with selectedCategories
@@ -211,7 +176,10 @@ export default function EditCoursePage() {
         }
       }
       
-      setSelectedCategories(selectedCategories);
+      setCourseData({
+        ...courseData,
+        categories: selectedCategories,
+      });
     } else {
       setCourseData({
         ...courseData,
@@ -224,13 +192,15 @@ export default function EditCoursePage() {
   const handleThumbnailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
-      setThumbnailFile(file);
       
       // Create preview URL
       const previewUrl = URL.createObjectURL(file);
       setThumbnailPreview(previewUrl);
       
-      // Update course data with the file name (in a real app, this would be the URL after upload)
+      // Store the file for later upload
+      setThumbnailFile(file);
+      
+      // Update course data with the preview URL temporarily
       setCourseData({
         ...courseData,
         thumbnail: previewUrl,
@@ -254,6 +224,8 @@ export default function EditCoursePage() {
         throw new Error('Mô tả khóa học không được để trống');
       }
       
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8082/api';
+      
       // Prepare the updated course data
       const updatedCourse = {
         title: courseData.title,
@@ -261,8 +233,6 @@ export default function EditCoursePage() {
         price: courseData.price,
         thumbnail: courseData.thumbnail,
         categories: courseData.categories,
-        teacherId: courseData.teacherId,
-        isPopular: courseData.isPopular,
         courseStatus: courseData.isPublished ? 'ACTIVE' : 'INACTIVE',
       };
       
@@ -273,7 +243,7 @@ export default function EditCoursePage() {
         formData.append('file', thumbnailFile);
         
         try {
-          // Upload the thumbnail file using the /api/upload/image endpoint
+          // Upload the thumbnail file
           const uploadResponse = await fetch(`${API_BASE_URL}/upload/image/r2`, {
             method: 'POST',
             credentials: 'include',
@@ -298,7 +268,7 @@ export default function EditCoursePage() {
         }
       }
       
-      // Update the course using API
+      // Update the course via API
       const updateResponse = await fetch(`${API_BASE_URL}/course/update/${courseId}`, {
         method: 'PUT',
         credentials: 'include',
@@ -318,18 +288,18 @@ export default function EditCoursePage() {
       
       // Redirect after a delay
       setTimeout(() => {
-        router.push(`/admin/couserscontrol/${courseId}`);
+        router.push(`/teacher/courses/${courseId}`);
       }, 2000);
-    } catch (err) {
-      console.error("Error updating course:", err);
-      const errorMessage = err instanceof Error ? err.message : "Không thể cập nhật khóa học. Vui lòng thử lại sau.";
+    } catch (error) {
+      console.error("Error updating course:", error);
+      const errorMessage = error instanceof Error ? error.message : "Không thể cập nhật khóa học. Vui lòng thử lại sau.";
       setError(errorMessage);
       toast.error(errorMessage);
     } finally {
       setSaving(false);
     }
   };
-  
+
   if (loading) {
     return (
       <div className="p-6 max-w-4xl mx-auto">
@@ -343,16 +313,15 @@ export default function EditCoursePage() {
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center">
-          <Link
-            href={`/admin/couserscontrol/${courseId}`}
-            className="text-gray-500 hover:text-gray-700 mr-3"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </Link>
-          <h1 className="text-2xl font-bold">Chỉnh sửa khóa học</h1>
-        </div>
+      {/* Header */}
+      <div className="flex items-center mb-2">
+        <Link 
+          href={`/teacher/courses/${courseId}`} 
+          className="text-gray-500 hover:text-gray-700 mr-2"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </Link>
+        <h1 className="text-2xl font-bold">Chỉnh sửa khóa học</h1>
       </div>
       
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
@@ -390,26 +359,6 @@ export default function EditCoursePage() {
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
               required
             />
-          </div>
-          
-          <div className="mb-6">
-            <label className="block text-gray-700 font-medium mb-2" htmlFor="teacherId">
-              Giảng viên
-            </label>
-            <select
-              id="teacherId"
-              name="teacherId"
-              value={courseData.teacherId}
-              disabled={true} // Make teacher non-editable
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-100" // Added bg-gray-100 to indicate disabled state
-            >
-              <option value="">Chọn giảng viên</option>
-              {availableTeachers.map(teacher => (
-                <option key={teacher._id} value={teacher._id}>
-                  {teacher.firstName} {teacher.lastName}
-                </option>
-              ))}
-            </select>
           </div>
           
           <div className="mb-6">
@@ -472,7 +421,7 @@ export default function EditCoursePage() {
                               ${isSelected ? 'border-indigo-200 bg-indigo-50' : 'border-gray-200 hover:border-indigo-200 hover:bg-gray-50'}`}
                             onClick={() => {
                               if (isSelected) {
-                                setSelectedCategories(prev => prev.filter(name => name !== cat.name));
+                                setSelectedCategories(prev => prev.filter(id => id !== cat.name));
                               } else {
                                 setSelectedCategories(prev => [...prev, cat.name]);
                               }
@@ -487,11 +436,6 @@ export default function EditCoursePage() {
                             <div className="ml-3 flex-1">
                               <span className="text-gray-800 font-medium">{cat.name}</span>
                             </div>
-                            {cat.count > 0 && (
-                              <span className="ml-auto bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded-full">
-                                {cat.count} khóa học
-                              </span>
-                            )}
                           </div>
                         );
                       })}
@@ -525,137 +469,112 @@ export default function EditCoursePage() {
                 )}
               </div>
               
-              {/* Add any necessary error handling for category selection */}
+              {selectedCategories.length === 0 && (
+                <div className="mt-1 text-sm text-red-500">
+                  Vui lòng chọn ít nhất một danh mục cho khóa học
+                </div>
+              )}
             </div>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <div>
-              <label className="block font-medium mb-1" htmlFor="totalDuration">
-                Thời lượng (phút)
+              <label className="block text-gray-700 font-medium mb-2" htmlFor="totalDuration">
+                Tổng thời gian (phút)
               </label>
               <input
                 type="number"
                 id="totalDuration"
                 name="totalDuration"
-                className="w-full px-3 py-2 border rounded bg-gray-100 cursor-not-allowed"
                 value={courseData.totalDuration}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 cursor-not-allowed"
                 disabled
               />
-              <p className="text-gray-500 text-xs mt-1">Sẽ được tự động tính từ thời gian của các bài học và bài kiểm tra</p>
+              <p className="text-sm text-gray-500 mt-1">Thời gian được tính tự động từ bài học và bài kiểm tra</p>
             </div>
             
-            <div>
-              <label className="block text-gray-700 font-medium mb-2">
-                Trạng thái
+            <div className="flex flex-col justify-end">
+              <label className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  name="isPublished"
+                  checked={courseData.isPublished}
+                  onChange={handleInputChange}
+                  className="form-checkbox h-5 w-5 text-indigo-600 rounded"
+                />
+                <span className="text-gray-700 font-medium">Đang hoạt động</span>
               </label>
-              <div className="flex flex-col space-y-2">
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    id="isPopular"
-                    name="isPopular"
-                    checked={courseData.isPopular}
-                    onChange={handleInputChange}
-                    className="h-5 w-5 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded mr-2"
-                  />
-                  <span className="text-gray-700">Đánh dấu là khóa học phổ biến</span>
-                </label>
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    id="isPublished"
-                    name="isPublished"
-                    checked={courseData.isPublished}
-                    onChange={handleInputChange}
-                    className="h-5 w-5 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded mr-2"
-                  />
-                  <span className="text-gray-700">Đang hoạt động</span>
-                </label>
-                <p className="text-xs text-gray-500 ml-7">Khi được bật, khóa học đang hoạt động. Khi tắt, khóa học sẽ bị vô hiệu hóa.</p>
-              </div>
+              <p className="text-sm text-gray-500 mt-1 ml-7">
+                Khi được bật, khóa học sẽ hiển thị cho học viên. Khi tắt, khóa học sẽ bị ẩn.
+              </p>
             </div>
           </div>
           
           <div className="mb-6">
             <label className="block text-gray-700 font-medium mb-2">
-              Ảnh thumbnail <span className="text-red-500">*</span>
+              Ảnh thu nhỏ <span className="text-gray-500 font-normal">(16:9 tỷ lệ khuyến nghị)</span>
             </label>
             
-            <div className="border border-gray-300 border-dashed rounded-lg p-4">
-              {thumbnailPreview ? (
-                <div className="relative">
-                  <div className="relative h-60 w-full mb-4">
-                    <Image
-                      src={thumbnailPreview}
-                      alt="Thumbnail preview"
-                      fill
-                      unoptimized
-                      className="object-cover rounded-lg"
-                    />
-                  </div>
-                  
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setThumbnailPreview(null);
-                      setThumbnailFile(null);
-                      setCourseData({
-                        ...courseData,
-                        thumbnail: '',
-                      });
-                    }}
-                    className="absolute top-2 right-2 bg-red-600 text-white p-1 rounded-full hover:bg-red-700 transition-colors"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
+            {thumbnailPreview ? (
+              <div className="mb-4 relative">
+                <div className="aspect-video bg-gray-100 rounded-lg overflow-hidden">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img 
+                    src={thumbnailPreview} 
+                    alt="Thumbnail preview" 
+                    className="w-full h-full object-cover"
+                  />
                 </div>
-              ) : (
-                <div className="text-center">
-                  <div className="flex flex-col items-center justify-center space-y-2">
-                    <Upload className="w-10 h-10 text-gray-400" />
-                    <p className="text-gray-600">Kéo thả hoặc nhấp để tải lên</p>
-                    <p className="text-gray-500 text-sm">PNG, JPG hoặc JPEG (tối đa 5MB)</p>
-                  </div>
-                </div>
-              )}
-              
-              <input
-                type="file"
-                id="thumbnail"
-                name="thumbnail"
-                accept="image/*"
-                onChange={handleThumbnailChange}
-                className={thumbnailPreview ? "hidden" : "absolute inset-0 w-full h-full opacity-0 cursor-pointer"}
-              />
-              
-              <div className="mt-4 flex justify-center">
-                <label
-                  htmlFor="thumbnail"
-                  className="bg-indigo-600 text-white px-4 py-2 rounded-md flex items-center hover:bg-indigo-700 transition-colors cursor-pointer"
+                <button
+                  type="button"
+                  onClick={() => {
+                    setThumbnailPreview('');
+                    setCourseData({...courseData, thumbnail: ''});
+                  }}
+                  className="absolute top-2 right-2 bg-white rounded-full p-1 shadow-md text-red-500 hover:bg-red-50"
+                  title="Remove thumbnail"
                 >
-                  <Upload className="w-4 h-4 mr-2" />
-                  {thumbnailPreview ? 'Thay đổi ảnh' : 'Tải ảnh lên'}
-                </label>
+                  <X className="w-5 h-5" />
+                </button>
               </div>
-            </div>
+            ) : (
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
+                <div className="text-center">
+                  <Upload className="mx-auto h-12 w-12 text-gray-400" />
+                  <div className="mt-2">
+                    <label htmlFor="thumbnail-upload" className="cursor-pointer rounded-md font-medium text-indigo-600 hover:text-indigo-700">
+                      <span>Tải lên ảnh thu nhỏ</span>
+                      <input
+                        id="thumbnail-upload"
+                        name="thumbnail"
+                        type="file"
+                        accept="image/*"
+                        className="sr-only"
+                        onChange={handleThumbnailChange}
+                      />
+                    </label>
+                  </div>
+                  <p className="text-xs text-gray-500">PNG, JPG, GIF tối đa 10MB</p>
+                </div>
+              </div>
+            )}
           </div>
           
-          <div className="flex justify-end space-x-3">
+          <div className="flex justify-between pt-6 border-t">
             <Link
-              href={`/admin/couserscontrol/${courseId}`}
-              className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50"
+              href={`/teacher/courses/${courseId}`}
+              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
             >
               Hủy
             </Link>
             <button
               type="submit"
               disabled={saving}
-              className="bg-indigo-600 text-white px-6 py-2 rounded-md flex items-center hover:bg-indigo-700 transition-colors disabled:opacity-50"
+              className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 flex items-center"
             >
               {saving ? (
                 <>
-                  <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2"></div>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   Đang lưu...
                 </>
               ) : (

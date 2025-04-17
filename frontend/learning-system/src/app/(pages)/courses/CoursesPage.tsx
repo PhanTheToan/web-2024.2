@@ -15,10 +15,39 @@ import {
   ReviewItem,
   FilterState,
 } from "@/app/types";
-import { courseService } from "@/services/courseService";
 import { toast } from "react-hot-toast";
 
-const ITEMS_PER_PAGE = 9;
+// API Base URL
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8082/api';
+
+// const ITEMS_PER_PAGE = 9;
+
+// Add interfaces for API types
+interface Category {
+  categoryId: string;
+  categoryName: string;
+}
+
+// Replace any usage with proper types
+interface Course {
+  _id: string;
+  id?: string;
+  title: string;
+  description: string;
+  imageUrl?: string;
+  categories?: Category[];
+  teacher?: {
+    _id: string;
+    firstName: string;
+    lastName: string;
+  };
+  students?: number;
+  lessons?: number;
+  rating?: number;
+  totalDuration?: number;
+  price?: number;
+  totalTimeLimit?: number;
+}
 
 const CoursesPage: React.FC = () => {
   const [isMobile, setIsMobile] = useState<boolean>(false);
@@ -40,43 +69,91 @@ const CoursesPage: React.FC = () => {
   });
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
-  // Fetch categories and instructors
+  // Fetch categories
   useEffect(() => {
-    const fetchInitialData = async () => {
+    const fetchCategories = async () => {
       try {
-        const [categoriesData, instructorsData] = await Promise.all([
-          courseService.getCategories(),
-          courseService.getInstructors(),
-        ]);
-        setCategories(categoriesData);
-        setInstructors(instructorsData);
-      } catch (err) {
-        console.error('Failed to fetch initial data:', err);
-        toast.error('Không thể tải dữ liệu ban đầu');
+        // Use the categories/popular API endpoint from screenshot
+        const response = await fetch(`${API_BASE_URL}/categories/popular`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch categories');
+        }
+        
+        const data = await response.json();
+        console.log('Categories data:', data);
+        // Process categories data based on the API response format
+        const formattedCategories = data.body ? data.body.map((cat: any) => ({
+          id: cat.categoryId || '',
+          name: cat.categoryName || '',
+          displayName: cat.categoryDisplayName || cat.categoryName || '', 
+          count: cat.categoryCount || 0,
+          url: cat.categoryUrl || '',
+          isActive: false
+        })) : [];
+        
+        setCategories(formattedCategories);
+      } catch (error) {
+        console.error('Failed to fetch categories:', error);
+        toast.error('Không thể tải danh mục khóa học');
       }
     };
-
-    fetchInitialData();
+    
+    const fetchInstructors = async () => {
+      try {
+        // This would be replaced with a real API endpoint for instructors
+        // Using mock data for now until we have the real endpoint
+        // const mockInstructors: InstructorItem[] = [
+        //   { id: '1', name: 'Teacher 1', count: 5, isActive: false },
+        //   { id: '2', name: 'Teacher 2', count: 3, isActive: false },
+        //   { id: '3', name: 'Teacher 3', count: 2, isActive: false },
+        // ];
+        // setInstructors(mockInstructors);
+      } catch (error) {
+        console.error('Failed to fetch instructors:', error);
+      }
+    };
+    
+    fetchCategories();
+    fetchInstructors();
   }, []);
 
   // Fetch courses with filters, sorting, and search
   useEffect(() => {
-    const fetchCourses = async () => {
+    const fetchCourses = async (category?: string) => {
       setIsLoading(true);
       setError(null);
       try {
-        const response = await courseService.getCourses(
-          currentPage,
-          ITEMS_PER_PAGE,
-          filters,
-          sortBy,
-          searchQuery
-        );
-        setCourses(response.courses);
-        setTotalPages(response.totalPages);
-      } catch (err) {
-        setError('Không thể tải danh sách khóa học');
-        toast.error('Không thể tải danh sách khóa học');
+        // Define the API endpoint as a constant
+        const apiUrl = category 
+          ? `${API_BASE_URL}/course/by-category/${category}`
+          : `${API_BASE_URL}/course`;
+          
+        const response = await fetch(apiUrl, {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch courses');
+        }
+
+        const data = await response.json();
+        
+        // Fix any usage in handling the API response
+        setCourses(data.body || []);
+      } catch (error) {
+        console.error('Error fetching courses:', error);
+        setError('Failed to load courses. Please try again later.');
       } finally {
         setIsLoading(false);
       }
@@ -188,7 +265,7 @@ const CoursesPage: React.FC = () => {
                 >
                   {courses.map((course) => (
                     <CourseCard
-                      key={course._id}
+                      key={course._id || course.id}
                       course={course}
                       variant={viewMode}
                     />
@@ -201,7 +278,7 @@ const CoursesPage: React.FC = () => {
                     totalPages={totalPages}
                     onPageChange={handlePageChange}
                   />
-            </div>
+                </div>
               </>
             )}
           </div>

@@ -12,7 +12,7 @@ import { Check } from "lucide-react";
 // import * as dotenv from "dotenv";
 
 // dotenv.config();
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+const API_BASE_URL = "http://localhost:8082/api";
 console.log("API_BASE_URL:", API_BASE_URL);
 
 const defaultCourses: Course[] = [
@@ -132,7 +132,7 @@ export default function Home() {
 
   // Fetch categories
   useEffect(() => {
-    console.log("API_BASE_URL:", API_BASE_URL);  
+    console.log("API_BASE_URL:", API_BASE_URL);
     setTimeout(() => {
       console.log("Fetching categories...");
       fetch(`${API_BASE_URL}/categories/popular`)

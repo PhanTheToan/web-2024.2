@@ -2,11 +2,13 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { courseService } from "@/services/courseService";
-import { quizService } from "@/services/quizService";
 import Link from "next/link";
 import { ArrowLeft, PlusCircle, MinusCircle, Save, HelpCircle } from "lucide-react";
 import { Course, QuizQuestion } from "@/app/types";
+import { toast } from "react-hot-toast";
+
+// API Base URL
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8082/api';
 
 export default function CreateQuizPage() {
   const params = useParams();
@@ -18,21 +20,54 @@ export default function CreateQuizPage() {
   const [description, setDescription] = useState("");
   const [timeLimit, setTimeLimit] = useState<number>(30);
   const [passingScore, setPassingScore] = useState<number>(70);
+  const [order, setOrder] = useState<number>(1);
+  const [orderInfo, setOrderInfo] = useState<{
+    maxOrder: number;
+    maxLessonOrder: number;
+    maxQuizOrder: number;
+    nextOrder: number;
+  }>({ maxOrder: 0, maxLessonOrder: 0, maxQuizOrder: 0, nextOrder: 1 });
   const [questions, setQuestions] = useState<QuizQuestion[]>([
-    { question: "", options: ["", "", "", ""], correctAnswer: "0" }
+    { question: "", options: ["", "", "", ""], correctAnswer: "0", material: null } as QuizQuestion
   ]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [questionErrors, setQuestionErrors] = useState<Record<number, string>>({});
+  const [uploadingImage, setUploadingImage] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
     const fetchCourse = async () => {
       try {
         setLoading(true);
-        const fetchedCourse = await courseService.getCourseById(courseId);
-        setCourse(fetchedCourse);
+        console.log("Fetching course:", courseId);
+        const response = await fetch(`${API_BASE_URL}/course/info/${courseId}`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch course");
+        }
+
+        const courseData = await response.json();
+        let parsedCourse;
+        
+        if (courseData.body) {
+          parsedCourse = courseData.body;
+        } else {
+          parsedCourse = courseData;
+        }
+        
+        console.log("Course data:", parsedCourse);
+        setCourse(parsedCourse);
+        
+        // Sau khi lấy thông tin khóa học, lấy danh sách bài học và quiz
+        fetchLessonsAndQuizzes(courseId);
       } catch (err) {
         console.error("Error fetching course:", err);
         setError("Không thể tải thông tin khóa học. Vui lòng thử lại sau.");
@@ -45,6 +80,71 @@ export default function CreateQuizPage() {
       fetchCourse();
     }
   }, [courseId]);
+  
+  // Hàm để lấy danh sách bài học và quiz để xác định thứ tự mới
+  const fetchLessonsAndQuizzes = async (courseId: string) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/course/lesson_quiz/${courseId}`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch lessons and quizzes");
+      }
+
+      const data = await response.json();
+      console.log("Lessons and quizzes data:", data);
+      
+      // Theo hình ảnh API, dữ liệu trả về có cấu trúc:
+      // { body: { lessons: [...], quizzes: [...] } }
+      
+      let maxOrder = 0;
+      let maxLessonOrder = 0;
+      let maxQuizOrder = 0;
+      
+      // Xử lý mảng lessons từ API
+      const lessons = data.body?.lessons || [];
+      if (Array.isArray(lessons)) {
+        lessons.forEach(lesson => {
+          if (lesson.orderLesson && lesson.orderLesson > maxLessonOrder) {
+            maxLessonOrder = lesson.orderLesson;
+            maxOrder = Math.max(maxOrder, lesson.orderLesson);
+          }
+        });
+      }
+      
+      // Xử lý mảng quizzes từ API
+      const quizzes = data.body?.quizzes || [];
+      if (Array.isArray(quizzes)) {
+        quizzes.forEach(quiz => {
+          if (quiz.orderQuiz && quiz.orderQuiz > maxQuizOrder) {
+            maxQuizOrder = quiz.orderQuiz;
+            maxOrder = Math.max(maxOrder, quiz.orderQuiz);
+          }
+        });
+      }
+      
+      // Đặt order quiz mới là maxOrder + 1
+      const nextOrder = maxOrder + 1;
+      setOrder(nextOrder);
+      console.log("Max order values:", { maxOrder, maxLessonOrder, maxQuizOrder, nextOrder });
+      
+      // Lưu thông tin để hiển thị UI
+      setOrderInfo({
+        maxOrder,
+        maxLessonOrder,
+        maxQuizOrder,
+        nextOrder
+      });
+    } catch (err) {
+      console.error("Error fetching lessons and quizzes:", err);
+      // Không cần thiết lập lỗi, giữ giá trị mặc định là 1
+    }
+  };
 
   const handleQuestionChange = (index: number, field: string, value: string) => {
     const newQuestions = [...questions];
@@ -52,10 +152,12 @@ export default function CreateQuizPage() {
     if (field === 'question') {
       newQuestions[index].question = value;
     } else if (field.startsWith('option')) {
-      const optionIndex = parseInt(field.split('-')[1]);
-      newQuestions[index].options[optionIndex] = value;
+      const optionIdx = parseInt(field.split('-')[1]);
+      newQuestions[index].options[optionIdx] = value;
     } else if (field === 'correctAnswer') {
       newQuestions[index].correctAnswer = value;
+    } else if (field === 'material') {
+      newQuestions[index].material = value || null;
     }
     
     setQuestions(newQuestions);
@@ -69,7 +171,12 @@ export default function CreateQuizPage() {
   };
 
   const addQuestion = () => {
-    setQuestions([...questions, { question: "", options: ["", "", "", ""], correctAnswer: "0" }]);
+    setQuestions([...questions, { 
+      question: "", 
+      options: ["", "", "", ""], 
+      correctAnswer: "0",
+      material: null 
+    }]);
   };
 
   const removeQuestion = (index: number) => {
@@ -104,7 +211,7 @@ export default function CreateQuizPage() {
       }
 
       let hasEmptyOption = false;
-      question.options.forEach((option, optionIndex) => {
+      question.options.forEach(option => {
         if (!option.trim()) {
           hasEmptyOption = true;
         }
@@ -137,17 +244,45 @@ export default function CreateQuizPage() {
       setError(null);
       setSubmitting(true);
 
-      // Create the quiz
-      await quizService.createQuiz({
-        courseId,
-        title,
-        description,
-        timeLimit,
-        passingScore,
-        questions
+      // Chuẩn bị dữ liệu gửi đi theo cấu trúc trong hình
+      const requestData = {
+        title: title,
+        description: description,
+        order: order,
+        passingScore: passingScore,
+        timeLimit: timeLimit,
+        questions: questions.map(q => ({
+          question: q.question,
+          material: q.material || null,
+          options: q.options,
+          correctAnswer: q.correctAnswer
+        }))
+      };
+      
+      console.log("Sending quiz data:", requestData);
+
+      // Gửi yêu cầu tạo bài kiểm tra trực tiếp qua API
+      const response = await fetch(`${API_BASE_URL}/course/create-quiz?courseId=${courseId}`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestData)
       });
 
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Server error:", errorText);
+        throw new Error("Không thể tạo bài kiểm tra");
+      }
+
+      const data = await response.json();
+      console.log("Quiz created successfully:", data);
+
       setSuccess(true);
+      toast.success("Bài kiểm tra đã được tạo thành công!");
+      
       // Redirect after successful submission
       setTimeout(() => {
         router.push(`/teacher/courses/${courseId}`);
@@ -158,6 +293,99 @@ export default function CreateQuizPage() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  // Hàm upload hình ảnh cho câu hỏi
+  const handleImageUpload = async (questionIndex: number, file: File) => {
+    if (!file) return;
+    
+    // Kiểm tra kích thước file (<= 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setQuestionErrors({
+        ...questionErrors,
+        [questionIndex]: "Kích thước file quá lớn, vui lòng chọn file nhỏ hơn 5MB"
+      });
+      return;
+    }
+    
+    // Kiểm tra loại file (chỉ chấp nhận ảnh)
+    const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      setQuestionErrors({
+        ...questionErrors,
+        [questionIndex]: "Chỉ chấp nhận file hình ảnh (JPEG, PNG, GIF, WEBP)"
+      });
+      return;
+    }
+    
+    try {
+      // Đánh dấu đang upload cho câu hỏi này
+      setUploadingImage(prev => ({ ...prev, [questionIndex]: true }));
+      
+      // Tạo form-data theo đúng cấu trúc API yêu cầu
+      const formData = new FormData();
+      formData.append('image', file); // Sử dụng key 'image' theo như hình ảnh API
+      
+      console.log('Uploading image with formData key "image"');
+      
+      // Sử dụng API upload ảnh đúng endpoint
+      const response = await fetch(`${API_BASE_URL}/upload/image/r2`, {
+        method: 'POST',
+        credentials: 'include',
+        body: formData
+      });
+      
+      if (!response.ok) {
+        throw new Error('Không thể tải lên hình ảnh');
+      }
+      
+      // Đọc response dạng text thay vì JSON vì API trả về URL trực tiếp
+      const imageUrl = await response.text();
+      console.log('Image URL received:', imageUrl);
+      
+      // Kiểm tra URL hợp lệ
+      if (!imageUrl || !imageUrl.trim() || !isValidUrl(imageUrl)) {
+        console.error('Invalid image URL:', imageUrl);
+        throw new Error('Không nhận được URL hình ảnh hợp lệ từ API');
+      }
+      
+      // Cập nhật material cho câu hỏi với URL
+      handleQuestionChange(questionIndex, 'material', imageUrl);
+      
+      // Xóa lỗi nếu có
+      if (questionErrors[questionIndex]) {
+        const newErrors = {...questionErrors};
+        delete newErrors[questionIndex];
+        setQuestionErrors(newErrors);
+      }
+      
+      toast.success('Tải lên hình ảnh thành công');
+    } catch (err) {
+      console.error('Error uploading image:', err);
+      setQuestionErrors({
+        ...questionErrors,
+        [questionIndex]: "Không thể tải lên hình ảnh. Vui lòng thử lại sau."
+      });
+    } finally {
+      // Kết thúc trạng thái đang upload
+      setUploadingImage(prev => ({ ...prev, [questionIndex]: false }));
+    }
+  };
+  
+  // Hàm kiểm tra URL hợp lệ
+  const isValidUrl = (url: string) => {
+    try {
+      new URL(url);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  };
+
+  // Hàm xóa hình ảnh
+  const removeImage = (questionIndex: number) => {
+    handleQuestionChange(questionIndex, 'material', '');
+    toast.success('Đã xóa hình ảnh');
   };
 
   if (loading) {
@@ -285,6 +513,33 @@ export default function CreateQuizPage() {
             ></textarea>
           </div>
 
+          <div className="mb-4">
+            <label htmlFor="order" className="block text-sm font-medium text-gray-700 mb-1">
+              Thứ tự bài kiểm tra <span className="text-red-500">*</span>
+            </label>
+            <div className="flex items-center">
+              <input
+                type="number"
+                id="order"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-teal-500 focus:border-teal-500"
+                value={order}
+                onChange={(e) => setOrder(Math.max(1, parseInt(e.target.value) || 1))}
+                min="1"
+                required
+              />
+              <div className="ml-3 text-sm text-gray-500">
+                (Tự động đặt là phần cuối khóa học)
+              </div>
+            </div>
+            <div className="mt-2 text-xs text-gray-500 space-y-1">
+              <div>Thông tin hiện tại của khóa học:</div>
+              <div>- Thứ tự cao nhất của bài học: {orderInfo.maxLessonOrder || 'Chưa có'}</div>
+              <div>- Thứ tự cao nhất của bài kiểm tra: {orderInfo.maxQuizOrder || 'Chưa có'}</div>
+              <div>- Thứ tự cao nhất trong khóa học: {orderInfo.maxOrder || 'Chưa có'}</div>
+              <div className="text-indigo-600 font-medium">→ Thứ tự tiếp theo: {orderInfo.nextOrder}</div>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
             <div>
               <label htmlFor="timeLimit" className="block text-sm font-medium text-gray-700 mb-1">
@@ -372,6 +627,61 @@ export default function CreateQuizPage() {
                       onChange={(e) => handleQuestionChange(questionIndex, 'question', e.target.value)}
                       required
                     />
+                  </div>
+
+                  <div className="mb-4">
+                    <label
+                      htmlFor={`material-${questionIndex}`}
+                      className="block text-sm font-medium text-gray-700 mb-1"
+                    >
+                      Hình ảnh cho câu hỏi (tùy chọn)
+                    </label>
+                    
+                    {question.material ? (
+                      <div className="mt-2 relative">
+                        <img 
+                          src={question.material} 
+                          alt={`Hình ảnh câu hỏi ${questionIndex + 1}`} 
+                          className="max-h-48 max-w-full rounded border border-gray-300"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeImage(questionIndex)}
+                          className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full hover:bg-red-600 transition"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="mt-1 flex items-center">
+                        <input
+                          type="file"
+                          id={`material-${questionIndex}`}
+                          accept="image/*"
+                          className="sr-only"
+                          onChange={(e) => e.target.files && e.target.files[0] && handleImageUpload(questionIndex, e.target.files[0])}
+                        />
+                        <label
+                          htmlFor={`material-${questionIndex}`}
+                          className="cursor-pointer bg-white py-2 px-3 border border-gray-300 rounded-md shadow-sm text-sm leading-4 font-medium text-gray-700 hover:bg-gray-50 focus:outline-none"
+                        >
+                          {uploadingImage[questionIndex] ? (
+                            <span className="flex items-center">
+                              <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                              Đang tải lên...
+                            </span>
+                          ) : (
+                            <span>Tải lên hình ảnh</span>
+                          )}
+                        </label>
+                        <p className="ml-2 text-xs text-gray-500">PNG, JPG, GIF, WEBP lên đến 5MB</p>
+                      </div>
+                    )}
                   </div>
 
                   <div className="mb-3">

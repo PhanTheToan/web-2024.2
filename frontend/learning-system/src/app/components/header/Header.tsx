@@ -7,6 +7,7 @@ import { FaBars, FaSearch } from "react-icons/fa"
 import { FaRegCircleUser } from "react-icons/fa6"
 import { IoIosLogIn } from "react-icons/io"
 import { IoMdClose } from "react-icons/io"
+import Image from 'next/image'
 
 export const Header = () => {
   const pathname = usePathname() // Lấy đường dẫn hiện tại
@@ -86,7 +87,13 @@ export const Header = () => {
           </button>
 
           <Link href="/" className="font-[700] sm:text-[32px] text-[25px] text-primary md:flex-none flex-1">
-            <img src="https://edupress.thimpress.com/wp-content/uploads/2024/01/logo-png.png" alt="Logo" />
+            <Image
+              src="/images/x5.png"
+              alt="Logo"
+              width={100}
+              height={100}
+              style={{ width: 'auto', height: 'auto' }}
+            />
           </Link>
 
           {/* Hiển thị menu trên desktop */}
@@ -198,15 +205,13 @@ export const Header = () => {
 
       {/* Sidebar menu cho mobile */}
       <div
-        className={`fixed inset-0 bg-black bg-opacity-50 z-50 transition-opacity ${
-          isOpen ? "opacity-100 visible" : "opacity-0 invisible"
-        }`}
+        className={`fixed inset-0 bg-black bg-opacity-50 z-50 transition-opacity ${isOpen ? "opacity-100 visible" : "opacity-0 invisible"
+          }`}
         onClick={toggleMenu}
       ></div>
       <div
-        className={`fixed top-0 left-0 h-full w-[250px] bg-white shadow-lg z-50 transform transition-transform ${
-          isOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
+        className={`fixed top-0 left-0 h-full w-[250px] bg-white shadow-lg z-50 transform transition-transform ${isOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
       >
         {/* Close button */}
         <button onClick={toggleMenu} className="absolute top-4 right-4 text-[22px] text-gray-700">
@@ -232,15 +237,13 @@ export const Header = () => {
 
       {/* Modal tìm kiếm cho mobile */}
       <div
-        className={`fixed inset-0 bg-black bg-opacity-50 z-50 transition-opacity ${
-          searchModalOpen ? "opacity-100 visible" : "opacity-0 invisible"
-        }`}
+        className={`fixed inset-0 bg-black bg-opacity-50 z-50 transition-opacity ${searchModalOpen ? "opacity-100 visible" : "opacity-0 invisible"
+          }`}
         onClick={toggleSearchModal}
       ></div>
       <div
-        className={`fixed top-0 left-0 right-0 bg-white shadow-lg z-50 transform transition-transform p-4 ${
-          searchModalOpen ? "translate-y-0" : "-translate-y-full"
-        }`}
+        className={`fixed top-0 left-0 right-0 bg-white shadow-lg z-50 transform transition-transform p-4 ${searchModalOpen ? "translate-y-0" : "-translate-y-full"
+          }`}
       >
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-lg font-semibold">Tìm kiếm</h3>
@@ -278,7 +281,7 @@ export const Header = () => {
                 className="bg-gray-100 rounded-full px-3 py-1 text-sm"
                 onClick={() => {
                   setSearchTerm(term)
-                  handleSearchSubmit({ preventDefault: () => {} } as FormEvent)
+                  handleSearchSubmit({ preventDefault: () => { } } as FormEvent)
                 }}
               >
                 {term}

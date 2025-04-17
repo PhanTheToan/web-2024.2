@@ -30,12 +30,49 @@ const CourseCard: React.FC<CourseCardProps> = ({
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Get first category instead of random
-  const firstCategory = course.categories[0];
+  // Get first category if available
+  const firstCategory = course.categories && course.categories.length > 0 
+    ? course.categories[0] 
+    : "Uncategorized";
+
+  // Safely get teacher name
+  const getTeacherName = () => {
+    if (typeof course.teacherId === 'object' && course.teacherId !== null) {
+      return `${course.teacherId.firstName || ''} ${course.teacherId.lastName || ''}`;
+    } else if (course.teacherFullName) {
+      return course.teacherFullName;
+    } else if (course.teacherName) {
+      return course.teacherName;
+    }
+    return 'Unknown Instructor';
+  };
+
+  // Safely get lessons count
+  const getLessonsCount = () => {
+    if (Array.isArray(course.lessons)) {
+      return course.lessons.length;
+    } else if (typeof course.contentCount === 'number') {
+      return course.contentCount;
+    }
+    return 0;
+  };
+
+  // Safely get students count
+  const getStudentsCount = () => {
+    if (Array.isArray(course.studentsEnrolled)) {
+      return course.studentsEnrolled.length;
+    } else if (typeof course.studentsCount === 'number') {
+      return course.studentsCount;
+    }
+    return 0;
+  };
+
+  // Course ID for link
+  const courseId = course._id || course.id;
 
   if (variant === "list" && !isMobile) {
     return (
-      <Link href={`/courses/${course._id}`} className="block">
+      <Link href={`/courses/${courseId}`} className="block">
         <article className="flex overflow-hidden bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
           <div className="relative w-[300px]">
             <img
@@ -46,9 +83,7 @@ const CourseCard: React.FC<CourseCardProps> = ({
           </div>
           <div className="flex flex-col flex-1 p-6">
             <div className="flex items-center gap-2 text-sm text-gray-600 mb-2 flex-wrap">
-              <span className="font-semibold">
-                {course.teacherId.firstName} {course.teacherId.lastName}
-              </span>
+              <span className="font-semibold">{getTeacherName()}</span>
               <span>in</span>
               <span className="font-semibold">{firstCategory}</span>
             </div>
@@ -59,15 +94,15 @@ const CourseCard: React.FC<CourseCardProps> = ({
             <div className="flex gap-6 text-sm text-gray-600 mb-4 flex-wrap">
               <div className="flex items-center gap-1">
                 <Icon svg={timeIcon} width={16} height={16} />
-                <span>{course.duration}</span>
+                <span>{course.totalDuration || course.totalTimeLimit || 0} mins</span>
               </div>
               <div className="flex items-center gap-1">
                 <Icon svg={lessonsIcon} width={16} height={16} />
-                <span>{course.lessons.length} Lessons</span>
+                <span>{getLessonsCount()} Lessons</span>
               </div>
               <div className="flex items-center gap-1">
                 <Icon svg={studentsIcon} width={16} height={16} />
-                <span>{course.studentsEnrolled.length} Students</span>
+                <span>{getStudentsCount()} Students</span>
               </div>
             </div>
             <div className="mt-auto pt-4 border-t border-gray-200 flex items-center justify-between">
@@ -91,7 +126,7 @@ const CourseCard: React.FC<CourseCardProps> = ({
   }
 
   return (
-    <Link href={`/courses/${course._id}`} className="block">
+    <Link href={`/courses/${courseId}`} className="block">
       <article className="flex flex-col overflow-hidden bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
         <div className="w-full aspect-[16/9] bg-gray-100 border-b border-gray-200 overflow-hidden">
           <img
@@ -102,9 +137,7 @@ const CourseCard: React.FC<CourseCardProps> = ({
         </div>
         <div className="flex flex-col flex-1 p-4">
           <div className="flex items-top gap-2 text-sm text-gray-600 mb-2 flex-wrap min-h-12 ">
-            <span className="font-semibold">
-              {course.teacherId.firstName} {course.teacherId.lastName}
-            </span>
+            <span className="font-semibold">{getTeacherName()}</span>
             <span>in</span>
             <span className="font-semibold">{firstCategory}</span>
           </div>
@@ -114,11 +147,11 @@ const CourseCard: React.FC<CourseCardProps> = ({
           <div className="flex gap-4 text-sm text-gray-600 mb-3 flex-wrap justify-evenly">
             <div className="flex items-center gap-1">
               <Icon svg={lessonsIcon} width={16} height={16} />
-              <span>{course.lessons.length} Lessons</span>
+              <span>{getLessonsCount()} Lessons</span>
             </div>
             <div className="flex items-center gap-1">
               <Icon svg={studentsIcon} width={16} height={16} />
-              <span>{course.studentsEnrolled.length} Students</span>
+              <span>{getStudentsCount()} Students</span>
             </div>
           </div>
           <div className="mt-auto pt-3 border-t border-gray-200 flex items-center justify-between">

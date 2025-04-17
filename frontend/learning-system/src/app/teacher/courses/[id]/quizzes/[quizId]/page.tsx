@@ -1,22 +1,24 @@
 "use client";
 import React, { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { courseService } from '@/services/courseService';
-import { quizService } from '@/services/quizService';
 import { 
   ArrowLeft, Edit, Clock, Calendar, 
-  AlertCircle, Loader2, CheckCircle, X, 
+  AlertCircle, Loader2, CheckCircle, 
   List, Award, HelpCircle
 } from 'lucide-react';
 import { Course } from '@/app/types';
 import { formatDate } from '@/lib/utils';
 
-// Define Quiz-related types based on quizService.ts
+// API Base URL
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8082/api';
+
+// Define Quiz-related types based on API response
 interface QuizQuestion {
   question: string;
   options: string[];
   correctAnswer: string;
+  material?: string | null;
 }
 
 interface Quiz {
@@ -27,12 +29,13 @@ interface Quiz {
   questions: QuizQuestion[];
   passingScore: number;
   timeLimit?: number;
-  createdAt: Date;
+  order?: number;
+  createdAt: string | Date;
+  updatedAt?: string | Date;
 }
 
 export default function QuizDetailPage() {
   const params = useParams();
-  const router = useRouter();
   const courseId = params.id as string;
   const quizId = params.quizId as string;
   
@@ -46,12 +49,49 @@ export default function QuizDetailPage() {
       try {
         setLoading(true);
         
-        // Get course data
-        const courseData = await courseService.getCourseById(courseId);
-        setCourse(courseData);
+        // Fetch course data from API
+        console.log("Fetching course:", courseId);
+        const courseResponse = await fetch(`${API_BASE_URL}/course/info/${courseId}`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!courseResponse.ok) {
+          throw new Error("Failed to fetch course");
+        }
+
+        const courseData = await courseResponse.json();
+        let parsedCourse;
         
-        // Get quiz data
-        const quizData = await quizService.getQuizById(quizId);
+        if (courseData.body) {
+          parsedCourse = courseData.body;
+        } else {
+          parsedCourse = courseData;
+        }
+        
+        console.log("Course data:", parsedCourse);
+        setCourse(parsedCourse);
+        
+        // Fetch quiz data using the API from screenshot
+        console.log("Fetching quiz:", quizId);
+        const quizResponse = await fetch(`${API_BASE_URL}/course/get-quiz/${quizId}`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!quizResponse.ok) {
+          throw new Error("Failed to fetch quiz");
+        }
+
+        const quizData = await quizResponse.json();
+        console.log("Quiz data:", quizData);
+        
         setQuiz(quizData);
         
         setLoading(false);
@@ -208,6 +248,16 @@ export default function QuizDetailPage() {
                       </span>
                       <h4 className="font-medium">{question.question}</h4>
                     </div>
+                    
+                    {question.material && (
+                      <div className="ml-8 mb-3">
+                        <img 
+                          src={question.material} 
+                          alt={`Hình ảnh cho câu hỏi ${index + 1}`} 
+                          className="max-h-36 rounded border mb-2"
+                        />
+                      </div>
+                    )}
                     
                     <div className="ml-8 space-y-2">
                       {question.options.map((option, optionIndex) => {

@@ -55,36 +55,54 @@ export interface CourseData {
     videoUrl: string;
     materials: string[];
     order: number;
+    timeLimit?: number; // in minutes, optional
     createdAt: Date;
     description?: string;
   }
 
   export interface User {
     _id: string;
-    firstName?: string;
-    lastName?: string;
-    name?: string;
+    username: string;
+    password: string;
+    role: 'student' | 'teacher' | 'admin';
+    firstName: string;
+    lastName: string;
     email: string;
-    avatar?: string;
-    role?: 'student' | 'teacher' | 'admin';
-    createdAt?: Date;
-    enrolledCourses?: string[] | Course[];
+    phone: string;
+    dateOfBirth: Date;
+    gender: string;
+    profileImage: string;
+    coursesEnrolled: string[];
+    createdAt: Date;
+    updatedAt: Date;
   }
   
   export interface Course {
     _id: string;
+    id?: string;
     title: string;
     description: string;
-    thumbnail?: string;
-    duration?: string;
+    thumbnail: string;
     price: number;
+    categories: string[];
+    createdAt: string | Date;
+    updatedAt?: string | Date;
+    teacherId: string | User;
     lessons: Lesson[] | string[];
     quizzes: Quiz[] | string[];
     studentsEnrolled: User[] | string[];
-    teacherId: User | string;
-    category?: Category;
-    createdAt: Date;
-    updatedAt?: Date;
+    isPublished?: boolean;
+    isPopular?: boolean;
+    totalDuration?: number;
+    registrations?: number;
+    
+    // Add new properties from API responses
+    teacherFullName?: string;
+    teacherName?: string;
+    courseStatus?: string;
+    totalTimeLimit?: number;
+    studentsCount?: number;
+    contentCount?: number;
   }
 
   export interface LessonMaterial {
@@ -102,6 +120,7 @@ export interface CourseData {
     questions: QuizQuestion[];
     passingScore: number;
     timeLimit?: number;
+    order?: number;
     createdAt: Date;
   }
 
@@ -109,6 +128,7 @@ export interface CourseData {
     question: string;
     options: string[];
     correctAnswer: string;
+    material?: string | null;
   }
 
   export interface Category {
