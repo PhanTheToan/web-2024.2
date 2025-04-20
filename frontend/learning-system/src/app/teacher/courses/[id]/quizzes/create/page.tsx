@@ -377,7 +377,7 @@ export default function CreateQuizPage() {
     try {
       new URL(url);
       return true;
-    } catch (_) {
+    } catch {
       return false;
     }
   };

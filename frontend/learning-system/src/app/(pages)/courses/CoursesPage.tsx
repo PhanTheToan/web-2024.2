@@ -6,6 +6,7 @@ import CourseCard from "@/app/components/coursecard/CourseCard";
 import Pagination from "@/app/components/pagination/Pagination";
 import Sidebar from "@/app/components/sidebar/Sidebar";
 import { toast } from "react-hot-toast";
+import { Course as CourseType } from "@/app/types";
 
 // API Base URL
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8082/api";
@@ -18,7 +19,12 @@ interface Category {
   categoryCount: number;
 }
 
-interface Course {
+interface Instructor {
+  id: string;
+  fullName: string;
+}
+
+interface CourseApiResponse {
   id: string;
   title: string;
   teacherFullName: string;
@@ -66,7 +72,7 @@ const CoursesPage: React.FC = () => {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [courses, setCourses] = useState<Course[]>([]);
+  const [courses, setCourses] = useState<CourseType[]>([]);
   const [totalPages, setTotalPages] = useState(1);
   const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [instructors, setInstructors] = useState<InstructorItem[]>([]);
@@ -135,7 +141,7 @@ const CoursesPage: React.FC = () => {
           throw new Error("Failed to fetch instructors");
         }
         const data = await response.json();
-        const formattedInstructors: InstructorItem[] = data.body.map((ins: any) => ({
+        const formattedInstructors: InstructorItem[] = data.body.map((ins: Instructor) => ({
           id: ins.id || "",
           name: ins.fullName || "",
           isActive: false,
@@ -192,7 +198,8 @@ const CoursesPage: React.FC = () => {
         }
 
         const data = await response.json();
-        const formattedCourses: Course[] = data.content.map((course: any) => ({
+        const formattedCourses: CourseType[] = data.content.map((course: CourseApiResponse) => ({
+          _id: course.id,
           id: course.id,
           title: course.title,
           teacherFullName: course.teacherFullName,
@@ -204,6 +211,11 @@ const CoursesPage: React.FC = () => {
           contentCount: course.contentCount,
           totalTimeLimit: course.totalTimeLimit,
           categories: course.categories,
+          description: "",  // Required by CourseType 
+          createdAt: "",    // Required by CourseType
+          lessons: [],      // Required by CourseType
+          quizzes: [],      // Required by CourseType
+          studentsEnrolled: [] // Required by CourseType
         }));
 
         setCourses(formattedCourses);
@@ -302,7 +314,7 @@ const CoursesPage: React.FC = () => {
                 >
                   {courses.map((course) => (
                     <CourseCard
-                      key={course.id}
+                      key={course.id || course._id}
                       course={{
                         ...course,
                         categories: getCategoryDisplayNames(course.categories),

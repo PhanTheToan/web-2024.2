@@ -16,6 +16,23 @@ interface QuizQuestion {
   correctAnswer?: string;
 }
 
+// Add type definitions for API response items
+interface LessonApiItem {
+  lessonId: string;
+  lessonTitle?: string;
+  lessonShortTitle?: string;
+  orderLesson: number;
+}
+
+interface QuizApiItem {
+  quizId: string;
+  title?: string;
+  questionCount?: number;
+  orderQuiz: number;
+  timeLimit?: number;
+  passingScore?: number;
+}
+
 interface Quiz {
   _id: string;
   id?: string;
@@ -288,7 +305,7 @@ const QuizPage: React.FC = () => {
       
       // Process lessons from the order API
       if (orderData.body && orderData.body.lessons) {
-        orderData.body.lessons.forEach((lesson: any) => {
+        orderData.body.lessons.forEach((lesson: LessonApiItem) => {
           initialItems.push({
             _id: lesson.lessonId,
             title: lesson.lessonTitle || '',
@@ -305,10 +322,10 @@ const QuizPage: React.FC = () => {
       
       // Process quizzes from the order API
       if (orderData.body && orderData.body.quizzes) {
-        orderData.body.quizzes.forEach((quiz: any) => {
+        orderData.body.quizzes.forEach((quiz: QuizApiItem) => {
           initialItems.push({
             _id: quiz.quizId,
-            title: 'Quiz',
+            title: quiz.title || 'Quiz',
             order: quiz.orderQuiz,
             orderQuiz: quiz.orderQuiz,
             type: 'quiz',

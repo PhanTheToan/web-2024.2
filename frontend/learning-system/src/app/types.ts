@@ -51,12 +51,12 @@ export interface CourseData {
     _id: string;
     courseId: string;
     title: string;
-    content: string;
-    videoUrl: string;
-    materials: string[];
-    order: number;
+    content?: string;
+    videoUrl?: string;
+    materials?: string[] | LessonMaterial[];
+    order?: number;
     timeLimit?: number; // in minutes, optional
-    createdAt: Date;
+    createdAt?: Date;
     description?: string;
   }
 

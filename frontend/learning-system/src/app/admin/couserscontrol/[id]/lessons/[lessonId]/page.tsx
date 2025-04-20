@@ -7,7 +7,7 @@ import {
   FileText, AlertCircle, Loader2, Play,
   Eye, Download, ExternalLink, File
 } from 'lucide-react';
-import { Course, Lesson } from '@/app/types';
+import { Course, Lesson, LessonMaterial } from '@/app/types';
 import { formatDate } from '@/lib/utils';
 import { toast } from 'react-hot-toast';
 
@@ -147,14 +147,24 @@ export default function LessonDetailPage() {
     }
   };
   
-  // Function to get file name from path
-  const getFileName = (path: string) => {
-    return path.split('/').pop() || path;
+  // Add helper functions to handle material types
+  const getMaterialPath = (material: string | LessonMaterial): string => {
+    if (typeof material === 'string') {
+      return material;
+    }
+    return material.path;
   };
   
   // Function to check if file is a PDF
-  const isPdf = (path: string) => {
+  const isPdf = (material: string | LessonMaterial): boolean => {
+    const path = typeof material === 'string' ? material : material.path;
     return path.toLowerCase().endsWith('.pdf');
+  };
+  
+  // Function to get file name from path
+  const getFileName = (material: string | LessonMaterial): string => {
+    const path = typeof material === 'string' ? material : material.path;
+    return path.split('/').pop() || path;
   };
   
   if (loading) {
@@ -270,7 +280,7 @@ export default function LessonDetailPage() {
                 <Calendar className="text-gray-400 w-5 h-5 mr-2" />
                 <div>
                   <p className="text-sm text-gray-500">Ngày tạo</p>
-                  <p className="font-medium">{formatDate(lesson.createdAt.toString())}</p>
+                  <p className="font-medium">{lesson.createdAt ? formatDate(lesson.createdAt.toString()) : 'N/A'}</p>
                 </div>
               </div>
               
@@ -300,7 +310,7 @@ export default function LessonDetailPage() {
             <div className="p-4">
               <div 
                 className="prose max-w-none"
-                dangerouslySetInnerHTML={{ __html: lesson.content }}
+                dangerouslySetInnerHTML={{ __html: lesson.content || '' }}
               />
             </div>
           </div>
@@ -391,13 +401,15 @@ export default function LessonDetailPage() {
             <div className="p-4">
               {lesson.materials && lesson.materials.length > 0 ? (
                 <ul className="space-y-3">
-                  {lesson.materials.map((material, idx) => (
+                  {lesson.materials.map((material, idx) => {
+                    const materialPath = getMaterialPath(material);
+                    return (
                     <li 
                       key={idx} 
                       className={`flex items-start p-3 rounded-md ${
                         isPdf(material) ? 'cursor-pointer hover:bg-gray-50' : ''
-                      } ${selectedPdf === material ? 'bg-gray-100' : ''}`}
-                      onClick={() => isPdf(material) && setSelectedPdf(material)}
+                      } ${selectedPdf === materialPath ? 'bg-gray-100' : ''}`}
+                      onClick={() => isPdf(material) && setSelectedPdf(materialPath)}
                     >
                       {isPdf(material) ? (
                         <FileText className="w-5 h-5 text-red-500 mr-3 flex-shrink-0 mt-0.5" />
@@ -415,7 +427,7 @@ export default function LessonDetailPage() {
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setSelectedPdf(material);
+                                setSelectedPdf(materialPath);
                               }}
                               className="text-xs px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded flex items-center"
                             >
@@ -425,7 +437,7 @@ export default function LessonDetailPage() {
                           )}
                           
                           <a
-                            href={material}
+                            href={materialPath}
                             download
                             onClick={(e) => e.stopPropagation()}
                             className="text-xs px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded flex items-center"
@@ -435,7 +447,7 @@ export default function LessonDetailPage() {
                           </a>
                           
                           <a
-                            href={material}
+                            href={materialPath}
                             target="_blank"
                             rel="noopener noreferrer"
                             onClick={(e) => e.stopPropagation()}
@@ -447,7 +459,8 @@ export default function LessonDetailPage() {
                         </div>
                       </div>
                     </li>
-                  ))}
+                    );
+                  })}
                 </ul>
               ) : (
                 <p className="text-gray-500">Không có tài liệu bổ sung</p>
