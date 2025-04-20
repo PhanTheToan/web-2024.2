@@ -13,7 +13,7 @@ export const FormLogin = () => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [userData, setUserData] = useState(null)
-  const BASE_URL = process.env.BASE_URL
+  const BASE_URL = process.env.BASE_URL || "http://localhost:8082/api"
 
   const handleLoginSubmit = async (event) => {
     event.preventDefault()

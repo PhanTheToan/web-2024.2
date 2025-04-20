@@ -307,7 +307,7 @@ export default function QuizDetailPage() {
                 <Calendar className="text-gray-400 w-5 h-5 mr-2" />
                 <div>
                   <p className="text-sm text-gray-500">Ngày tạo</p>
-                  <p className="font-medium">{formatDate(quiz.createdAt.toString())}</p>
+                  <p className="font-medium">{formatDate(quiz.createdAt ? quiz.createdAt.toString() : '')}</p>
                 </div>
               </div>
             </div>
