@@ -2,6 +2,9 @@ package web20242.webcourse.controller;
 
 import org.bson.types.ObjectId;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -17,6 +20,8 @@ import web20242.webcourse.service.QuizGenerationService;
 import web20242.webcourse.service.UserService;
 
 import java.security.Principal;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -45,8 +50,53 @@ public class CourseController {
         return ResponseEntity.ok("User removed from course successfully");
     }
     @GetMapping
-    public ResponseEntity<?> getAllCoursesForLandingPages() {
-        return ResponseEntity.ok(courseService.getAllCoursesForLandingPage());
+    public ResponseEntity<Page<Map<String, Object>>> getCoursesByPage(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "9") int size,
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) String teacherIds,
+            @RequestParam(required = false) Double ratingMin,
+            @RequestParam(required = false) Double ratingMax) {
+        Pageable pageable = PageRequest.of(page, size);
+        List<String> categories = category != null ? Arrays.asList(category.split(",")) : null;
+        List<String> teacherIdList = teacherIds != null ? Arrays.asList(teacherIds.split(",")) : null;
+        Page<Map<String, Object>> coursePage = courseService.searchCourses(
+                null, categories, teacherIdList, ratingMin, ratingMax, pageable
+        );
+        return ResponseEntity.ok(coursePage);
+    }
+    @GetMapping("/search-course-admin")
+    public ResponseEntity<Page<Map<String, Object>>> searchCoursesForAdmin(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "9") int size,
+            @RequestParam(required = false) String query,
+            @RequestParam(required = false) String status) {
+        Pageable pageable = PageRequest.of(page, size);
+        Page<Map<String, Object>> coursePage = courseService.searchCoursesForAdmin(
+                query, status, pageable
+        );
+        return ResponseEntity.ok(coursePage);
+    }
+    @GetMapping("/search")
+    public ResponseEntity<Page<Map<String, Object>>> searchCourses(
+            @RequestParam String query,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "9") int size,
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) String teacherIds,
+            @RequestParam(required = false) Double ratingMin,
+            @RequestParam(required = false) Double ratingMax) {
+        Pageable pageable = PageRequest.of(page, size);
+        List<String> categories = category != null ? Arrays.asList(category.split(",")) : null;
+        List<String> teacherIdList = teacherIds != null ? Arrays.asList(teacherIds.split(",")) : null;
+        Page<Map<String, Object>> coursePage = courseService.searchCourses(
+                query, categories, teacherIdList, ratingMin, ratingMax, pageable
+        );
+        return ResponseEntity.ok(coursePage);
+    }
+    @GetMapping("/teacher")
+    public ResponseEntity<?> getTeacherForSlideBar(){
+        return ResponseEntity.ok(courseService.getTeacherForSlideBar());
     }
 
     @PutMapping("/update/timelimit")

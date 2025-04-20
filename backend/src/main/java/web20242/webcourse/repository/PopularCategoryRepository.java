@@ -14,4 +14,5 @@ public interface PopularCategoryRepository extends MongoRepository<Category,Obje
     List<Category> findByStatus(boolean b);
 
     Category findByCategory(String name);
+
 }

@@ -101,6 +101,7 @@ public class CategoryService {
             map.put("categoryId", category.getId().toHexString());
             map.put("categoryName", category.getCategory());
             map.put("categoryDisplayName", category.getDisplayName());
+            map.put("categoryCount",String.valueOf(category.getCount()));
             return map;
         }).collect(Collectors.toList());
         return ResponseEntity.ok(result);
