@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import * as dotenv from "dotenv"
+import { FaTrashAlt, FaEdit, FaUndo } from "react-icons/fa"
 dotenv.config()
 
 interface User {
@@ -46,7 +47,7 @@ export const UserControl = () => {
         setError(data.message || "Không thể lấy thông tin người dùng!")
       }
     } catch (err) {
-      setError("Lỗi kết nối, vui lòng thử lại sau!")
+      setError((err as Error).message || "Lỗi kết nối, vui lòng thử lại sau!");
     }
     setLoading(false)
   }
@@ -87,9 +88,9 @@ export const UserControl = () => {
         console.warn("Phản hồi lỗi từ server:", data)
         alert(data.message || `Không thể ${newStatus === "INACTIVE" ? "xóa" : "khôi phục"} người dùng!`)
       }
-    } catch (err: any) {
-      console.error("Lỗi kết nối:", err)
-      alert(`Lỗi kết nối: ${err.message || err}`)
+    } catch (err) {
+      console.error("Lỗi kết nối:", err);
+      alert(`Lỗi kết nối: ${(err as Error).message || err}`);
     }
   }
 
@@ -183,11 +184,45 @@ export const UserControl = () => {
       } else {
         alert(data.message || "Không thể tạo tài khoản!")
       }
-    } catch (err: any) {
-      console.error("Lỗi trong quá trình gửi:", err)
-      alert(`Lỗi kết nối: ${err.message || err}`)
+    } catch (err) {
+      console.error("Lỗi kết nối:", err);
+      alert(`Lỗi kết nối: ${(err as Error).message || err}`);
     }
   }
+
+  const handlePermanentDelete = async (userId: string) => {
+    const confirmDelete = window.confirm("Bạn có chắc chắn muốn xóa vĩnh viễn người dùng này? Hành động này không thể hoàn tác.");
+    if (!confirmDelete) return;
+
+    try {
+      const url = `${BASE_URL}/admin/delete-forever/${userId}`;
+      const response = await fetch(url, {
+        method: "DELETE",
+        credentials: "include",
+      });
+
+      const text = await response.text();
+
+      if (response.ok) {
+        if (text === "Xóa người dùng thành công") {
+          alert("Xóa người dùng thành công!");
+          await fetchUserData();
+        } else {
+          alert("Phản hồi không mong đợi từ server: " + text);
+        }
+      } else {
+        try {
+          const data = JSON.parse(text);
+          alert(data.message || "Không thể xóa vĩnh viễn người dùng!");
+        } catch {
+          alert("Lỗi không xác định: " + text);
+        }
+      }
+    } catch (err) {
+      console.error("Lỗi kết nối:", err);
+      alert(`Lỗi kết nối: ${(err as Error).message || err}`);
+    }
+  };
 
   if (loading) {
     return (
@@ -261,7 +296,7 @@ export const UserControl = () => {
       <motion.div
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        className="overflow-x-auto bg-white shadow-lg rounded-lg"
+        className="w-full overflow-hidden bg-white shadow-lg rounded-lg"
       >
         <table className="min-w-full text-sm text-left text-gray-500">
           <thead className="bg-gray-100 text-gray-700">
@@ -313,7 +348,7 @@ export const UserControl = () => {
                           onClick={() => handleEdit(user)}
                           className="bg-yellow-500 text-white px-3 py-1.5 rounded hover:bg-yellow-600 transition-colors duration-200 flex items-center text-sm"
                         >
-                          Sửa
+                          <FaEdit className="mr-1" /> Sửa
                         </motion.button>
                       )}
                       <motion.button
@@ -326,8 +361,19 @@ export const UserControl = () => {
                             : "bg-green-500 hover:bg-green-600"
                         }`}
                       >
+                        {user.Status === "ACTIVE" ? <FaTrashAlt className="mr-1" /> : <FaUndo className="mr-1" />}
                         {user.Status === "ACTIVE" ? "Xóa" : "Khôi phục"}
                       </motion.button>
+                      {user.Status === "INACTIVE" && (
+                        <motion.button
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => handlePermanentDelete(user.UserId)}
+                          className="bg-red-700 text-white px-3 py-1.5 rounded hover:bg-red-800 transition-colors duration-200 flex items-center text-sm"
+                        >
+                          <FaTrashAlt className="mr-1" /> Xóa vĩnh viễn
+                        </motion.button>
+                      )}
                     </div>
                   </td>
                 </motion.tr>

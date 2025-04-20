@@ -13,7 +13,9 @@ export const FormLogin = () => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [userData, setUserData] = useState(null)
-  const BASE_URL = process.env.BASE_URL || "http://localhost:8082/api"
+  const [otp, setOtp] = useState("")
+  const [isOtpSent, setIsOtpSent] = useState(false) // Track if OTP is sent
+  const BASE_URL = process.env.BASE_URL
 
   const handleLoginSubmit = async (event) => {
     event.preventDefault()
@@ -59,25 +61,62 @@ export const FormLogin = () => {
 
     try {
       // Gửi yêu cầu đăng ký
-      const response = await fetch(`${BASE_URL}/auth/register`, {
+      const signupResponse = await fetch(`${BASE_URL}/auth/signup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, email, password }),
+        body: JSON.stringify({
+          username,
+          email,
+          password,
+          firstName: "",
+          lastName: "",
+          phone: "",
+          dateOfBirth: "",
+          gender: "",
+          profileImage: null,
+          coursesEnrolled: [],
+        }),
       })
 
-      const data = await response.json()
+      const signupData = await signupResponse.json()
 
-      if (response.ok) {
-        // Chuyển sang form đăng nhập sau khi đăng ký thành công
+      if (signupResponse.ok) {
+        setError("OTP đã được gửi đến email. Vui lòng nhập OTP để xác minh.")
+        setIsOtpSent(true) // Show OTP input field
+      } else {
+        setError(signupData.message || "Đăng ký thất bại!")
+      }
+    } catch (err) {
+      setError("Lỗi kết nối, vui lòng thử lại sau!")
+    }
+
+    setLoading(false)
+  }
+
+  const handleVerifyOtp = async () => {
+    setError("")
+    setLoading(true)
+
+    try {
+      // Gửi yêu cầu xác minh OTP
+      const verifyOtpResponse = await fetch(`${BASE_URL}/auth/verify-otp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, otp }),
+      })
+
+      const verifyOtpData = await verifyOtpResponse.json()
+
+      if (verifyOtpResponse.ok) {
         setIsLogin(true)
         setUsername("")
         setPassword("")
         setEmail("")
         setConfirmPassword("")
-        // Hiển thị thông báo thành công
+        setOtp("")
         setError("Đăng ký thành công! Vui lòng đăng nhập.")
       } else {
-        setError(data.message || "Đăng ký thất bại!")
+        setError(verifyOtpData.message || "Xác minh OTP thất bại!")
       }
     } catch (err) {
       setError("Lỗi kết nối, vui lòng thử lại sau!")
@@ -263,14 +302,32 @@ export const FormLogin = () => {
                 />
               </div>
 
+              {isOtpSent && (
+                <div className="mb-[15px]">
+                  <label className="block mb-[5px] font-[600] text-[14px]" htmlFor="otp">
+                    <span className="text-[#333333]">OTP</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="otp"
+                    id="otp"
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value)}
+                    placeholder="Nhập OTP"
+                    className="h-[50px] w-full bg-white rounded-[6px] px-[16px] font-[600] text-[14px] border border-solid border-gray-400"
+                  />
+                </div>
+              )}
+
               {error && <p className="text-red-500 text-center mb-4">{error}</p>}
 
               <button
-                type="submit"
+                type="button"
+                onClick={isOtpSent ? handleVerifyOtp : handleRegisterSubmit}
                 className="h-[50px] w-full bg-[#FF782D] text-white rounded-[6px] font-[600] text-[16px] disabled:bg-[#FF782D]/70"
-                disabled={loading}
+                disabled={loading || (isOtpSent && !otp)}
               >
-                {loading ? "Đang đăng ký..." : "Đăng Ký"}
+                {loading ? "Đang xử lý..." : isOtpSent ? "Xác minh OTP" : "Đăng Ký"}
               </button>
             </form>
           </motion.div>
@@ -279,4 +336,3 @@ export const FormLogin = () => {
     </div>
   )
 }
-
