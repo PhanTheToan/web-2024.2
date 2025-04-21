@@ -3,9 +3,9 @@ name: Build and Push SpringBoot Docker Image
 on:
   push:
     branches:
-      - be  # Chạy trên branch be
+      - be
     paths:
-      - 'backend/**'  # Chỉ trigger khi có thay đổi trong folder backend
+      - 'backend/**'
 
 jobs:
   build-and-push:
@@ -13,10 +13,29 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: ./backend  # Đặt working directory là folder backend
+        working-directory: ./backend
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Create .env file
+        run: |
+          echo "DATA_BASE_USER=${{ secrets.DATA_BASE_USER }}" >> .env
+          echo "DATA_BASE_PASSWORD=${{ secrets.DATA_BASE_PASSWORD }}" >> .env
+          echo "DATA_BASE_NAME=${{ secrets.DATA_BASE_NAME }}" >> .env
+          echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> .env
+          echo "JWT_EXPIRATION=${{ secrets.JWT_EXPIRATION }}" >> .env
+          echo "MAIL_HOST=${{ secrets.MAIL_HOST }}" >> .env
+          echo "MAIL_PORT=${{ secrets.MAIL_PORT }}" >> .env
+          echo "MAIL_USERNAME=${{ secrets.MAIL_USERNAME }}" >> .env
+          echo "MAIL_PASSWORD=${{ secrets.MAIL_PASSWORD }}" >> .env
+          echo "TOKEN_VALUE=${{ secrets.TOKEN_VALUE }}" >> .env
+          echo "S3_ACCESS_KEY_ID=${{ secrets.S3_ACCESS_KEY_ID }}" >> .env
+          echo "S3_SECRET_ACCESS_KEY=${{ secrets.S3_SECRET_ACCESS_KEY }}" >> .env
+          echo "S3_BUCKET_NAME=${{ secrets.S3_BUCKET_NAME }}" >> .env
+          echo "S3_PUBLIC_URL=${{ secrets.S3_PUBLIC_URL }}" >> .env
+          echo "S3_API_ENDPOINT=${{ secrets.S3_API_ENDPOINT }}" >> .env
+          echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> .env
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
