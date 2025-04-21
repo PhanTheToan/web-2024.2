@@ -49,6 +49,10 @@ public class CourseController {
         userService.deleteUserLeaveCourse(userId, courseId);
         return ResponseEntity.ok("User removed from course successfully");
     }
+
+    public CourseController(CourseService courseService) {
+        this.courseService = courseService;
+    }
     @GetMapping
     public ResponseEntity<Page<Map<String, Object>>> getCoursesByPage(
             @RequestParam(defaultValue = "0") int page,
