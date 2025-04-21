@@ -55,6 +55,6 @@ jobs:
           context: ./backend
           file: ./backend/Dockerfile
           push: true
-          tags:  ${{ secrets.DOCKERHUB_USERNAME }}/alpha-edu-backend:v1
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/alpha-edu-backend:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
