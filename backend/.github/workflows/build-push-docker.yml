@@ -3,10 +3,7 @@ name: Build and Push SpringBoot Docker Image
 on:
   push:
     branches:
-      - main
       - be
-    paths:
-      - 'backend/**'
 
 jobs:
   build-and-push:
