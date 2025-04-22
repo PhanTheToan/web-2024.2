@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import web20242.webcourse.model.*;
+import web20242.webcourse.model.constant.EQuestion;
 import web20242.webcourse.model.constant.ERole;
 import web20242.webcourse.model.constant.EStatus;
 import web20242.webcourse.model.createRequest.*;
@@ -1200,12 +1201,13 @@ public class CourseService {
 
     public ResponseEntity<?> gradeQuiz(String id, QuizSubmissionRequestDto submission, User user) {
         Optional<Quizzes> quizOptional = quizzesRepository.findById(new ObjectId(id));
-        if (!quizOptional.isPresent()) {
+        if (quizOptional.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Quiz not found");
         }
 
         Quizzes quiz = quizOptional.get();
 
+        // Kiểm tra user đã đăng ký khóa học
         if (!user.getCoursesEnrolled().contains(quiz.getCourseId())) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("User not enrolled in this course");
         }
@@ -1213,18 +1215,44 @@ public class CourseService {
         List<Question> quizQuestions = quiz.getQuestions();
         List<QuizSubmissionRequestDto.UserAnswer> userAnswers = submission.getAnswers();
 
-        if (userAnswers.size() != quizQuestions.size()) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Number of answers does not match number of questions");
+        // Kiểm tra số lượng câu trả lời
+        if (userAnswers == null || userAnswers.size() != quizQuestions.size()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body("Number of answers (" + (userAnswers == null ? 0 : userAnswers.size()) +
+                            ") does not match number of questions (" + quizQuestions.size() + ")");
         }
 
         int correctCount = 0;
+        List<String> incorrectQuestions = new ArrayList<>(); // Lưu câu hỏi sai để báo cáo
+
         for (int i = 0; i < quizQuestions.size(); i++) {
             Question question = quizQuestions.get(i);
             QuizSubmissionRequestDto.UserAnswer userAnswer = userAnswers.get(i);
 
-            if (question.getQuestion().equals(userAnswer.getQuestion()) &&
-                    question.getCorrectAnswer().equals(userAnswer.getSelectedAnswer())) {
+            if (!question.getQuestion().equals(userAnswer.getQuestion())) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body("Question at index " + i + " does not match");
+            }
+
+            boolean isCorrect = false;
+            switch (question.getEQuestion()) {
+                case SINGLE_CHOICE:
+                    isCorrect = checkSingleChoiceAnswer(question, userAnswer);
+                    break;
+                case MULTIPLE_CHOICE:
+                    isCorrect = checkMultipleChoiceAnswer(question, userAnswer);
+                    break;
+                case SHORT_ANSWER:
+                    isCorrect = checkShortAnswer(question, userAnswer);
+                    break;
+                default:
+                    break;
+            }
+
+            if (isCorrect) {
                 correctCount++;
+            } else {
+                incorrectQuestions.add(question.getQuestion());
             }
         }
 
@@ -1239,8 +1267,49 @@ public class CourseService {
         response.setPassingScore(passingScore);
         response.setPassed(passed);
         response.setMessage(passed ? "Congratulations, you passed the quiz!" : "Sorry, you did not pass the quiz.");
+        response.setIncorrectQuestions(incorrectQuestions); // Thêm thông tin câu hỏi sai
 
         return ResponseEntity.ok(response);
+    }
+
+    private boolean checkSingleChoiceAnswer(Question question, QuizSubmissionRequestDto.UserAnswer userAnswer) {
+        if (userAnswer.getSelectedAnswer() == null || userAnswer.getSelectedAnswer().isEmpty() ||
+                question.getCorrectAnswer() == null || question.getCorrectAnswer().isEmpty()) {
+            return false;
+        }
+        return question.getCorrectAnswer().get(0).equals(userAnswer.getSelectedAnswer().get(0));
+    }
+
+    private boolean checkMultipleChoiceAnswer(Question question, QuizSubmissionRequestDto.UserAnswer userAnswer) {
+        if (userAnswer.getSelectedAnswer() == null || question.getCorrectAnswer() == null) {
+            return false;
+        }
+        List<String> userAnswers = userAnswer.getSelectedAnswer();
+        List<String> correctAnswers = question.getCorrectAnswer();
+        return userAnswers.size() == correctAnswers.size() && userAnswers.containsAll(correctAnswers);
+    }
+
+    private boolean checkShortAnswer(Question question, QuizSubmissionRequestDto.UserAnswer userAnswer) {
+        // Kiểm tra null
+        if (userAnswer.getSelectedAnswer() == null || userAnswer.getSelectedAnswer().isEmpty() ||
+                question.getCorrectAnswer() == null || question.getCorrectAnswer().isEmpty()) {
+            return false;
+        }
+
+        String userAnswerText = userAnswer.getSelectedAnswer().get(0);
+        String correctAnswerText = question.getCorrectAnswer().get(0);
+
+        String normalizedUserAnswer = normalizeShortAnswer(userAnswerText);
+        String normalizedCorrectAnswer = normalizeShortAnswer(correctAnswerText);
+
+        return normalizedUserAnswer.equals(normalizedCorrectAnswer);
+    }
+
+    private String normalizeShortAnswer(String answer) {
+        if (answer == null) {
+            return "";
+        }
+        return answer.replaceAll("\\s+", "").toUpperCase();
     }
 
     public ResponseEntity<?> getAllUserPerCousrseByAdmin(String id) {

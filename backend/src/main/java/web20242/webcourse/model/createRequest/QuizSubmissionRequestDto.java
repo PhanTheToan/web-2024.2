@@ -2,6 +2,7 @@ package web20242.webcourse.model.createRequest;
 
 import lombok.Data;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Data
@@ -11,6 +12,6 @@ public class QuizSubmissionRequestDto {
     @Data
     public static class UserAnswer {
         private String question;
-        private String selectedAnswer;
+        private ArrayList<String> selectedAnswer;
     }
 }
