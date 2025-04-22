@@ -15,9 +15,9 @@ export const FormLogin = () => {
   const [userData, setUserData] = useState(null)
   const [otp, setOtp] = useState("")
   const [isOtpSent, setIsOtpSent] = useState(false) // Track if OTP is sent
-  const BASE_URL = process.env.BASE_URL
+  const BASE_URL = process.env.BASE_URL || "http://localhost:8082/api"
 
-  const handleLoginSubmit = async (event) => {
+  const handleLoginSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setError("")
     setLoading(true)
@@ -48,7 +48,7 @@ export const FormLogin = () => {
     setLoading(false)
   }
 
-  const handleRegisterSubmit = async (event) => {
+  const handleRegisterSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setError("")
     setLoading(true)
@@ -160,7 +160,7 @@ export const FormLogin = () => {
           </div>
           <div className="h-0.5 bg-gray-200 w-full absolute bottom-0">
             <motion.div
-              className="h-full bg-[#FF782D]"
+              style={{ height: "100%", backgroundColor: "#FF782D" }}
               initial={false}
               animate={{
                 width: "50%",

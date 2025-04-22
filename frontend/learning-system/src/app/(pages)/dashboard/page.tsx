@@ -1,3 +1,4 @@
+"use client";
 import { CompletedCourses } from "./completed-courses";
 import { CoursesInProgress } from "./courses-in-progress";
 import { RecommendedCourses } from "./recommended-courses";

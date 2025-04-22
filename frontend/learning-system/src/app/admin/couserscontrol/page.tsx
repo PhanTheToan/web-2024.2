@@ -106,26 +106,7 @@ export default function AdminCoursesPage() {
       }
 
       const data = await response.json();
-      const formattedCourses: Course[] = data.content.map((course: {
-        id: string;
-        title: string;
-        teacherFullName: string;
-        teacherId: string;
-        thumbnail: string;
-        courseStatus: string;
-        price: number;
-        studentsCount: number;
-        contentCount: number;
-        totalTimeLimit: number;
-        categories: string[];
-        lessons?: Array<{
-          _id?: string;
-          lessonId?: string;
-          title?: string;
-          description?: string;
-          order?: number;
-        }>;
-      }) => ({
+      const formattedCourses: Course[] = data.content.map((course: any) => ({
         _id: course.id,
         id: course.id,
         title: course.title,
@@ -369,7 +350,7 @@ export default function AdminCoursesPage() {
                     </div>
                   </td>
                   <td className="px-4 sm:px-6 py-4 sm:py-5 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{course.price}đ</div>
+                    <div className="text-sm font-medium text-gray-900">${course.price.toFixed(2)}</div>
                     {course.price === 0 && <div className="text-xs text-green-600">Miễn phí</div>}
                   </td>
                   <td className="px-4 sm:px-6 py-4 sm:py-5 whitespace-nowrap">
