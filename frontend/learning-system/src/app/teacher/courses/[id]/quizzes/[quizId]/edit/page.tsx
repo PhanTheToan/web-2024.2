@@ -20,17 +20,17 @@ interface QuizQuestion {
   material?: string | null;
 }
 
-interface Quiz {
-  _id: string;
-  courseId: string;
-  title: string;
-  description?: string;
-  questions: QuizQuestion[];
-  passingScore: number;
-  timeLimit?: number;
-  order?: number;
-  createdAt?: Date;
-}
+// interface Quiz {
+//   _id: string;
+//   courseId: string;
+//   title: string;
+//   description?: string;
+//   questions: QuizQuestion[];
+//   passingScore: number;
+//   timeLimit?: number;
+//   order?: number;
+//   createdAt?: Date;
+// }
 
 export default function EditQuizPage() {
   const params = useParams();

@@ -1,10 +1,13 @@
+"use client"
+
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { BookOpen, Settings, User } from "lucide-react"
+import { BookOpen, KeyRound, Settings, User, Users } from "lucide-react"
 import { ProfileDetails } from "./profile-details"
 import { AccountSettings } from "./account-setting"
+import Link from "next/link"
 
 export default function ProfilePage() {
   return (
@@ -20,10 +23,9 @@ export default function ProfilePage() {
             <p className="text-muted-foreground">nguyenvana@example.com</p>
           </div>
         </div>
-        <Button>Chỉnh sửa hồ sơ</Button>
       </div>
       <Tabs defaultValue="profile" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 md:w-auto">
+        <TabsList className="grid w-full grid-cols-3 md:w-auto">
           <TabsTrigger value="profile" className="flex items-center gap-2">
             <User className="h-4 w-4" />
             <span className="hidden md:inline">Hồ sơ</span>
@@ -31,6 +33,10 @@ export default function ProfilePage() {
           <TabsTrigger value="settings" className="flex items-center gap-2">
             <Settings className="h-4 w-4" />
             <span className="hidden md:inline">Cài đặt</span>
+          </TabsTrigger>
+          <TabsTrigger value="management" className="flex items-center gap-2">
+            <BookOpen className="h-4 w-4" />
+            <span className="hidden md:inline">Quản lý Website</span>
           </TabsTrigger>
         </TabsList>
         <TabsContent value="profile">
@@ -55,8 +61,82 @@ export default function ProfilePage() {
             </CardContent>
           </Card>
         </TabsContent>
+        <TabsContent value="management">
+          <div className="grid gap-6 md:grid-cols-3">
+            <Card className="overflow-hidden">
+              <div className="h-48 bg-gradient-to-br from-orange-100 to-orange-300">
+                <img
+                  src="/placeholder.svg?height=192&width=384"
+                  alt="User Management"
+                  className="h-full w-full object-cover opacity-70"
+                />
+              </div>
+              <CardHeader>
+                <CardTitle>Quản Lý User</CardTitle>
+                <CardDescription>
+                  Chức năng này cho phép bạn quản lý tất cả dữ liệu truy nhập của người dùng.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Link href="/admin/users">
+                  <Button className="w-full bg-red-600 hover:bg-red-700">
+                    <Users className="mr-2 h-4 w-4" />
+                    Truy cập
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
+
+            <Card className="overflow-hidden">
+              <div className="h-48 bg-gradient-to-br from-orange-100 to-orange-300">
+                <img
+                  src="/placeholder.svg?height=192&width=384"
+                  alt="Password Management"
+                  className="h-full w-full object-cover opacity-70"
+                />
+              </div>
+              <CardHeader>
+                <CardTitle>Đổi Mật Khẩu</CardTitle>
+                <CardDescription>
+                  Chức năng này cho phép bạn xem thông tin người dùng và thay đổi mật khẩu khách hàng.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Link href="/admin/passwords">
+                  <Button className="w-full bg-red-600 hover:bg-red-700">
+                    <KeyRound className="mr-2 h-4 w-4" />
+                    Truy cập
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
+
+            <Card className="overflow-hidden">
+              <div className="h-48 bg-gradient-to-br from-orange-100 to-orange-300">
+                <img
+                  src="/placeholder.svg?height=192&width=384"
+                  alt="Course Management"
+                  className="h-full w-full object-cover opacity-70"
+                />
+              </div>
+              <CardHeader>
+                <CardTitle>Quản Lý Khóa Học</CardTitle>
+                <CardDescription>
+                  Chức năng này cho phép bạn cập nhật tỷ giá tiền tệ, đơn giá cân và hình ảnh theo thời gian thực.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Link href="/admin/courses">
+                  <Button className="w-full bg-red-600 hover:bg-red-700">
+                    <BookOpen className="mr-2 h-4 w-4" />
+                    Truy cập
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
       </Tabs>
     </div>
   )
 }
-

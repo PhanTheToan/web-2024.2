@@ -803,18 +803,7 @@ const DetailCoursePage: React.FC = () => {
               </div>
             </div>
 
-            {/* Course Requirements */}
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h3 className="text-xl font-bold mb-4">Yêu cầu</h3>
-              <ul className="space-y-2">
-                {(course.requirements || []).map((req, index) => (
-                  <li key={index} className="flex items-center">
-                    <CheckCircle className="text-green-500 mr-2" />
-                    <span>{req}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
+           
             
             {/* Progress section for enrolled users */}
             {isEnrolled && (

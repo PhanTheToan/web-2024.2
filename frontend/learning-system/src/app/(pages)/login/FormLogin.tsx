@@ -336,4 +336,3 @@ export const FormLogin = () => {
     </div>
   )
 }
-
