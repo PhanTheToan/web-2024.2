@@ -113,6 +113,16 @@ public class CourseController {
     public ResponseEntity<?> getCourseCompleteForUser(Principal principal) {
         return ResponseEntity.ok(courseService.getAllCoursesComplete(principal));
     }
+    @PreAuthorize("hasRole('ROLE_USER')")
+    @GetMapping("/progress-course")
+    public ResponseEntity<?> getCourseIncompleteForUser(Principal principal) {
+        return ResponseEntity.ok(courseService.getAllCoursesInprocess(principal));
+    }
+    @PreAuthorize("hasRole('ROLE_USER')")
+    @GetMapping("/notstarted-course")
+    public ResponseEntity<?> getCourseIncompleteForUser1(Principal principal) {
+        return ResponseEntity.ok(courseService.getAllCoursesNotStarted(principal));
+    }
     @PreAuthorize("hasRole('ROLE_ADMIN')")
     @GetMapping("/lessonandquiz/{id}")
     public ResponseEntity<?> getLessonAndQuiz(@PathVariable String id){

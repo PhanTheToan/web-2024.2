@@ -570,6 +570,41 @@ public class CourseService {
                     .body("User not found");
         }
     }
+    public ResponseEntity<?> getAllCoursesNotStarted(Principal principal) {
+        Optional<User> userOptional = userRepository.findByUsername(principal.getName());
+        if (userOptional.isPresent()) {
+            User user = userOptional.get();
+            List<Enrollment> enrollments = enrollmentRepository.findByUserId(user.getId());
+            List<Map<String, Object>> courseOverviews = enrollments.stream()
+                    .filter(enrollment -> EStatus.NOTSTARTED.equals(enrollment.getStatus()))
+                    .map(enrollment -> {
+                        Map<String, Object> overview = new HashMap<>();
+                        Course course = courseRepository.findById(enrollment.getCourseId()).orElse(null);
+                        if (course != null) {
+                            overview.put("id", String.valueOf(course.getId()));
+                            overview.put("title", course.getTitle());
+                            overview.put("status", enrollment.getStatus());
+                            overview.put("thumbnail", course.getThumbnail());
+                            String teacherName;
+                            Optional<User> userTeacher = userService.findById(String.valueOf(course.getTeacherId()));
+                            teacherName = userTeacher.map(value -> value.getFirstName() + " " + value.getLastName())
+                                    .orElse("Unknown Teacher");
+                            overview.put("teacherName", teacherName);
+                            overview.put("process", enrollment.getProgress());
+                            overview.put("timeCurrent", enrollment.getTimeCurrent());
+                            overview.put("startDate", enrollment.getEnrolledAt());
+                            return overview;
+                        }
+                        return null;
+                    })
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toList());
+            return ResponseEntity.ok(courseOverviews);
+        } else {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body("User not found");
+        }
+    }
 
     public ResponseEntity<?> updateOrder() {
         List<Course> courseList = courseRepository.findAll();

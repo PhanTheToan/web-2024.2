@@ -3,6 +3,7 @@ package web20242.webcourse.controller;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -25,6 +26,10 @@ public class UpdateController {
         } catch (Exception e) {
             return new ResponseEntity<>("Migration failed: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
+    }
+    @GetMapping("/ping")
+    public ResponseEntity<String> ping() {
+        return new ResponseEntity<>("Pong", HttpStatus.OK);
     }
 
 
