@@ -13,6 +13,7 @@ interface Category {
   categoryId: string;
   categoryName: string;
   categoryDisplayName: string;
+  isSpecial?: boolean; // Mark for PRIVATE or PUBLIC categories
 }
 
 // Định nghĩa interface cho Teacher
@@ -59,6 +60,7 @@ export default function AdminCreateCoursePage() {
     description: '',
     price: '0',
     categories: [] as string[],
+    specialCategory: '', // For PRIVATE or PUBLIC
     thumbnail: '',
     teacherId: '',
     status: 'INACTIVE'
@@ -222,28 +224,33 @@ export default function AdminCreateCoursePage() {
       };
       
       // Kiểm tra cấu trúc dữ liệu API trả về và xử lý phù hợp
+      let validCategories: Category[] = [];
+      
       if (Array.isArray(data)) {
         // Lọc để đảm bảo chỉ có đối tượng Category hợp lệ
-        const validCategories = data.filter(isCategory);
-        setCategories(validCategories);
+        validCategories = data.filter(isCategory);
       } else if (data && typeof data === 'object' && 'body' in data && Array.isArray(data.body)) {
-        const validCategories = data.body.filter(isCategory);
-        setCategories(validCategories);
+        validCategories = data.body.filter(isCategory);
       } else if (data && typeof data === 'object') {
         // Nếu data là object, kiểm tra xem có phải mảng các danh mục không
         console.log("Data structure:", Object.keys(data));
         const categoryArray = Object.values(data);
         if (categoryArray.length > 0) {
-          const validCategories = categoryArray.filter(isCategory);
-          setCategories(validCategories);
+          validCategories = categoryArray.filter(isCategory);
         } else {
           console.error("Unexpected data structure:", data);
-          setCategories([]);
         }
       } else {
         console.error("Invalid categories data format:", data);
-        setCategories([]);
       }
+      
+      // Mark special categories for private/public
+      validCategories = validCategories.map(cat => ({
+        ...cat,
+        isSpecial: cat.categoryName === 'PRIVATE' || cat.categoryName === 'PUBLIC'
+      }));
+      
+      setCategories(validCategories);
     } catch (error) {
       console.error('Failed to fetch categories:', error);
       setError('Không thể tải danh mục. Vui lòng thử lại sau.');
@@ -329,8 +336,17 @@ export default function AdminCreateCoursePage() {
         throw new Error('Vui lòng chọn giảng viên');
       }
       
+      // Combined categories include regular and special categories
+      const allCategories = formData.specialCategory 
+        ? [...formData.categories, formData.specialCategory]
+        : formData.categories;
+      
       if (formData.categories.length === 0) {
         throw new Error('Vui lòng chọn ít nhất một danh mục cho khóa học');
+      }
+      
+      if (!formData.specialCategory) {
+        throw new Error('Vui lòng chọn PRIVATE hoặc PUBLIC cho khóa học');
       }
       
       // Upload image if selected
@@ -344,7 +360,7 @@ export default function AdminCreateCoursePage() {
         title: formData.title,
         description: formData.description,
         price: formData.price,
-        categories: formData.categories,
+        categories: allCategories,
         thumbnail: thumbnailUrl,
         status: 'DRAFT', // Save as draft
         teacherId: formData.teacherId
@@ -403,8 +419,17 @@ export default function AdminCreateCoursePage() {
         throw new Error('Vui lòng chọn giảng viên');
       }
       
+      // Combined categories include regular and special categories
+      const allCategories = formData.specialCategory 
+        ? [...formData.categories, formData.specialCategory]
+        : formData.categories;
+      
       if (formData.categories.length === 0) {
         throw new Error('Vui lòng chọn ít nhất một danh mục cho khóa học');
+      }
+      
+      if (!formData.specialCategory) {
+        throw new Error('Vui lòng chọn PRIVATE hoặc PUBLIC cho khóa học');
       }
       
       // Upload image if selected
@@ -418,7 +443,7 @@ export default function AdminCreateCoursePage() {
         title: formData.title,
         description: formData.description,
         price: formData.price,
-        categories: formData.categories,
+        categories: allCategories,
         thumbnail: thumbnailUrl,
         status: formData.status,
         teacherId: formData.teacherId
@@ -447,9 +472,9 @@ export default function AdminCreateCoursePage() {
       setSuccess('Khóa học đã được tạo thành công!');
       toast.success('Khóa học đã được tạo thành công!');
       
-      // Redirect to course detail page after 1 second
+      // Redirect to course management page after 1 second
       setTimeout(() => {
-        router.push(`/admin/couserscontrol/${result._id || result.courseId || result.id}`);
+        router.push('/admin/couserscontrol');
       }, 1000);
       
     } catch (error) {
@@ -554,7 +579,7 @@ export default function AdminCreateCoursePage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <div>
               <label className="block text-gray-700 font-medium mb-2" htmlFor="price">
-                Giá (USD) <span className="text-red-500">*</span>
+                Giá (VNĐ) <span className="text-red-500">*</span>
               </label>
               <input
                 id="price"
@@ -597,7 +622,9 @@ export default function AdminCreateCoursePage() {
               <div className="p-4 bg-gray-50 border-b">
                 <div className="flex items-center justify-between">
                   <h4 className="font-medium text-gray-700">Chọn danh mục cho khóa học</h4>
-                  <span className="text-sm text-gray-500">Đã chọn: {formData.categories.length}</span>
+                  <span className="text-sm text-gray-500">
+                    Đã chọn: {formData.categories.length + (formData.specialCategory ? 1 : 0)}
+                  </span>
                 </div>
               </div>
                 
@@ -605,87 +632,172 @@ export default function AdminCreateCoursePage() {
                 {!Array.isArray(categories) || categories.length === 0 ? (
                   <p className="text-gray-500 text-sm italic">Không có danh mục nào</p>
                 ) : (
-                  <div className="space-y-3">
-                    {categories.map(cat => {
-                      // Thêm kiểm tra an toàn cho cat
-                      if (!cat || !cat.categoryId) {
-                        console.log("Invalid category object:", cat);
-                        return null;
-                      }
-                      
-                      const isSelected = formData.categories.includes(cat.categoryId);
-                      return (
-                        <div 
-                          key={cat.categoryId} 
-                          className={`flex items-center p-3 rounded-lg border cursor-pointer transition-all
-                            ${isSelected ? 'border-indigo-200 bg-indigo-50' : 'border-gray-200 hover:border-indigo-200 hover:bg-gray-50'}`}
-                          onClick={() => {
-                            const updatedCategories = isSelected 
-                              ? formData.categories.filter(c => c !== cat.categoryId)
-                              : [...formData.categories, cat.categoryId];
-                                
-                            setFormData({
-                              ...formData,
-                              categories: updatedCategories
-                            });
-                          }}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={() => {}} // Controlled by the div onClick
-                            className="h-5 w-5 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
-                          />
-                          <div className="ml-3 flex-1">
-                            <span className="text-gray-800 font-medium">{cat.categoryDisplayName || cat.categoryName || "Danh mục"}</span>
-                            {cat.categoryName && <span className="text-gray-500 text-sm ml-2">({cat.categoryName})</span>}
-                          </div>
-                        </div>
-                      );
-                    })}
+                  <div>
+                    {/* Special categories (PRIVATE/PUBLIC) section */}
+                    <div className="mb-4">
+                      <h5 className="font-medium text-gray-700 mb-2 border-b pb-2">
+                        Vui lòng chọn một trong hai
+                      </h5>
+                      <div className="space-y-3">
+                        {categories
+                          .filter(cat => cat.isSpecial)
+                          .map(cat => {
+                            if (!cat || !cat.categoryId) {
+                              return null;
+                            }
+                            
+                            const isSelected = formData.specialCategory === cat.categoryId;
+                            return (
+                              <div 
+                                key={cat.categoryId} 
+                                className={`flex items-center p-3 rounded-lg border cursor-pointer transition-all
+                                  ${isSelected ? 'border-indigo-200 bg-indigo-50' : 'border-gray-200 hover:border-indigo-200 hover:bg-gray-50'}`}
+                                onClick={() => {
+                                  setFormData({
+                                    ...formData,
+                                    specialCategory: isSelected ? '' : cat.categoryId
+                                  });
+                                }}
+                              >
+                                <input
+                                  type="radio"
+                                  name="specialCategory"
+                                  checked={isSelected}
+                                  onChange={() => {}} // Controlled by the div onClick
+                                  className="h-5 w-5 text-indigo-600 border-gray-300 focus:ring-indigo-500"
+                                />
+                                <div className="ml-3 flex-1">
+                                  <span className="text-gray-800 font-medium">{cat.categoryDisplayName || cat.categoryName || "Danh mục"}</span>
+                                  {cat.categoryName && <span className="text-gray-500 text-sm ml-2">({cat.categoryName})</span>}
+                                </div>
+                              </div>
+                            );
+                          })}
+                      </div>
+                    </div>
+                    
+                    {/* Regular categories section */}
+                    <div>
+                      <h5 className="font-medium text-gray-700 mb-2 border-b pb-2">
+                        Chọn ít nhất một danh mục bình thường
+                      </h5>
+                      <div className="space-y-3">
+                        {categories
+                          .filter(cat => !cat.isSpecial)
+                          .map(cat => {
+                            if (!cat || !cat.categoryId) {
+                              return null;
+                            }
+                            
+                            const isSelected = formData.categories.includes(cat.categoryId);
+                            return (
+                              <div 
+                                key={cat.categoryId} 
+                                className={`flex items-center p-3 rounded-lg border cursor-pointer transition-all
+                                  ${isSelected ? 'border-indigo-200 bg-indigo-50' : 'border-gray-200 hover:border-indigo-200 hover:bg-gray-50'}`}
+                                onClick={() => {
+                                  const updatedCategories = isSelected 
+                                    ? formData.categories.filter(c => c !== cat.categoryId)
+                                    : [...formData.categories, cat.categoryId];
+                                    
+                                  setFormData({
+                                    ...formData,
+                                    categories: updatedCategories
+                                  });
+                                }}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => {}} // Controlled by the div onClick
+                                  className="h-5 w-5 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
+                                />
+                                <div className="ml-3 flex-1">
+                                  <span className="text-gray-800 font-medium">{cat.categoryDisplayName || cat.categoryName || "Danh mục"}</span>
+                                  {cat.categoryName && <span className="text-gray-500 text-sm ml-2">({cat.categoryName})</span>}
+                                </div>
+                              </div>
+                            );
+                          })}
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
                 
-              {formData.categories.length > 0 && (
-                <div className="p-4 border-t bg-white">
-                  <div className="text-sm font-medium text-gray-700 mb-2">Danh mục đã chọn:</div>
-                  <div className="flex flex-wrap gap-2">
-                    {formData.categories.map(categoryId => {
-                      const category = categories.find(c => c.categoryId === categoryId);
-                      return (
-                        <div 
-                          key={categoryId}
-                          className="flex items-center bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded-full text-sm"
-                        >
-                          {category?.categoryDisplayName || categoryId}
-                          <button
-                            type="button"
-                            className="ml-1.5 text-indigo-500 hover:text-indigo-700"
-                            onClick={() => {
-                              setFormData({
-                                ...formData,
-                                categories: formData.categories.filter(c => c !== categoryId)
-                              });
-                            }}
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                            </svg>
-                          </button>
-                        </div>
-                      );
-                    })}
+              <div className="p-4 border-t bg-white">
+                {/* Display validation messages */}
+                {!formData.specialCategory && (
+                  <div className="text-yellow-600 text-sm mb-2">
+                    Vui lòng chọn PRIVATE hoặc PUBLIC cho khóa học
                   </div>
-                </div>
-              )}
-            </div>
-              
-            {formData.categories.length === 0 && (
-              <div className="mt-1 text-sm text-red-500">
-                Vui lòng chọn ít nhất một danh mục cho khóa học
+                )}
+                
+                {formData.categories.length === 0 && (
+                  <div className="text-yellow-600 text-sm mb-2">
+                    Vui lòng chọn ít nhất một danh mục bình thường
+                  </div>
+                )}
+                
+                {/* Display selected special category */}
+                {formData.specialCategory && (
+                  <div>
+                    <div className="text-sm font-medium text-gray-700 mb-2">Loại khóa học:</div>
+                    <div className="flex items-center bg-purple-50 text-purple-700 px-3 py-1.5 rounded-full text-sm inline-block mb-2">
+                      {categories.find(c => c.categoryId === formData.specialCategory)?.categoryDisplayName || formData.specialCategory}
+                      <button
+                        type="button"
+                        className="ml-1.5 text-purple-500 hover:text-purple-700"
+                        onClick={() => {
+                          setFormData({
+                            ...formData,
+                            specialCategory: ''
+                          });
+                        }}
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Display selected regular categories */}
+                {formData.categories.length > 0 && (
+                  <div>
+                    <div className="text-sm font-medium text-gray-700 mb-2">Danh mục đã chọn:</div>
+                    <div className="flex flex-wrap gap-2">
+                      {formData.categories.map(categoryId => {
+                        const category = categories.find(c => c.categoryId === categoryId);
+                        return (
+                          <div 
+                            key={categoryId}
+                            className="flex items-center bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded-full text-sm"
+                          >
+                            {category?.categoryDisplayName || categoryId}
+                            <button
+                              type="button"
+                              className="ml-1.5 text-indigo-500 hover:text-indigo-700"
+                              onClick={() => {
+                                setFormData({
+                                  ...formData,
+                                  categories: formData.categories.filter(c => c !== categoryId)
+                                });
+                              }}
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                              </svg>
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
           </div>
           
           <div className="mb-6">

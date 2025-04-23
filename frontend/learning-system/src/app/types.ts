@@ -121,14 +121,22 @@ export interface CourseData {
     passingScore: number;
     timeLimit?: number;
     order?: number;
+    status?: QuizStatus;
     createdAt: Date;
   }
 
   export interface QuizQuestion {
     question: string;
-    options: string[];
-    correctAnswer: string;
     material?: string | null;
+    equestion: EQuestion;
+    options: string[];
+    correctAnswer: string[];
+  }
+
+  export enum EQuestion {
+    SINGLE_CHOICE = 'SINGLE_CHOICE',
+    MULTIPLE_CHOICE = 'MULTIPLE_CHOICE',
+    SHORT_ANSWER = 'SHORT_ANSWER'
   }
 
   export interface Category {
@@ -165,4 +173,9 @@ export interface CourseData {
     rating: number;
     comment: string;
     createdAt: Date;
+  }
+
+  export enum QuizStatus {
+    ACTIVE = 'ACTIVE',
+    INACTIVE = 'INACTIVE'
   }

@@ -9,9 +9,12 @@ import { Lesson, Course, User, Quiz, LessonMaterial } from "@/app/types";
 // import { enrollmentService } from "@/services/enrollmentService";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, BookOpen, Clock, Check, FileText, PlayCircle, Download, Eye, ExternalLink, ClipboardCheck } from "lucide-react";
+import * as dotenv from "dotenv";
+
+dotenv.config();
 
 // API Base URL
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8082/api';
+const API_BASE_URL = process.env.BASE_URL || 'http://localhost:8082/api';
 
 // Helper function to get and set cookies
 const getCookie = (name: string) => {
@@ -555,6 +558,14 @@ const LessonDetailPage: React.FC = () => {
       }
     }
 
+    // Check if current lesson is already completed
+    const isLessonCompleted = completedLessons.has(lessonId);
+    
+    // If lesson is already completed, no need to setup a timer
+    if (isLessonCompleted) {
+      return;
+    }
+
     const tick = () => {
       const now = Date.now();
       const delta = Math.floor((now - lastTickRef.current) / 1000);
@@ -562,6 +573,17 @@ const LessonDetailPage: React.FC = () => {
       if (delta > 0) { // Avoid negative delta (can happen with date/time changes)
         setElapsedTime(prevTime => {
           const newTime = prevTime + delta;
+          
+          // Check if time threshold is met (75% of time limit)
+          const timeLimit = lesson.timeLimit || 5; // Default 5 minutes
+          const requiredTime = timeLimit * 60 * 0.75;
+          
+          // If time threshold is met and lesson is not already completed, mark as complete automatically
+          if (newTime >= requiredTime && !completedLessons.has(lessonId) && !isUpdatingProgress) {
+            // Call the API to update progress
+            updateLessonProgress();
+          }
+          
           // Save to cookie every 15 seconds to avoid too frequent writes
           if (delta >= 15 || Math.floor(newTime / 15) > Math.floor(prevTime / 15)) {
             saveTimerState(newTime);
@@ -608,7 +630,61 @@ const LessonDetailPage: React.FC = () => {
       saveTimerState(elapsedTime);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [lesson, isLoading]); // Removed elapsedTime dependency to avoid re-running effect on every tick
+  }, [lesson, isLoading, completedLessons, lessonId]); // Added completedLessons and lessonId as dependencies
+
+  // Add function to update lesson progress automatically using the API from the screenshot
+  const updateLessonProgress = async () => {
+    if (!lesson || completedLessons.has(lessonId) || isUpdatingProgress) return;
+    
+    setIsUpdatingProgress(true);
+    try {
+      // API shown in the screenshot
+      const response = await fetch(`${API_BASE_URL}/enrollments/update-progress?courseId=${courseId}&itemId=${lessonId}`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update lesson progress');
+      }
+
+      const data = await response.json();
+      console.log('Progress update response:', data);
+      
+      // If update was successful, update local state
+      if (data.statusCode === "OK" || data.body === "Cập nhật tiến độ thành công") {
+        // Add to completed lessons locally
+        const newCompleted = new Set(completedLessons);
+        newCompleted.add(lessonId);
+        setCompletedLessons(newCompleted);
+        
+        // Update the orderedContent to mark this lesson as complete
+        const updatedContent = orderedContent.map(item => {
+          if (item.type === 'lesson' && item._id === lessonId) {
+            return { ...item, complete: true };
+          }
+          return item;
+        });
+        setOrderedContent(updatedContent);
+        
+        // Clear the timer cookie as this lesson is now complete
+        setCookie(`lesson_timer_${lessonId}`, '', -1);
+        
+        toast.success('Bài học đã được đánh dấu hoàn thành tự động');
+        
+        // Fetch updated course content to refresh the learned/notLearned data
+        await fetchCourseContent();
+      }
+    } catch (err) {
+      console.error('Error updating progress automatically:', err);
+      // Don't show error toast to user for automatic update
+    } finally {
+      setIsUpdatingProgress(false);
+    }
+  };
 
   // Get combined course content (lessons and quizzes) in order
   const getCourseContent = (): ContentItem[] => {
@@ -702,7 +778,7 @@ const LessonDetailPage: React.FC = () => {
     if (!lesson) return false;
     
     // If no time limit, use a default of 5 minutes (300 seconds)
-    const requiredSeconds = (lesson.timeLimit || 5) * 60 * 0.75; // Changed to 75% from 1%
+    const requiredSeconds = (lesson.timeLimit || 5) * 60 * 0.75; // 75% of the total time
     return elapsedTime >= requiredSeconds;
   };
 
@@ -721,6 +797,18 @@ const LessonDetailPage: React.FC = () => {
       return;
     }
 
+    // If lesson is already completed, just navigate to next content
+    if (completedLessons.has(lessonId)) {
+      if (nextContent) {
+        if (nextContent.type === 'lesson') {
+          router.push(`/courses/${courseId}/lesson/${nextContent.id}`);
+        } else {
+          router.push(`/courses/${courseId}/quiz/${nextContent.id}`);
+        }
+      }
+      return;
+    }
+
     // Check time requirement (75% of lesson time limit)
     const timeLimit = lesson.timeLimit || 5; // Use 5 minutes as default if no time limit
     const requiredSeconds = timeLimit * 60 * 0.75;
@@ -732,14 +820,21 @@ const LessonDetailPage: React.FC = () => {
 
     setIsUpdatingProgress(true);
     try {
-      // Mark the lesson as complete via API
-      await fetch(`${API_BASE_URL}/course/lesson/complete/${lessonId}`, {
-        method: 'POST',
+      // Use the API from the screenshot instead of the previous endpoint
+      const response = await fetch(`${API_BASE_URL}/enrollments/update-progress?courseId=${courseId}&itemId=${lessonId}`, {
+        method: 'PUT',
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json'
         }
       });
+      
+      if (!response.ok) {
+        throw new Error('Failed to update lesson progress');
+      }
+      
+      const data = await response.json();
+      console.log('Progress update response:', data);
       
       // Add to completed lessons locally
       const newCompleted = new Set(completedLessons);
@@ -857,10 +952,16 @@ const LessonDetailPage: React.FC = () => {
               <Clock className="w-4 h-4 mr-1" />
               {lesson.timeLimit ? `${lesson.timeLimit} phút` : "Không giới hạn thời gian"}
             </span>
+            {completedLessons.has(lessonId) && (
+              <span className="flex items-center ml-4 bg-green-500 text-white px-2 py-1 rounded-full text-xs">
+                <Check className="w-3 h-3 mr-1" />
+                Đã hoàn thành
+              </span>
+            )}
           </div>
           
-          {/* Time Progress Circle */}
-          {lesson.timeLimit && (
+          {/* Time Progress Circle - Only show when lesson is not completed */}
+          {lesson.timeLimit && !completedLessons.has(lessonId) && (
             <div className="mt-4 flex items-center">
               <div className="relative h-20 w-20 mr-3">
                 <svg className="h-full w-full" viewBox="0 0 100 100">
@@ -904,6 +1005,19 @@ const LessonDetailPage: React.FC = () => {
                   {Math.floor(lesson.timeLimit * 60 * 0.75 / 60)}:{Math.floor(lesson.timeLimit * 60 * 0.75 % 60).toString().padStart(2, '0')} 
                   ({Math.min(Math.round(elapsedTime / (lesson.timeLimit * 60 * 0.75) * 100), 100)}%)
                 </span>
+              </div>
+            </div>
+          )}
+          
+          {/* Completion message when lesson is already completed */}
+          {completedLessons.has(lessonId) && (
+            <div className="mt-4 flex items-center bg-green-500/20 p-3 rounded-lg">
+              <div className="bg-green-500 text-white rounded-full p-2 mr-3">
+                <Check className="w-5 h-5" />
+              </div>
+              <div className="text-white">
+                <p className="font-medium">Bài học đã hoàn thành</p>
+                <p className="text-sm opacity-80">Bạn có thể xem lại nội dung bài học hoặc chuyển sang bài tiếp theo</p>
               </div>
             </div>
           )}
@@ -1175,31 +1289,60 @@ const LessonDetailPage: React.FC = () => {
                 <div className="mb-4 sm:mb-0 w-full sm:w-auto"></div>
               )}
 
-              <button
-                onClick={handleMarkComplete}
-                disabled={isUpdatingProgress}
-                className="w-full sm:w-auto px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg shadow transition flex items-center justify-center disabled:opacity-70"
-              >
-                {isUpdatingProgress ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
-                    Đang xử lý...
-                  </>
-                ) : nextContent ? (
-                  <>
-                    <span>Tiếp tục</span>
-                    <ChevronRight className="w-5 h-5 ml-2" />
-                  </>
-                ) : (
-                  <>
-                    <Check className="w-5 h-5 mr-2" />
-                    <span>Hoàn thành khóa học</span>
-                  </>
-                )}
-              </button>
+              {completedLessons.has(lessonId) ? (
+                // Button for completed lessons
+                <button
+                  onClick={() => {
+                    if (nextContent) {
+                      if (nextContent.type === 'lesson') {
+                        router.push(`/courses/${courseId}/lesson/${nextContent.id}`);
+                      } else {
+                        router.push(`/courses/${courseId}/quiz/${nextContent.id}`);
+                      }
+                    }
+                  }}
+                  className="w-full sm:w-auto px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg shadow transition flex items-center justify-center"
+                >
+                  {nextContent ? (
+                    <>
+                      <span>Tiếp tục học</span>
+                      <ChevronRight className="w-5 h-5 ml-2" />
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-5 h-5 mr-2" />
+                      <span>Đã hoàn thành khóa học</span>
+                    </>
+                  )}
+                </button>
+              ) : (
+                // Button for incomplete lessons
+                <button
+                  onClick={handleMarkComplete}
+                  disabled={isUpdatingProgress}
+                  className="w-full sm:w-auto px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg shadow transition flex items-center justify-center disabled:opacity-70"
+                >
+                  {isUpdatingProgress ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
+                      Đang xử lý...
+                    </>
+                  ) : nextContent ? (
+                    <>
+                      <span>Tiếp tục</span>
+                      <ChevronRight className="w-5 h-5 ml-2" />
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-5 h-5 mr-2" />
+                      <span>Hoàn thành khóa học</span>
+                    </>
+                  )}
+                </button>
+              )}
 
               {nextContent ? (
-                meetsTimeRequirement() ? (
+                completedLessons.has(lessonId) || meetsTimeRequirement() ? (
                   <Link
                     href={nextContent.type === 'lesson' ? 
                       `/courses/${courseId}/lesson/${nextContent.id}` : 
@@ -1212,7 +1355,7 @@ const LessonDetailPage: React.FC = () => {
                 ) : (
                   <button
                     onClick={() => {
-                      const requiredSeconds = lesson?.timeLimit ? lesson.timeLimit * 60 * 0.01 : 0;
+                      const requiredSeconds = lesson?.timeLimit ? lesson.timeLimit * 60 * 0.75 : 0;
                       const remainingMinutes = Math.ceil((requiredSeconds - elapsedTime) / 60);
                       toast.error(`Bạn cần xem bài học thêm khoảng ${remainingMinutes} phút để mở khóa ${nextContent.type === 'lesson' ? 'bài' : 'quiz'} tiếp theo.`);
                     }}

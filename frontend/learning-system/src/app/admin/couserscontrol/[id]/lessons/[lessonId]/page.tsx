@@ -10,9 +10,15 @@ import {
 import { Course, Lesson, LessonMaterial } from '@/app/types';
 import { formatDate } from '@/lib/utils';
 import { toast } from 'react-hot-toast';
-
+import dotenv from 'dotenv';
+dotenv.config();
 // API Base URL
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8082/api';
+const API_BASE_URL = process.env.BASE_URL || 'http://localhost:8082/api';
+
+// Nếu Lesson interface không có trường status, thêm interface mở rộng
+interface ExtendedLesson extends Lesson {
+  status?: string;
+}
 
 export default function LessonDetailPage() {
   const params = useParams();
@@ -21,7 +27,7 @@ export default function LessonDetailPage() {
   const lessonId = params.lessonId as string;
   
   const [course, setCourse] = useState<Course | null>(null);
-  const [lesson, setLesson] = useState<Lesson | null>(null);
+  const [lesson, setLesson] = useState<ExtendedLesson | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -299,6 +305,26 @@ export default function LessonDetailPage() {
                   <p className="font-medium">{lesson.videoUrl ? 'Có' : 'Không'}</p>
                 </div>
               </div>
+            </div>
+            
+            {/* Thêm phần hiển thị trạng thái */}
+            <div className="p-4 border-t">
+              <h3 className="text-sm font-medium mb-2">Trạng thái bài học:</h3>
+              <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm ${
+                lesson.status === 'ACTIVE' 
+                  ? 'bg-green-100 text-green-800' 
+                  : 'bg-gray-100 text-gray-800'
+              }`}>
+                <div className={`w-2 h-2 rounded-full mr-2 ${
+                  lesson.status === 'ACTIVE' ? 'bg-green-500' : 'bg-gray-500'
+                }`}></div>
+                {lesson.status === 'ACTIVE' ? 'Hoạt động' : 'Không hoạt động'}
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                {lesson.status === 'ACTIVE'
+                  ? "Bài học đang được kích hoạt. Học viên có thể truy cập bài học này."
+                  : "Bài học đang bị vô hiệu hóa. Học viên không thể truy cập bài học này."}
+              </p>
             </div>
           </div>
           

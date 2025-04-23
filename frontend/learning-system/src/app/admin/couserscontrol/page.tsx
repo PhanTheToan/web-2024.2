@@ -2,18 +2,71 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Edit, Trash2, Eye, Plus, Search, BookOpen, Users, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
-import { Course } from '@/app/types';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { toast } from 'react-hot-toast';
 import Pagination from '@/app/components/pagination/Pagination';
-
+import dotenv from 'dotenv';
+dotenv.config();
 // API Base URL
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8082/api';
+const API_BASE_URL = process.env.BASE_URL || 'http://localhost:8082/api';
+
+// Add a QuizResponse interface
+interface QuizResponse {
+  id: string;
+  title: string;
+  duration: number;
+  order: number;
+}
+
+// Add a LessonResponse interface
+interface LessonResponse {
+  id: string;
+  title: string;
+  duration: number;
+  order: number;
+  quizzes: QuizResponse[];
+}
+
+// Update CourseResponse interface to use the LessonResponse type
+interface CourseResponse {
+  id: string;
+  title: string;
+  teacherFullName: string;
+  teacherId: string;
+  thumbnail: string;
+  courseStatus: string;
+  price: number;
+  studentsCount: number;
+  contentCount: number;
+  totalTimeLimit: number;
+  categories: string[];
+  lessons?: LessonResponse[];
+  totalDuration?: number;
+}
+
+// Update the AdminCourse interface to ensure _id is always present
+interface AdminCourse {
+  _id: string;
+  id: string;
+  title: string;
+  teacherFullName: string;
+  teacherId: string;
+  thumbnail: string;
+  courseStatus: string;
+  price: number;
+  studentsCount: number;
+  contentCount: number;
+  totalTimeLimit: number;
+  categories: string[];
+  isPublished: boolean;
+  lessons: LessonResponse[];
+  totalDuration: number;
+}
 
 export default function AdminCoursesPage() {
   const router = useRouter();
-  const [courses, setCourses] = useState<Course[]>([]);
+  const [courses, setCourses] = useState<AdminCourse[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState('all');
@@ -21,7 +74,7 @@ export default function AdminCoursesPage() {
   const [pageSize] = useState(9);
   const [totalPages, setTotalPages] = useState(1);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [courseToDelete, setCourseToDelete] = useState<Course | null>(null);
+  const [courseToDelete, setCourseToDelete] = useState<AdminCourse | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -106,7 +159,7 @@ export default function AdminCoursesPage() {
       }
 
       const data = await response.json();
-      const formattedCourses: Course[] = data.content.map((course: any) => ({
+      const formattedCourses: AdminCourse[] = data.content.map((course: CourseResponse) => ({
         _id: course.id,
         id: course.id,
         title: course.title,
@@ -165,7 +218,7 @@ export default function AdminCoursesPage() {
   };
 
   // Confirm delete handler
-  const confirmDelete = (course: Course) => {
+  const confirmDelete = (course: AdminCourse) => {
     setCourseToDelete(course);
     setShowDeleteModal(true);
   };
@@ -173,6 +226,40 @@ export default function AdminCoursesPage() {
   // Handle page change
   const handlePageChange = (page: number) => {
     setCurrentPage(page - 1); // API dùng index từ 0
+  };
+
+  // Add a new function to handle status toggle
+  const toggleCourseStatus = async (courseId: string, currentStatus: string) => {
+    try {
+      const newStatus = currentStatus === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+      
+      const response = await fetch(`${API_BASE_URL}/course/update/admin-status/${courseId}`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ courseStatus: newStatus })
+      });
+
+      if (!response.ok) {
+        throw new Error('Không thể cập nhật trạng thái khóa học');
+      }
+
+      // Update the local courses state
+      setCourses(prevCourses => 
+        prevCourses.map(course => 
+          course._id === courseId 
+            ? { ...course, courseStatus: newStatus, isPublished: newStatus === 'ACTIVE' } 
+            : course
+        )
+      );
+      
+      toast.success(`Đã ${newStatus === 'ACTIVE' ? 'kích hoạt' : 'vô hiệu hóa'} khóa học thành công`);
+    } catch (error) {
+      console.error('Failed to toggle course status:', error);
+      toast.error('Không thể cập nhật trạng thái khóa học. Vui lòng thử lại sau.');
+    }
   };
 
   // Display error message if authentication or fetching failed
@@ -350,7 +437,7 @@ export default function AdminCoursesPage() {
                     </div>
                   </td>
                   <td className="px-4 sm:px-6 py-4 sm:py-5 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">${course.price.toFixed(2)}</div>
+                    <div className="text-sm font-medium text-gray-900">{course.price.toFixed(0)} VNĐ</div>
                     {course.price === 0 && <div className="text-xs text-green-600">Miễn phí</div>}
                   </td>
                   <td className="px-4 sm:px-6 py-4 sm:py-5 whitespace-nowrap">
@@ -386,6 +473,20 @@ export default function AdminCoursesPage() {
                       >
                         <Edit className="w-5 h-5" />
                       </Link>
+                      <button
+                        className={`p-2 rounded-lg transition-colors ${
+                          course.courseStatus === 'ACTIVE' 
+                            ? 'text-green-600 hover:text-green-900 hover:bg-green-50' 
+                            : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                        }`}
+                        onClick={() => course._id && toggleCourseStatus(course._id, course.courseStatus)}
+                        title={course.courseStatus === 'ACTIVE' ? 'Vô hiệu hóa khóa học' : 'Kích hoạt khóa học'}
+                      >
+                        {course.courseStatus === 'ACTIVE' 
+                          ? <CheckCircle className="w-5 h-5" /> 
+                          : <XCircle className="w-5 h-5" />
+                        }
+                      </button>
                       <button
                         className="text-red-600 hover:text-red-900 p-2 hover:bg-red-50 rounded-lg transition-colors"
                         onClick={() => confirmDelete(course)}

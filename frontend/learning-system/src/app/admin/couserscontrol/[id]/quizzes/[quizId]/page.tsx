@@ -7,19 +7,21 @@ import {
   AlertCircle, Loader2, CheckCircle, X, 
   List, Award, HelpCircle
 } from 'lucide-react';
-import { Course } from '@/app/types';
+import { Course, EQuestion, QuizStatus } from '@/app/types';
 import { formatDate } from '@/lib/utils';
 import { toast } from 'react-hot-toast';
-
+import dotenv from 'dotenv';
+dotenv.config();
 // API Base URL
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8082/api';
+const API_BASE_URL = process.env.BASE_URL || 'http://localhost:8082/api';
 
 // Define Quiz-related types based on API response
 interface QuizQuestion {
   question: string;
   options: string[];
-  correctAnswer: string;
+  correctAnswer: string | string[];
   material?: string | null;
+  equestion?: EQuestion;
 }
 
 interface Quiz {
@@ -31,6 +33,7 @@ interface Quiz {
   passingScore: number;
   timeLimit?: number;
   order?: number;
+  status?: QuizStatus;
   createdAt: string | Date;
   updatedAt?: string | Date;
 }
@@ -274,8 +277,21 @@ export default function QuizDetailPage() {
           {/* Quiz info cards */}
           <div className="bg-white rounded-lg shadow mb-6">
             <div className="border-b p-4">
-              <h2 className="text-xl font-bold">{quiz.title}</h2>
-              <p className="text-gray-500 mt-1">{quiz.description || 'Không có mô tả'}</p>
+              <div className="flex justify-between items-start">
+                <div>
+                  <h2 className="text-xl font-bold">{quiz.title}</h2>
+                  <p className="text-gray-500 mt-1">{quiz.description || 'Không có mô tả'}</p>
+                </div>
+                <div>
+                  <span className={`inline-flex px-3 py-1 rounded-full text-xs font-medium ${
+                    quiz.status === QuizStatus.ACTIVE 
+                      ? 'bg-green-100 text-green-800' 
+                      : 'bg-gray-100 text-gray-800'
+                  }`}>
+                    {quiz.status === QuizStatus.ACTIVE ? 'Đã kích hoạt' : 'Chưa kích hoạt'}
+                  </span>
+                </div>
+              </div>
             </div>
             
             <div className="p-4 grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -327,30 +343,72 @@ export default function QuizDetailPage() {
                       <span className="bg-primary-100 text-primary-800 rounded-full w-6 h-6 flex items-center justify-center mr-2 flex-shrink-0 mt-0.5">
                         {index + 1}
                       </span>
-                      <h4 className="font-medium">{question.question}</h4>
+                      <div>
+                        <h4 className="font-medium">{question.question}</h4>
+                        <div className="text-xs text-gray-500 mt-1">
+                          {question.equestion === EQuestion.SINGLE_CHOICE ? 'Chọn một đáp án' : 
+                          question.equestion === EQuestion.MULTIPLE_CHOICE ? 'Chọn nhiều đáp án' : 
+                          question.equestion === EQuestion.SHORT_ANSWER ? 'Câu trả lời ngắn' : 'Trắc nghiệm'}
+                        </div>
+                      </div>
                     </div>
                     
+                    {question.material && (
+                      <div className="pl-8 mb-3">
+                        <img 
+                          src={question.material} 
+                          alt={`Hình ảnh cho câu hỏi ${index + 1}`}
+                          className="max-h-64 rounded-md border border-gray-200"
+                        />
+                      </div>
+                    )}
+                    
                     <div className="pl-8 space-y-2">
-                      {question.options.map((option, optionIndex) => (
-                        <div 
-                          key={optionIndex} 
-                          className={`p-2 rounded-md flex items-center ${
-                            option === question.correctAnswer 
-                              ? 'bg-green-50 border border-green-200' 
-                              : 'bg-gray-50 border border-gray-200'
-                          }`}
-                        >
-                          {option === question.correctAnswer ? (
-                            <CheckCircle className="w-4 h-4 text-green-600 mr-2 flex-shrink-0" />
-                          ) : (
-                            <X className="w-4 h-4 text-gray-400 mr-2 flex-shrink-0" />
-                          )}
-                          <span>{option}</span>
-                          {option === question.correctAnswer && (
-                            <span className="ml-2 text-xs text-green-600 font-medium">Đáp án đúng</span>
-                          )}
+                      {question.equestion === EQuestion.SHORT_ANSWER ? (
+                        // Hiển thị câu trả lời ngắn
+                        <div className="bg-blue-50 border border-blue-200 p-3 rounded-md">
+                          <h5 className="font-medium text-sm text-blue-700 mb-2">Các đáp án được chấp nhận:</h5>
+                          <ul className="list-disc pl-5 space-y-1">
+                            {Array.isArray(question.correctAnswer) ? 
+                              question.correctAnswer.map((answer, idx) => (
+                                <li key={idx} className="text-blue-800">{answer}</li>
+                              )) : 
+                              <li className="text-blue-800">{question.correctAnswer}</li>
+                            }
+                          </ul>
                         </div>
-                      ))}
+                      ) : (
+                        // Hiển thị trắc nghiệm (SINGLE_CHOICE hoặc MULTIPLE_CHOICE)
+                        <>
+                          {question.options.map((option, optionIndex) => {
+                            // Xác định xem option có phải là đáp án đúng không
+                            const isCorrect = Array.isArray(question.correctAnswer) 
+                              ? question.correctAnswer.includes(optionIndex.toString()) || question.correctAnswer.includes(option)
+                              : option === question.correctAnswer || optionIndex.toString() === question.correctAnswer;
+                            
+                            return (
+                              <div 
+                                key={optionIndex} 
+                                className={`p-2 rounded-md flex items-center ${
+                                  isCorrect
+                                    ? 'bg-green-50 border border-green-200' 
+                                    : 'bg-gray-50 border border-gray-200'
+                                }`}
+                              >
+                                {isCorrect ? (
+                                  <CheckCircle className="w-4 h-4 text-green-600 mr-2 flex-shrink-0" />
+                                ) : (
+                                  <X className="w-4 h-4 text-gray-400 mr-2 flex-shrink-0" />
+                                )}
+                                <span className={isCorrect ? 'font-medium' : ''}>{option}</span>
+                                {isCorrect && (
+                                  <span className="ml-2 text-xs text-green-600 font-medium">Đáp án đúng</span>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </>
+                      )}
                     </div>
                   </div>
                 ))}

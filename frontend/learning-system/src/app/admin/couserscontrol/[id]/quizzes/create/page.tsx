@@ -4,17 +4,19 @@ import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, PlusCircle, MinusCircle, Save, X, Loader2, AlertCircle, CheckCircle } from "lucide-react";
-import { Course } from "@/app/types";
+import { Course, EQuestion, QuizStatus } from "@/app/types";
 import { toast } from "react-hot-toast";
-
+import dotenv from 'dotenv';
+dotenv.config();
 // API Base URL
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8082/api';
+const API_BASE_URL = process.env.BASE_URL || 'http://localhost:8082/api';
 
 interface QuizQuestion {
   question: string;
   options: string[];
-  correctAnswer: string;
+  correctAnswer: string[];
   material: string | null;
+  equestion: EQuestion;
 }
 
 export default function CreateQuizPage() {
@@ -27,8 +29,9 @@ export default function CreateQuizPage() {
   const [description, setDescription] = useState("");
   const [timeLimit, setTimeLimit] = useState<number>(30);
   const [passingScore, setPassingScore] = useState<number>(70);
+  const [status, setStatus] = useState<QuizStatus>(QuizStatus.INACTIVE);
   const [questions, setQuestions] = useState<QuizQuestion[]>([
-    { question: "", options: ["", "", "", ""], correctAnswer: "0", material: null }
+    { question: "", options: ["", "", "", ""], correctAnswer: ["0"], material: null, equestion: EQuestion.SINGLE_CHOICE }
   ]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -276,18 +279,20 @@ export default function CreateQuizPage() {
     toast.success('Đã xóa hình ảnh');
   };
 
-  const handleQuestionChange = (index: number, field: string, value: string) => {
+  const handleQuestionChange = (index: number, field: string, value: string | string[] | EQuestion) => {
     const newQuestions = [...questions];
     
-    if (field === 'question') {
-      newQuestions[index].question = value;
-    } else if (field.startsWith('option')) {
-      const optionIndex = parseInt(field.split('-')[1]);
-      newQuestions[index].options[optionIndex] = value;
-    } else if (field === 'correctAnswer') {
-      newQuestions[index].correctAnswer = value;
+    // Type assertion for updating the specific field
+    if (field === 'equestion') {
+      newQuestions[index].equestion = value as EQuestion;
+    } else if (field === 'question') {
+      newQuestions[index].question = value as string;
     } else if (field === 'material') {
-      newQuestions[index].material = value;
+      newQuestions[index].material = value as string;
+    } else if (field === 'correctAnswer') {
+      newQuestions[index].correctAnswer = value as string[];
+    } else if (field === 'options') {
+      newQuestions[index].options = value as string[];
     }
     
     setQuestions(newQuestions);
@@ -301,7 +306,13 @@ export default function CreateQuizPage() {
   };
 
   const addQuestion = () => {
-    setQuestions([...questions, { question: "", options: ["", "", "", ""], correctAnswer: "0", material: null }]);
+    setQuestions([...questions, { 
+      question: "", 
+      options: ["", "", "", ""], 
+      correctAnswer: ["0"], 
+      material: null, 
+      equestion: EQuestion.SINGLE_CHOICE 
+    }]);
   };
 
   const removeQuestion = (index: number) => {
@@ -335,16 +346,39 @@ export default function CreateQuizPage() {
         return;
       }
 
-      let hasEmptyOption = false;
-      question.options.forEach(option => {
-        if (!option.trim()) {
-          hasEmptyOption = true;
-        }
-      });
-
-      if (hasEmptyOption) {
-        errors[index] = "Các lựa chọn không được để trống";
+      // Kiểm tra đáp án đúng
+      if (question.correctAnswer.length === 0) {
+        errors[index] = "Phải có ít nhất một đáp án đúng";
         isValid = false;
+        return;
+      }
+
+      // Nếu là câu hỏi trắc nghiệm (không phải SHORT_ANSWER), kiểm tra lựa chọn
+      if (question.equestion !== EQuestion.SHORT_ANSWER) {
+        // Đếm số lựa chọn có nội dung
+        const validOptions = question.options.filter(option => option.trim());
+        
+        if (validOptions.length < 2) {
+          errors[index] = "Câu hỏi trắc nghiệm phải có ít nhất 2 lựa chọn";
+          isValid = false;
+          return;
+        }
+
+        // Kiểm tra xem đáp án đúng có tồn tại trong các lựa chọn không
+        if (question.equestion === EQuestion.SINGLE_CHOICE || 
+            question.equestion === EQuestion.MULTIPLE_CHOICE) {
+          // Đối với trắc nghiệm, đáp án đúng là index của lựa chọn
+          const selectedIndices = question.correctAnswer.map(answer => parseInt(answer));
+          const invalidIndices = selectedIndices.filter(index => 
+            isNaN(index) || index < 0 || index >= question.options.length || !question.options[index].trim()
+          );
+          
+          if (invalidIndices.length > 0) {
+            errors[index] = "Đáp án đúng không hợp lệ";
+            isValid = false;
+            return;
+          }
+        }
       }
     });
 
@@ -376,12 +410,46 @@ export default function CreateQuizPage() {
         order: order,
         passingScore: passingScore,
         timeLimit: timeLimit,
-        questions: questions.map(q => ({
-          question: q.question,
-          material: q.material || null,
-          options: q.options,
-          correctAnswer: q.correctAnswer
-        }))
+        status: status,
+        questions: questions.map(q => {
+          // Chuẩn bị câu hỏi dựa trên loại
+          const formattedQuestion: {
+            question: string;
+            material: string | null;
+            equestion: EQuestion;
+            options: string[];
+            correctAnswer: string[];
+          } = {
+            question: q.question,
+            material: q.material || null,
+            equestion: q.equestion,
+            options: [],
+            correctAnswer: []
+          };
+
+          if (q.equestion === EQuestion.SHORT_ANSWER) {
+            // Đối với câu trả lời ngắn, giữ nguyên correctAnswer là mảng các câu trả lời được chấp nhận
+            formattedQuestion.correctAnswer = q.correctAnswer;
+            // Không cần options cho câu trả lời ngắn
+            formattedQuestion.options = [];
+          } else {
+            // Đối với câu hỏi trắc nghiệm, chỉ giữ lại options có nội dung
+            formattedQuestion.options = q.options.filter(option => option.trim());
+            
+            // Đối với câu hỏi trắc nghiệm, lưu giá trị đáp án thay vì index
+            if (q.equestion === EQuestion.SINGLE_CHOICE || q.equestion === EQuestion.MULTIPLE_CHOICE) {
+              // Lấy các đáp án dựa trên các index đã chọn
+              formattedQuestion.correctAnswer = q.correctAnswer
+                .map(answerIndex => {
+                  const index = parseInt(answerIndex);
+                  return isNaN(index) ? answerIndex : q.options[index];
+                })
+                .filter(answer => answer && answer.trim());
+            }
+          }
+
+          return formattedQuestion;
+        })
       };
       
       console.log("Sending quiz data:", requestData);
@@ -591,6 +659,20 @@ export default function CreateQuizPage() {
                 />
               </div>
             </div>
+
+            <div className="mb-4">
+              <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">
+                Trạng thái bài kiểm tra
+              </label>
+              <select
+                value={status}
+                onChange={(e) => setStatus(e.target.value as QuizStatus)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+              >
+                <option value={QuizStatus.INACTIVE}>Không kích hoạt</option>
+                <option value={QuizStatus.ACTIVE}>Kích hoạt</option>
+              </select>
+            </div>
           </div>
 
           <div className="mt-8 mb-3">
@@ -608,17 +690,17 @@ export default function CreateQuizPage() {
           </div>
 
           <div className="space-y-8 mt-6">
-            {questions.map((question, questionIndex) => (
+            {questions.map((question, index) => (
               <div
-                key={questionIndex}
+                key={index}
                 className="bg-gray-50 p-4 rounded-lg border border-gray-200"
               >
                 <div className="flex items-center justify-between mb-4">
-                  <h4 className="font-medium">Câu hỏi {questionIndex + 1}</h4>
+                  <h4 className="font-medium">Câu hỏi {index + 1}</h4>
                   {questions.length > 1 && (
                     <button
                       type="button"
-                      onClick={() => removeQuestion(questionIndex)}
+                      onClick={() => removeQuestion(index)}
                       className="text-red-600 hover:text-red-800 flex items-center text-sm"
                     >
                       <MinusCircle className="w-4 h-4 mr-1" />
@@ -627,33 +709,133 @@ export default function CreateQuizPage() {
                   )}
                 </div>
 
-                {questionErrors[questionIndex] && (
+                {questionErrors[index] && (
                   <div className="bg-red-50 text-red-700 p-2 mb-3 rounded text-sm">
-                    {questionErrors[questionIndex]}
+                    {questionErrors[index]}
                   </div>
                 )}
 
                 <div className="space-y-4">
                   <div className="mb-4">
                     <label
-                      htmlFor={`question-${questionIndex}`}
+                      htmlFor={`question-${index}`}
                       className="block text-sm font-medium text-gray-700 mb-1"
                     >
                       Nội dung câu hỏi <span className="text-red-500">*</span>
                     </label>
-                    <input
-                      type="text"
-                      id={`question-${questionIndex}`}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    <textarea
+                      id={`question-${index}`}
+                      placeholder="Nhập nội dung câu hỏi"
                       value={question.question}
-                      onChange={(e) => handleQuestionChange(questionIndex, 'question', e.target.value)}
-                      required
+                      onChange={(e) => handleQuestionChange(index, 'question', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                      rows={2}
                     />
                   </div>
                   
                   <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Loại câu hỏi
+                    </label>
+                    <select
+                      value={question.equestion}
+                      onChange={(e) => handleQuestionChange(index, 'equestion', e.target.value as EQuestion)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    >
+                      <option value={EQuestion.SINGLE_CHOICE}>Chọn một đáp án</option>
+                      <option value={EQuestion.MULTIPLE_CHOICE}>Chọn nhiều đáp án</option>
+                      <option value={EQuestion.SHORT_ANSWER}>Câu trả lời ngắn</option>
+                    </select>
+                  </div>
+
+                  {/* Hiển thị tùy chọn dựa trên loại câu hỏi */}
+                  {question.equestion !== EQuestion.SHORT_ANSWER && (
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Các lựa chọn
+                      </label>
+                      {question.options.map((option, optionIndex) => (
+                        <div key={optionIndex} className="flex items-center mb-2">
+                          <input
+                            type={question.equestion === EQuestion.SINGLE_CHOICE ? "radio" : "checkbox"}
+                            id={`question-${index}-option-${optionIndex}`}
+                            name={`question-${index}-correct`}
+                            value={optionIndex.toString()}
+                            checked={question.correctAnswer.includes(optionIndex.toString())}
+                            onChange={(e) => {
+                              // Xử lý chọn đáp án đúng
+                              if (question.equestion === EQuestion.SINGLE_CHOICE) {
+                                // Chỉ cho phép chọn một đáp án với SINGLE_CHOICE
+                                handleQuestionChange(index, 'correctAnswer', [e.target.value]);
+                              } else {
+                                // Cho phép chọn nhiều đáp án với MULTIPLE_CHOICE
+                                const newCorrectAnswers = [...question.correctAnswer];
+                                if (e.target.checked) {
+                                  // Thêm vào danh sách đáp án đúng nếu được chọn
+                                  if (!newCorrectAnswers.includes(e.target.value)) {
+                                    newCorrectAnswers.push(e.target.value);
+                                  }
+                                } else {
+                                  // Loại bỏ khỏi danh sách đáp án đúng nếu bỏ chọn
+                                  const idx = newCorrectAnswers.indexOf(e.target.value);
+                                  if (idx !== -1) {
+                                    newCorrectAnswers.splice(idx, 1);
+                                  }
+                                }
+                                handleQuestionChange(index, 'correctAnswer', newCorrectAnswers);
+                              }
+                            }}
+                            className="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
+                          />
+                          <input
+                            type="text"
+                            placeholder={`Lựa chọn ${optionIndex + 1}`}
+                            value={option}
+                            onChange={(e) => {
+                              const newOptions = [...question.options];
+                              newOptions[optionIndex] = e.target.value;
+                              handleQuestionChange(index, 'options', newOptions);
+                            }}
+                            className="ml-2 w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                          />
+                        </div>
+                      ))}
+                      {question.options.length < 10 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newOptions = [...question.options, ''];
+                            handleQuestionChange(index, 'options', newOptions);
+                          }}
+                          className="mt-2 inline-flex items-center text-sm text-indigo-600"
+                        >
+                          <PlusCircle className="h-4 w-4 mr-1" /> Thêm lựa chọn
+                        </button>
+                      )}
+                    </div>
+                  )}
+                  
+                  {question.equestion === EQuestion.SHORT_ANSWER && (
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Đáp án đúng (nhập các đáp án có thể chấp nhận, mỗi đáp án trên một dòng)
+                      </label>
+                      <textarea
+                        placeholder="Nhập câu trả lời đúng"
+                        value={question.correctAnswer.join('\n')}
+                        onChange={(e) => {
+                          const answers = e.target.value.split('\n').filter(answer => answer.trim() !== '');
+                          handleQuestionChange(index, 'correctAnswer', answers);
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                        rows={3}
+                      />
+                    </div>
+                  )}
+
+                  <div className="mb-4">
                     <label
-                      htmlFor={`material-${questionIndex}`}
+                      htmlFor={`material-${index}`}
                       className="block text-sm font-medium text-gray-700 mb-1"
                     >
                       Hình ảnh cho câu hỏi (tùy chọn)
@@ -663,12 +845,12 @@ export default function CreateQuizPage() {
                       <div className="mt-2 relative">
                         <img 
                           src={question.material} 
-                          alt={`Hình ảnh câu hỏi ${questionIndex + 1}`} 
+                          alt={`Hình ảnh câu hỏi ${index + 1}`} 
                           className="max-h-48 max-w-full rounded border border-gray-300"
                         />
                         <button
                           type="button"
-                          onClick={() => removeImage(questionIndex)}
+                          onClick={() => removeImage(index)}
                           className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full hover:bg-red-600 transition"
                         >
                           <X className="h-4 w-4" />
@@ -678,16 +860,16 @@ export default function CreateQuizPage() {
                       <div className="mt-1 flex items-center">
                         <input
                           type="file"
-                          id={`material-${questionIndex}`}
+                          id={`material-${index}`}
                           accept="image/*"
                           className="sr-only"
-                          onChange={(e) => e.target.files && e.target.files[0] && handleImageUpload(questionIndex, e.target.files[0])}
+                          onChange={(e) => e.target.files && e.target.files[0] && handleImageUpload(index, e.target.files[0])}
                         />
                         <label
-                          htmlFor={`material-${questionIndex}`}
+                          htmlFor={`material-${index}`}
                           className="cursor-pointer bg-white py-2 px-3 border border-gray-300 rounded-md shadow-sm text-sm leading-4 font-medium text-gray-700 hover:bg-gray-50 focus:outline-none"
                         >
-                          {uploadingImage[questionIndex] ? (
+                          {uploadingImage[index] ? (
                             <span className="flex items-center">
                               <Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-700" />
                               Đang tải lên...
@@ -699,34 +881,6 @@ export default function CreateQuizPage() {
                         <p className="ml-2 text-xs text-gray-500">PNG, JPG, GIF, WEBP lên đến 5MB</p>
                       </div>
                     )}
-                  </div>
-
-                  <div className="space-y-3">
-                    <div className="text-sm font-medium text-gray-700">
-                      Các lựa chọn <span className="text-red-500">*</span>
-                    </div>
-
-                    {question.options.map((option, optionIndex) => (
-                      <div key={optionIndex} className="flex items-center">
-                        <input
-                          type="radio"
-                          id={`question-${questionIndex}-option-${optionIndex}`}
-                          name={`question-${questionIndex}-correct`}
-                          value={optionIndex.toString()}
-                          checked={question.correctAnswer === optionIndex.toString()}
-                          onChange={(e) => handleQuestionChange(questionIndex, 'correctAnswer', e.target.value)}
-                          className="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
-                        />
-                        <input
-                          type="text"
-                          value={option}
-                          onChange={(e) => handleQuestionChange(questionIndex, `option-${optionIndex}`, e.target.value)}
-                          className="ml-3 flex-grow px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                          placeholder={`Lựa chọn ${optionIndex + 1}`}
-                          required
-                        />
-                      </div>
-                    ))}
                   </div>
                 </div>
               </div>

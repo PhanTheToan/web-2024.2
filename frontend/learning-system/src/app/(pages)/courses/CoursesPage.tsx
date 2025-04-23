@@ -6,9 +6,13 @@ import CourseCard from "@/app/components/coursecard/CourseCard";
 import Pagination from "@/app/components/pagination/Pagination";
 import Sidebar from "@/app/components/sidebar/Sidebar";
 import { toast } from "react-hot-toast";
+import * as dotenv from "dotenv";
+
+dotenv.config();
 
 // API Base URL
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8082/api";
+const API_BASE_URL = process.env.BASE_URL;
+// console.log(API_BASE_URL);
 
 // Định nghĩa các interface
 interface Category {

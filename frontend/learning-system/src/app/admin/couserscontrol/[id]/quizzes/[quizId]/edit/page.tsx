@@ -7,17 +7,21 @@ import {
   Plus, Trash, Save, Edit, Image, X
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { Course } from '@/app/types';
-
+import { Course, EQuestion, QuizStatus } from '@/app/types';
+import dotenv from 'dotenv';
+dotenv.config();
 // API Base URL
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8082/api';
+const API_BASE_URL = process.env.BASE_URL || 'http://localhost:8082/api';
 
 // Define Quiz-related types based on API response
 interface QuizQuestion {
   question: string;
   options: string[];
-  correctAnswer: string;
+  correctAnswer: string[];
   material?: string | null;
+  equestion: EQuestion;
+  id?: string;
+  _id?: string;
 }
 
 interface Quiz {
@@ -29,6 +33,7 @@ interface Quiz {
   passingScore: number;
   timeLimit?: number;
   order?: number;
+  status?: QuizStatus; // Thêm trường status
   createdAt?: Date;
 }
 
@@ -53,6 +58,7 @@ export default function EditQuizPage() {
     timeLimit: 30, // in minutes
     passingScore: 70, // percentage
     order: 1,
+    status: QuizStatus.INACTIVE, // Default to inactive
   });
 
   // Questions state
@@ -62,13 +68,19 @@ export default function EditQuizPage() {
   const [currentQuestion, setCurrentQuestion] = useState<QuizQuestion>({
     question: '',
     options: ['', '', '', ''],
-    correctAnswer: '',
-    material: null
+    correctAnswer: [],
+    material: null,
+    equestion: EQuestion.SINGLE_CHOICE
   });
 
   // Track if we're editing an existing question
   const [editingQuestionIndex, setEditingQuestionIndex] = useState<number | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
+
+  // Debug state changes
+  useEffect(() => {
+    console.log("Questions array updated, now contains:", questions.length, "items");
+  }, [questions]);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -163,16 +175,31 @@ export default function EditQuizPage() {
         timeLimit: quizData.timeLimit || 30,
         passingScore: quizData.passingScore || 70,
         order: quizData.order || 1,
+        status: quizData.status || QuizStatus.INACTIVE,
       });
       
       // Set questions
       if (Array.isArray(quizData.questions)) {
-        setQuestions(quizData.questions.map((q: QuizQuestion) => ({
-          question: q.question,
-          options: q.options || [],
-          correctAnswer: q.correctAnswer,
-          material: q.material || null
-        })));
+        setQuestions(quizData.questions.map((q: QuizQuestion) => {
+          // Ensure correctAnswer is always an array 
+          let correctAnswerArray: string[] = [];
+          
+          if (Array.isArray(q.correctAnswer)) {
+            correctAnswerArray = [...q.correctAnswer];
+          } else if (typeof q.correctAnswer === 'string') {
+            correctAnswerArray = [q.correctAnswer];
+          }
+          
+          return {
+            question: q.question,
+            options: q.options || [],
+            correctAnswer: correctAnswerArray,
+            material: q.material || null,
+            equestion: q.equestion || EQuestion.SINGLE_CHOICE,
+            id: q._id,
+            _id: q._id
+          };
+        }));
       }
       
     } catch (error) {
@@ -195,12 +222,37 @@ export default function EditQuizPage() {
   };
 
   // Handler for current question changes
-  const handleQuestionChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleQuestionChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setCurrentQuestion({
-      ...currentQuestion,
-      [name]: value,
-    });
+    
+    // Xử lý đặc biệt khi thay đổi loại câu hỏi
+    if (name === 'equestion') {
+      const newType = value as EQuestion;
+      console.log(`Đang chuyển loại câu hỏi sang: ${newType}`);
+      
+      // Reset correctAnswer khi chuyển đổi loại câu hỏi
+      let newCorrectAnswer: string[] = [];
+      
+      if (newType === EQuestion.MULTIPLE_CHOICE) {
+        newCorrectAnswer = []; // Multi-choice: array
+      } else if (newType === EQuestion.SHORT_ANSWER) {
+        newCorrectAnswer = []; // Short answer: array
+      } else {
+        newCorrectAnswer = []; // Single choice: empty array
+      }
+      
+      setCurrentQuestion({
+        ...currentQuestion,
+        equestion: newType,
+        correctAnswer: newCorrectAnswer
+      });
+    } else {
+      // Xử lý các thay đổi khác
+      setCurrentQuestion({
+        ...currentQuestion,
+        [name]: value,
+      });
+    }
   };
 
   // Handler for option changes
@@ -213,11 +265,63 @@ export default function EditQuizPage() {
     });
   };
 
-  // Handler for correct answer selection
-  const handleCorrectAnswerChange = (option: string) => {
+  // Handler for correct answer selection (single choice)
+  const handleCorrectAnswerChange = (optionIndex: number) => {
+    // For single choice, store the selected option value
+    const option = currentQuestion.options[optionIndex];
+    if (!option || !option.trim()) return; // Không cho phép chọn option trống
+    
+    console.log(`Đã chọn đáp án đơn: ${option} tại vị trí ${optionIndex}`);
+    
+    setCurrentQuestion(prev => ({
+      ...prev,
+      correctAnswer: [option]
+    }));
+  };
+
+  // Handler for multiple choice answer selection (toggle selection)
+  const handleMultipleChoiceAnswerChange = (optionIndex: number) => {
+    const option = currentQuestion.options[optionIndex];
+    if (!option || !option.trim()) return; // Không cho phép chọn option trống
+    
+    console.log(`Đang xử lý đáp án multiple choice: ${option}`);
+    
+    // Sử dụng functional update để đảm bảo luôn làm việc với state mới nhất
+    setCurrentQuestion(prev => {
+      // Always work with array
+      const currentAnswers = [...prev.correctAnswer];
+      
+      // Toggle the selection
+      if (currentAnswers.includes(option)) {
+        // Remove if already selected
+        console.log(`Loại bỏ đáp án: ${option}`);
+        return {
+          ...prev,
+          correctAnswer: currentAnswers.filter(a => a !== option)
+        };
+      } else {
+        // Add if not selected
+        console.log(`Thêm đáp án: ${option}`);
+        return {
+          ...prev,
+          correctAnswer: [...currentAnswers, option]
+        };
+      }
+    });
+  };
+
+  // Handle short answer input
+  const handleShortAnswerChange = (value: string) => {
+    // For short answer, we store an array of acceptable answers
+    // Split by new lines and filter out empty lines
+    const answers = value.split('\n').filter(a => a.trim());
+    
+    console.log(`Đáp án ngắn được cập nhật:`, answers);
+    
+    // Set new array of answers
     setCurrentQuestion({
       ...currentQuestion,
-      correctAnswer: option,
+      correctAnswer: [...answers] 
     });
   };
 
@@ -291,22 +395,30 @@ export default function EditQuizPage() {
     toast.success('Đã xóa hình ảnh');
   };
 
-  // Load a question for editing
-  const editQuestion = (index: number) => {
-    const questionToEdit = questions[index];
-    
+  const loadQuestion = (question: QuizQuestion) => {
     // Make sure we have 4 options, filling empty ones as needed
-    const options = [...questionToEdit.options];
+    const options = [...question.options];
     while (options.length < 4) {
       options.push('');
     }
     
+    // Tạo một bản sao mới hoàn toàn của câu hỏi để tránh tham chiếu đến dữ liệu cũ
     setCurrentQuestion({
-      question: questionToEdit.question,
+      question: question.question,
       options: options,
-      correctAnswer: questionToEdit.correctAnswer,
+      // Tạo bản sao của đáp án để tránh tham chiếu
+      correctAnswer: Array.isArray(question.correctAnswer) 
+        ? [...question.correctAnswer] 
+        : question.correctAnswer ? [question.correctAnswer as string] : [], // Convert to array if needed
+      material: question.material || null,
+      equestion: question.equestion || EQuestion.SINGLE_CHOICE
     });
-    
+  }
+
+  // Load a question for editing
+  const editQuestion = (index: number) => {
+    const questionToEdit = questions[index];
+    loadQuestion(questionToEdit);
     setEditingQuestionIndex(index);
     setIsEditMode(true);
     
@@ -319,59 +431,90 @@ export default function EditQuizPage() {
     setCurrentQuestion({
       question: '',
       options: ['', '', '', ''],
-      correctAnswer: '',
+      correctAnswer: [],
+      material: null,
+      equestion: EQuestion.SINGLE_CHOICE
     });
     
     setEditingQuestionIndex(null);
     setIsEditMode(false);
   };
 
-  // Add a new question or update existing one
+  // Reset the question form to default state
+  const resetQuestionForm = () => {
+    setCurrentQuestion({
+      question: '',
+      options: ['', '', '', ''],
+      correctAnswer: [],
+      material: null,
+      equestion: EQuestion.SINGLE_CHOICE
+    });
+    setIsEditMode(false);
+    setEditingQuestionIndex(null);
+  };
+
+  // Add or update question in the list
   const addOrUpdateQuestion = () => {
-    // Validate the question
+    // Validation before adding
     if (!currentQuestion.question.trim()) {
-      toast.error('Vui lòng nhập câu hỏi');
+      toast.error('Vui lòng nhập nội dung câu hỏi');
       return;
     }
 
-    // Ensure we have at least 2 valid options
-    const validOptions = currentQuestion.options.filter(opt => opt.trim() !== '');
-    if (validOptions.length < 2) {
-      toast.error('Vui lòng nhập ít nhất 2 phương án trả lời');
-      return;
+    const questionToAdd = { ...currentQuestion }; // Clone to avoid mutation
+
+    // Validate by question type
+    if (questionToAdd.equestion === EQuestion.SHORT_ANSWER) {
+      if (!questionToAdd.correctAnswer || questionToAdd.correctAnswer.length === 0) {
+        toast.error('Vui lòng nhập đáp án đúng cho câu hỏi');
+        return;
+      }
+    } else {
+      // For multiple/single choice
+      if (!questionToAdd.options || questionToAdd.options.length < 2 || questionToAdd.options.some(o => !o.trim())) {
+        toast.error('Vui lòng nhập ít nhất 2 lựa chọn và không để trống lựa chọn nào');
+        return;
+      }
+
+      // Check if correctAnswer is set based on question type
+      if (questionToAdd.equestion === EQuestion.SINGLE_CHOICE) {
+        if (!questionToAdd.correctAnswer || questionToAdd.correctAnswer.length === 0) {
+          toast.error('Vui lòng chọn đáp án đúng cho câu hỏi một lựa chọn');
+          return;
+        }
+      } else if (questionToAdd.equestion === EQuestion.MULTIPLE_CHOICE) {
+        if (questionToAdd.correctAnswer.length === 0) {
+          toast.error('Vui lòng chọn ít nhất một đáp án đúng cho câu hỏi nhiều lựa chọn');
+          return;
+        }
+      }
     }
 
-    // Ensure a correct answer is selected
-    if (!currentQuestion.correctAnswer) {
-      toast.error('Vui lòng chọn đáp án đúng');
-      return;
-    }
-
+    // Create updated question with all final data
     const updatedQuestion = {
-      ...currentQuestion,
-      options: validOptions,
+      ...questionToAdd,
+      id: questionToAdd.id || `temp-${Date.now()}`, // Use existing ID or generate temp one
     };
     
-    if (isEditMode && editingQuestionIndex !== null) {
+    console.log('Lưu câu hỏi:', updatedQuestion);
+
+    // Update or add based on mode
+    if (isEditMode) {
       // Update existing question
-      const updatedQuestions = [...questions];
-      updatedQuestions[editingQuestionIndex] = updatedQuestion;
-      setQuestions(updatedQuestions);
-      toast.success('Cập nhật câu hỏi thành công');
-      
-      // Reset form
-      cancelEditing();
+      setQuestions(prevQuestions => 
+        prevQuestions.map((q, idx) => 
+          idx === editingQuestionIndex ? updatedQuestion : q
+        )
+      );
+      toast.success('Câu hỏi đã được cập nhật');
     } else {
       // Add new question
-      setQuestions([...questions, updatedQuestion]);
-      
-      // Reset form after adding
-      setCurrentQuestion({
-        question: '',
-        options: ['', '', '', ''],
-        correctAnswer: '',
-      });
+      setQuestions(prevQuestions => [...prevQuestions, updatedQuestion]);
+      toast.success('Câu hỏi đã được thêm mới');
     }
+
+    // Reset form for next question
+    resetQuestionForm();
   };
 
   // Remove a question from the list
@@ -402,9 +545,49 @@ export default function EditQuizPage() {
         throw new Error('Vui lòng nhập tiêu đề bài kiểm tra');
       }
 
-      if (questions.length === 0) {
+      // Kiểm tra nếu đang có câu hỏi đang soạn chưa thêm vào danh sách
+      let finalQuestions = [...questions];
+      let hasUnsavedQuestion = false;
+
+      // Nếu câu hỏi đang soạn có nội dung
+      if (currentQuestion.question.trim()) {
+        // Tạo bản sao của câu hỏi hiện tại để kiểm tra
+        const questionToCheck = { ...currentQuestion };
+        
+        // Kiểm tra theo loại câu hỏi
+        if (questionToCheck.equestion === EQuestion.SHORT_ANSWER) {
+          // Với câu trả lời ngắn, yêu cầu ít nhất một đáp án
+          if (questionToCheck.correctAnswer.length > 0) {
+            hasUnsavedQuestion = true;
+          }
+        } else {
+          // Với câu hỏi trắc nghiệm, yêu cầu ít nhất 2 lựa chọn và một đáp án đúng
+          const validOptions = questionToCheck.options.filter(opt => opt.trim() !== '');
+          if (validOptions.length >= 2 && questionToCheck.correctAnswer.length > 0) {
+            // Lọc bỏ các lựa chọn trống
+            questionToCheck.options = validOptions;
+            hasUnsavedQuestion = true;
+          }
+        }
+        
+        // Nếu câu hỏi hợp lệ, thêm vào danh sách
+        if (hasUnsavedQuestion) {
+          // Tạo ID tạm thời nếu cần
+          if (!questionToCheck.id) {
+            questionToCheck.id = `temp-${Date.now()}`;
+          }
+          
+          console.log("Đang tự động thêm câu hỏi đang soạn vào danh sách trước khi lưu:", questionToCheck);
+          finalQuestions = [...finalQuestions, questionToCheck];
+        }
+      }
+
+      // Kiểm tra nếu không có câu hỏi nào
+      if (finalQuestions.length === 0) {
         throw new Error('Vui lòng thêm ít nhất một câu hỏi');
       }
+      
+      console.log("Tổng số câu hỏi trước khi gửi:", finalQuestions.length);
 
       // Prepare request data for API
       const requestData = {
@@ -413,15 +596,29 @@ export default function EditQuizPage() {
         order: quizInfo.order,
         passingScore: quizInfo.passingScore,
         timeLimit: quizInfo.timeLimit,
-        questions: questions.map(q => ({
-          question: q.question,
-          options: q.options,
-          correctAnswer: q.correctAnswer,
-          material: q.material || null
-        }))
+        status: quizInfo.status,
+        questions: finalQuestions.map((q, index) => {
+          console.log(`Đang map câu hỏi ${index + 1}, correctAnswer:`, q.correctAnswer);
+          
+          // Đảm bảo đáp án nhiều lựa chọn là mảng, đáp án đơn là mảng có 1 phần tử
+          let formattedAnswer = [...q.correctAnswer]; // Luôn lấy bản sao để tránh thay đổi state gốc
+          
+          if (q.equestion === EQuestion.SINGLE_CHOICE && formattedAnswer.length > 1) {
+            // Nếu là câu hỏi đơn lựa chọn nhưng có nhiều đáp án, chỉ lấy đáp án đầu tiên
+            formattedAnswer = formattedAnswer.slice(0, 1);
+          }
+          
+          return {
+            question: q.question,
+            options: q.options,
+            correctAnswer: formattedAnswer,
+            material: q.material || null,
+            equestion: q.equestion
+          };
+        })
       };
 
-      console.log("Updating quiz with data:", requestData);
+      console.log("Dữ liệu gửi đi:", JSON.stringify(requestData, null, 2));
       
       // Use the update-quiz API from screenshot
       const response = await fetch(`${API_BASE_URL}/course/update-quiz/${quizId}?courseId=${courseId}`, {
@@ -464,6 +661,59 @@ export default function EditQuizPage() {
     }
   };
   
+  // Handler for question list display
+  const renderQuestionList = () => {
+    return questions.map((question, index) => (
+      <div key={index} className="border rounded-md p-4 bg-gray-50">
+        <div className="flex justify-between items-start">
+          <div className="flex-1 pr-4">
+            <div className="font-medium mb-2">
+              Câu {index + 1}: {question.question}
+            </div>
+            
+            <div className="space-y-1 pl-4 text-sm">
+              {question.equestion === EQuestion.SHORT_ANSWER ? (
+                <div className="text-green-600">
+                  Đáp án: {question.correctAnswer.join(', ')}
+                </div>
+              ) : (
+                question.options.map((option, optIdx) => {
+                  const isCorrect = question.correctAnswer.includes(option);
+                  
+                  return option && (
+                    <div key={optIdx} className={isCorrect ? 'text-green-600 font-medium' : 'text-gray-600'}>
+                      {isCorrect && (
+                        <CheckCircle className="w-4 h-4 inline-block mr-1 text-green-600" />
+                      )}
+                      {option}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+          
+          <div className="flex space-x-2">
+            <button 
+              type="button"
+              onClick={() => editQuestion(index)}
+              className="text-blue-600 hover:text-blue-800"
+            >
+              <Edit className="w-5 h-5" />
+            </button>
+            <button 
+              type="button"
+              onClick={() => removeQuestion(index)}
+              className="text-red-600 hover:text-red-800"
+            >
+              <Trash className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+      </div>
+    ));
+  };
+
   if (loading) {
     return (
       <div className="p-6 max-w-5xl mx-auto">
@@ -576,7 +826,7 @@ export default function EditQuizPage() {
               ></textarea>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label htmlFor="passingScore" className="block text-sm font-medium text-gray-700 mb-1">
                   Điểm đạt (%) <span className="text-red-500">*</span>
@@ -607,6 +857,41 @@ export default function EditQuizPage() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500"
                 />
               </div>
+              
+              <div>
+                <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">
+                  Trạng thái
+                  <span className="ml-1 text-gray-400 font-normal">(Ảnh hưởng đến khả năng truy cập của học viên)</span>
+                </label>
+                <select
+                  id="status"
+                  name="status"
+                  value={quizInfo.status}
+                  onChange={handleQuizInfoChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                >
+                  <option value={QuizStatus.ACTIVE}>Kích hoạt</option>
+                  <option value={QuizStatus.INACTIVE}>Không kích hoạt</option>
+                </select>
+                <div className="mt-2 flex items-center text-sm">
+                  {quizInfo.status === QuizStatus.ACTIVE ? (
+                    <div className="flex items-center text-green-600">
+                      <CheckCircle className="w-4 h-4 mr-1" />
+                      <span>Bài kiểm tra đang được kích hoạt</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center text-gray-500">
+                      <AlertCircle className="w-4 h-4 mr-1" />
+                      <span>Bài kiểm tra đang bị vô hiệu hóa</span>
+                    </div>
+                  )}
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  {quizInfo.status === QuizStatus.ACTIVE 
+                    ? "Học viên có thể làm bài kiểm tra này nếu đã hoàn thành các nội dung trước đó."
+                    : "Học viên sẽ không thấy hoặc không thể làm bài kiểm tra này khi đang học khóa học."}
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -618,47 +903,7 @@ export default function EditQuizPage() {
           {/* Questions List */}
           {questions.length > 0 ? (
             <div className="space-y-6 mb-8">
-              {questions.map((question, index) => (
-                <div key={index} className="border rounded-md p-4 bg-gray-50">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1 pr-4">
-                      <div className="font-medium mb-2">
-                        Câu {index + 1}: {question.question}
-                      </div>
-                      
-                      <div className="space-y-1 pl-4">
-                        {question.options.map((option, optIdx) => (
-                          option && (
-                            <div key={optIdx} className={`text-sm ${option === question.correctAnswer ? 'text-green-600 font-medium' : 'text-gray-600'}`}>
-                              {option === question.correctAnswer && (
-                                <CheckCircle className="w-4 h-4 inline-block mr-1 text-green-600" />
-                              )}
-                              {option}
-                            </div>
-                          )
-                        ))}
-                      </div>
-                    </div>
-                    
-                    <div className="flex space-x-2">
-                      <button 
-                        type="button"
-                        onClick={() => editQuestion(index)}
-                        className="text-blue-600 hover:text-blue-800"
-                      >
-                        <Edit className="w-5 h-5" />
-                      </button>
-                      <button 
-                        type="button"
-                        onClick={() => removeQuestion(index)}
-                        className="text-red-600 hover:text-red-800"
-                      >
-                        <Trash className="w-5 h-5" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
+              {renderQuestionList()}
             </div>
           ) : (
             <div className="text-center py-8 bg-gray-50 rounded-md mb-6">
@@ -739,46 +984,74 @@ export default function EditQuizPage() {
                 )}
               </div>
               
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Phương án trả lời <span className="text-red-500">*</span>
-                </label>
-                
-                {currentQuestion.options.map((option, idx) => (
-                  <div key={idx} className="flex items-center mb-2">
-                    <span className="w-6 text-sm text-gray-500">{idx + 1}.</span>
-                    <input
-                      type="text"
-                      value={option}
-                      onChange={(e) => handleOptionChange(idx, e.target.value)}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-                      placeholder={`Phương án ${idx + 1}`}
-                    />
-                  </div>
-                ))}
-              </div>
-              
-              <div>
-                <label htmlFor="correctAnswer" className="block text-sm font-medium text-gray-700 mb-1">
-                  Đáp án đúng <span className="text-red-500">*</span>
+              {/* Question Type Selection */}
+              <div className="mb-4">
+                <label htmlFor="equestion" className="block text-sm font-medium text-gray-700 mb-1">
+                  Loại câu hỏi <span className="text-red-500">*</span>
                 </label>
                 <select
-                  id="correctAnswer"
-                  name="correctAnswer"
-                  value={currentQuestion.correctAnswer}
-                  onChange={(e) => handleCorrectAnswerChange(e.target.value)}
+                  id="equestion"
+                  name="equestion"
+                  value={currentQuestion.equestion}
+                  onChange={handleQuestionChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500"
                 >
-                  <option value="">Chọn đáp án đúng</option>
-                  {currentQuestion.options.map((option, idx) => (
-                    option.trim() ? (
-                      <option key={idx} value={option}>
-                        {option}
-                      </option>
-                    ) : null
-                  ))}
+                  <option value={EQuestion.SINGLE_CHOICE}>Chọn một đáp án</option>
+                  <option value={EQuestion.MULTIPLE_CHOICE}>Chọn nhiều đáp án</option>
+                  <option value={EQuestion.SHORT_ANSWER}>Câu trả lời ngắn</option>
                 </select>
               </div>
+              
+              {/* Answer options based on question type */}
+              {currentQuestion.equestion === EQuestion.SHORT_ANSWER ? (
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Các đáp án đúng (mỗi đáp án trên một dòng)
+                  </label>
+                  <textarea
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                    rows={4}
+                    value={currentQuestion.correctAnswer.join('\n')}
+                    onChange={(e) => handleShortAnswerChange(e.target.value)}
+                    placeholder="Nhập các đáp án được chấp nhận, mỗi đáp án trên một dòng"
+                  />
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Các phương án trả lời <span className="text-red-500">*</span>
+                  </label>
+                  
+                  {currentQuestion.options.map((option, idx) => (
+                    <div key={idx} className="flex items-center mb-2">
+                      <input
+                        type={currentQuestion.equestion === EQuestion.MULTIPLE_CHOICE ? "checkbox" : "radio"}
+                        name="correct-answer"
+                        className="mr-2 text-primary-600 focus:ring-primary-500"
+                        checked={currentQuestion.correctAnswer.includes(option)}
+                        onChange={() => 
+                          currentQuestion.equestion === EQuestion.MULTIPLE_CHOICE
+                            ? handleMultipleChoiceAnswerChange(idx)
+                            : handleCorrectAnswerChange(idx)
+                        }
+                        disabled={!option.trim()}
+                      />
+                      <input
+                        type="text"
+                        value={option}
+                        onChange={(e) => handleOptionChange(idx, e.target.value)}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                        placeholder={`Phương án ${idx + 1}`}
+                      />
+                    </div>
+                  ))}
+                  <p className="text-sm text-gray-500 mt-1">
+                    {currentQuestion.equestion === EQuestion.MULTIPLE_CHOICE
+                      ? "Chọn các đáp án đúng bằng cách tích vào các ô tương ứng."
+                      : "Chọn đáp án đúng bằng cách nhấp vào nút tròn bên trái."}
+                  </p>
+                </div>
+              )}
               
               <div className="flex justify-end space-x-3">
                 {isEditMode && (

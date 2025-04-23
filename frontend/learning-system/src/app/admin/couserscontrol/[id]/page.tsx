@@ -4,22 +4,83 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { 
   ArrowLeft, Edit, Trash, BookOpen, DollarSign, 
-  BarChart2, Star, Calendar, Users, Clock, FileText, 
+  BarChart2, Star,  Users, Clock, FileText, 
   Eye, MoveUp, MoveDown, AlertTriangle, CheckCircle2,
   ArrowUpDown, Plus, UserMinus, UserPlus,
   Loader2, Trash2
 } from 'lucide-react';
-import { User } from '@/app/types';
 import { toast } from 'react-hot-toast';
 import { courseService } from '@/services/courseService';
-
+import dotenv from 'dotenv';
+dotenv.config();
 // API Base URL
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8082/api';
+const API_BASE_URL = process.env.BASE_URL || 'http://localhost:8082/api';
+
+// Định nghĩa interfaces cho API response mới
+interface LessonResponse {
+  id: string;
+  courseId: string;
+  title: string;
+  shortTile: string;
+  content: string;
+  videoUrl: string;
+  materials: string[];
+  status: string | null;
+  order: number;
+  timeLimit: number;
+  createdAt: number[];
+  updateAt: number[];
+}
+
+interface QuizQuestion {
+  question: string;
+  material: string | null;
+  options: string[];
+  correctAnswer: string[];
+  equestion: string;
+}
+
+interface QuizResponse {
+  id: string;
+  courseId: string;
+  title: string;
+  description: string | null;
+  status: string | null;
+  order: number;
+  passingScore: number;
+  timeLimit: number;
+  questions: QuizQuestion[];
+  createdAt: number[];
+  updateAt: number[];
+}
+
+interface LessonQuizResponse {
+  lessons: LessonResponse[];
+  quizzes: QuizResponse[];
+}
+
+interface LessonQuizApiResponse {
+  headers: Record<string, unknown>;
+  body: LessonQuizResponse;
+  statusCode: string;
+  statusCodeValue: number;
+}
 
 // Extend the User interface to include properties for student progress
-interface ExtendedUser extends User {
+interface ExtendedUser {
+  _id: string;
+  username?: string;
+  email?: string;
   enrolledAt?: string | Date;
   progress?: number;
+  status?: string;
+  avatar?: string;
+  fullName?: string;
+  name?: string;
+  firstName?: string;
+  lastName?: string;
+  role?: string;
+  // Add any other properties that might be needed
 }
 
 interface ContentItem {
@@ -28,6 +89,7 @@ interface ContentItem {
   description?: string;
   type: 'lesson' | 'quiz';
   order?: number;
+  status: string | null;
 }
 
 // Define interface for enrollment requests
@@ -42,27 +104,34 @@ interface EnrollmentRequest {
 
 // Update the interfaces to match the API response structure
 interface Lesson {
-  _id?: string;
-  lessonId?: string;
-  title?: string;
-  lessonTitle?: string;
-  lessonShortTitle?: string;
-  description?: string;
-  orderLesson?: number;
-  order?: number;
-  [key: string]: unknown; // Replace any with unknown
+  _id: string;
+  lessonId: string;
+  title: string;
+  lessonTitle: string;
+  lessonShortTitle: string;
+  description: string;
+  orderLesson: number;
+  order: number;
+  timeLimit?: number;
+  status: string | null;
+  videoUrl?: string;
+  materials?: string[];
+  createdAt?: string;
 }
 
 interface Quiz {
-  _id?: string;
-  quizId?: string;
-  title?: string;
-  description?: string;
-  orderQuiz?: number;
-  order?: number;
+  _id: string;
+  quizId: string;
+  title: string;
+  description: string;
+  orderQuiz: number;
+  order: number;
   questionCount?: number;
-  passingScore?: number;
-  [key: string]: unknown; // Replace any with unknown
+  passingScore: number;
+  timeLimit?: number;
+  status: string | null;
+  questions?: QuizQuestion[];
+  createdAt?: string;
 }
 
 interface Course {
@@ -89,6 +158,79 @@ interface Course {
   rating?: number;
 }
 
+// CourseAnalytics component to display completion rate and average progress
+const CourseAnalytics = ({ students }: { students: ExtendedUser[] }) => {
+  // Calculate completion rate and average progress
+  const calculateAnalytics = () => {
+    if (!students || students.length === 0) {
+      return {
+        registrations: 0,
+        completionRate: 0,
+        averageProgress: 0,
+        revenue: 0
+      };
+    }
+
+    const registrations = students.length;
+    
+    // Count completed students (progress = 100%)
+    const completedCount = students.filter(student => 
+      student.progress && student.progress >= 100
+    ).length;
+    
+    // Calculate completion rate
+    const completionRate = registrations > 0 
+      ? Math.round((completedCount / registrations) * 100) 
+      : 0;
+    
+    // Calculate average progress
+    const totalProgress = students.reduce((sum, student) => 
+      sum + (student.progress || 0), 0);
+    const averageProgress = registrations > 0 
+      ? Math.round(totalProgress / registrations) 
+      : 0;
+    
+    // Calculate revenue (assuming there's a price field in the course data)
+    const revenue = registrations * 699000; // Example fixed price, replace with actual price
+
+    return {
+      registrations,
+      completionRate,
+      averageProgress,
+      revenue
+    };
+  };
+
+  const analytics = calculateAnalytics();
+
+  return (
+    <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+      <h2 className="text-xl font-semibold mb-4 flex items-center">
+        <BarChart2 className="mr-2" /> 
+        Phân tích khóa học
+      </h2>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="p-4 bg-gray-50 rounded-lg">
+          <div className="text-sm text-gray-500">Lượt đăng ký</div>
+          <div className="text-2xl font-bold mt-1">{analytics.registrations}</div>
+        </div>
+        <div className="p-4 bg-gray-50 rounded-lg">
+          <div className="text-sm text-gray-500">Tỷ lệ hoàn thành</div>
+          <div className="text-2xl font-bold mt-1">{analytics.completionRate}%</div>
+        </div>
+        <div className="p-4 bg-gray-50 rounded-lg">
+          <div className="text-sm text-gray-500">Tiến độ trung bình</div>
+          <div className="text-2xl font-bold mt-1">{analytics.averageProgress}%</div>
+        </div>
+        <div className="p-4 bg-gray-50 rounded-lg">
+          <div className="text-sm text-gray-500">Doanh thu</div>
+          <div className="text-2xl font-bold mt-1">{analytics.revenue.toLocaleString()}VND</div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function CourseDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -97,9 +239,9 @@ export default function CourseDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('lessons');
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
   const [isReorderingLessons, setIsReorderingLessons] = useState(false);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
   const [isReorderingQuizzes, setIsReorderingQuizzes] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [savingOrder, setSavingOrder] = useState(false);
@@ -196,6 +338,7 @@ export default function CourseDetailPage() {
         throw new Error('Không thể tải thông tin khóa học');
       }
       
+      console.log("Response:", response);
       const courseData = await response.json();
       console.log("Course data:", courseData);
       
@@ -262,13 +405,15 @@ export default function CourseDetailPage() {
       
       setCourse(parsedCourse);
       
-      // Add analytics data
-      setAnalyticsData({
-        totalViews: parsedCourse.studentsCount * 10 || 100,
-        completionRate: Math.floor(Math.random() * 60) + 20,
-        averageProgress: Math.floor(Math.random() * 70) + 10,
-        revenueGenerated: (parsedCourse.price * parsedCourse.studentsCount).toFixed(0)
-      });
+      // Add analytics data if not already set by fetchStudents
+      if (!analyticsData) {
+        setAnalyticsData({
+          totalViews: parsedCourse.studentsCount * 10 || 100,
+          completionRate: 0,
+          averageProgress: 0,
+          revenueGenerated: (parsedCourse.price * parsedCourse.studentsCount).toFixed(0)
+        });
+      }
     } catch (error) {
       console.error("Error fetching course:", error);
       setError("Không thể tải khóa học. Vui lòng thử lại sau.");
@@ -279,8 +424,8 @@ export default function CourseDetailPage() {
 
   const fetchLessonsAndQuizzes = async (parsedCourse: Course) => {
     try {
-      // Fetch lessons and quizzes
-      const lessonsQuizResponse = await fetch(`${API_BASE_URL}/course/lesson_quiz/${courseId}`, {
+      // Sử dụng API mới từ screenshot thay vì lesson_quiz
+      const lessonsQuizResponse = await fetch(`${API_BASE_URL}/course/lessonandquiz/${courseId}`, {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -289,23 +434,69 @@ export default function CourseDetailPage() {
       });
       
       if (lessonsQuizResponse.ok) {
-        const lessonsQuizData = await lessonsQuizResponse.json();
-        console.log("Lessons and quizzes data:", lessonsQuizData);
+        const lessonsQuizData = await lessonsQuizResponse.json() as LessonQuizApiResponse;
+        console.log("Lessons and quizzes data from new API:", lessonsQuizData);
         
         if (lessonsQuizData.body) {
-          // Parse lessons
+          // Parse lessons từ format mới
           if (lessonsQuizData.body.lessons && Array.isArray(lessonsQuizData.body.lessons)) {
-            parsedCourse.lessons = lessonsQuizData.body.lessons;
+            parsedCourse.lessons = lessonsQuizData.body.lessons.map((lesson: LessonResponse) => ({
+              _id: lesson.id,
+              lessonId: lesson.id,
+              lessonTitle: lesson.title,
+              lessonShortTitle: lesson.shortTile || '',
+              title: lesson.title,
+              description: lesson.content?.substring(0, 100) + '...',
+              orderLesson: lesson.order,
+              order: lesson.order,
+              timeLimit: lesson.timeLimit,
+              status: lesson.status, // Thêm trạng thái cho lesson
+              videoUrl: lesson.videoUrl,
+              materials: lesson.materials,
+              createdAt: Array.isArray(lesson.createdAt) ? 
+                new Date(
+                  lesson.createdAt[0], 
+                  lesson.createdAt[1] - 1, 
+                  lesson.createdAt[2], 
+                  lesson.createdAt[3], 
+                  lesson.createdAt[4], 
+                  lesson.createdAt[5]
+                ).toISOString() : undefined
+            }));
           }
           
-          // Parse quizzes
+          // Parse quizzes từ format mới
           if (lessonsQuizData.body.quizzes && Array.isArray(lessonsQuizData.body.quizzes)) {
-            parsedCourse.quizzes = lessonsQuizData.body.quizzes;
+            parsedCourse.quizzes = lessonsQuizData.body.quizzes.map((quiz: QuizResponse) => ({
+              _id: quiz.id,
+              quizId: quiz.id,
+              title: quiz.title,
+              description: quiz.description || '',
+              orderQuiz: quiz.order,
+              order: quiz.order,
+              questionCount: quiz.questions?.length || 0,
+              passingScore: quiz.passingScore,
+              timeLimit: quiz.timeLimit,
+              status: quiz.status, // Thêm trạng thái cho quiz
+              questions: quiz.questions,
+              createdAt: Array.isArray(quiz.createdAt) ? 
+                new Date(
+                  quiz.createdAt[0], 
+                  quiz.createdAt[1] - 1, 
+                  quiz.createdAt[2], 
+                  quiz.createdAt[3], 
+                  quiz.createdAt[4], 
+                  quiz.createdAt[5]
+                ).toISOString() : undefined
+            }));
           }
         }
       } else {
-        console.error("Could not fetch lessons and quizzes");
+        console.error("Could not fetch lessons and quizzes:", await lessonsQuizResponse.text());
       }
+      
+      // Fetch students after getting lessons and quizzes
+      await fetchStudents(parsedCourse);
     } catch (error) {
       console.error("Error fetching lessons and quizzes:", error);
     }
@@ -330,6 +521,33 @@ export default function CourseDetailPage() {
         if (studentsData.body && Array.isArray(studentsData.body)) {
           parsedCourse.studentsEnrolled = studentsData.body;
           console.log("Students enrolled:", studentsData.body);
+          
+          // Calculate real analytics based on student data
+          if (studentsData.body.length > 0) {
+            // Calculate completion rate (percentage of students who completed 100%)
+            const completedStudents = studentsData.body.filter((student: ExtendedUser) => 
+              student.progress === 100 || student.status === "COMPLETED"
+            ).length;
+            const completionRate = studentsData.body.length > 0 
+              ? Math.round((completedStudents / studentsData.body.length) * 100) 
+              : 0;
+            
+            // Calculate average progress across all students
+            const totalProgress = studentsData.body.reduce((sum: number, student: ExtendedUser) => 
+              sum + (student.progress || 0), 0
+            );
+            const averageProgress = studentsData.body.length > 0 
+              ? Math.round(totalProgress / studentsData.body.length) 
+              : 0;
+            
+            // Update analytics data
+            setAnalyticsData({
+              totalViews: parsedCourse.studentsCount * 10 || 100,
+              completionRate: completionRate,
+              averageProgress: averageProgress,
+              revenueGenerated: (parsedCourse.price * parsedCourse.studentsCount).toFixed(0)
+            });
+          }
         }
       } else {
         console.error("Could not fetch enrolled students");
@@ -362,7 +580,8 @@ export default function CourseDetailPage() {
               title: lesson.lessonTitle || lesson.title || 'Bài học',
               description: lesson.lessonShortTitle || lesson.description || '',
               order: lesson.orderLesson || 0,
-              type: 'lesson'
+              type: 'lesson',
+              status: lesson.status // Lấy trạng thái từ lesson
             });
           }
         });
@@ -378,7 +597,8 @@ export default function CourseDetailPage() {
               title: quiz.title || `Bài kiểm tra ${quiz.orderQuiz || ''}`,
               description: `${quiz.questionCount || 0} câu hỏi • Điểm đạt: ${quiz.passingScore || 60}%`,
               order: quiz.orderQuiz || 999,
-              type: 'quiz'
+              type: 'quiz',
+              status: quiz.status // Lấy trạng thái từ quiz
             });
           }
         });
@@ -390,7 +610,7 @@ export default function CourseDetailPage() {
       setCourseContent(content);
       
       // Log the sorted content to verify
-      console.log("Sorted course content:", content);
+      console.log("Sorted course content with status:", content);
     } catch (error) {
       console.error("Error loading course content:", error);
     }
@@ -924,56 +1144,26 @@ export default function CourseDetailPage() {
     setContentOrderSaving(true);
     
     try {
-      // Separate lesson IDs and quiz IDs while preserving the overall order
-      const lessons = courseContent
-        .filter(item => item.type === 'lesson')
-        .map((item, index) => ({
-          lessonId: item._id,
-          orderLesson: index + 1
-        }));
-      
-      const quizzes = courseContent
-        .filter(item => item.type === 'quiz')
-        .map((item, index) => ({
-          quizId: item._id,
-          orderQuiz: index + 1
-        }));
-      
-      // Update lessons order
-      if (lessons.length > 0) {
-        const lessonResponse = await fetch(`${API_BASE_URL}/lesson/reorder`, {
+      // Lưu lần lượt thứ tự cho từng item thay vì gửi tất cả cùng lúc
+      for (let i = 0; i < courseContent.length; i++) {
+        const item = courseContent[i];
+        const newOrder = i + 1;
+        const itemType = item.type.toUpperCase(); // 'lesson' -> 'LESSON', 'quiz' -> 'QUIZ'
+        const itemId = item._id;
+        
+        console.log(`Updating order for ${itemType} ${itemId}: new order = ${newOrder}`);
+        
+        // Gọi API update-order với query params theo định dạng mới
+        const response = await fetch(`${API_BASE_URL}/update-order?itemType=${itemType}&itemId=${itemId}&newOrder=${newOrder}`, {
           method: 'PUT',
           credentials: 'include',
           headers: {
             'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            courseId: course.id,
-            lessons: lessons
-          })
+          }
         });
         
-        if (!lessonResponse.ok) {
-          throw new Error('Không thể cập nhật thứ tự bài học');
-        }
-      }
-      
-      // Update quizzes order
-      if (quizzes.length > 0) {
-        const quizResponse = await fetch(`${API_BASE_URL}/quiz/reorder`, {
-          method: 'PUT',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            courseId: course.id,
-            quizzes: quizzes
-          })
-        });
-        
-        if (!quizResponse.ok) {
-          throw new Error('Không thể cập nhật thứ tự bài kiểm tra');
+        if (!response.ok) {
+          throw new Error(`Không thể cập nhật thứ tự cho ${itemType} ${itemId}`);
         }
       }
       
@@ -1172,32 +1362,8 @@ export default function CourseDetailPage() {
             </div>
             
             {/* Analytics Section */}
-            {analyticsData && (
-              <div className="bg-white rounded-lg shadow-md p-6 mt-6">
-                <div className="flex items-center mb-4">
-                  <BarChart2 className="w-5 h-5 mr-2 text-indigo-600" />
-                  <h3 className="text-lg font-bold">Phân tích khóa học</h3>
-                </div>
-                
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <div className="text-sm text-gray-500 mb-1">Lượt đăng ký</div>
-                    <div className="text-xl font-bold">{course.studentsCount || (course.studentsEnrolled ? course.studentsEnrolled.length : 0)}</div>
-                  </div>
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <div className="text-sm text-gray-500 mb-1">Tỷ lệ hoàn thành</div>
-                    <div className="text-xl font-bold">{analyticsData.completionRate}%</div>
-                  </div>
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <div className="text-sm text-gray-500 mb-1">Tiến độ trung bình</div>
-                    <div className="text-xl font-bold">{analyticsData.averageProgress}%</div>
-                  </div>
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <div className="text-sm text-gray-500 mb-1">Doanh thu</div>
-                    <div className="text-xl font-bold">{analyticsData.revenueGenerated}VNĐ</div>
-                  </div>
-                </div>
-              </div>
+            {course && course.studentsEnrolled && (
+              <CourseAnalytics students={course.studentsEnrolled} />
             )}
           </div>
 
@@ -1356,6 +1522,7 @@ export default function CourseDetailPage() {
                     const lessonId = typeof lesson === 'string' ? lesson : (lesson._id || lesson.lessonId);
                     const lessonTitle = typeof lesson === 'string' ? `Bài học ${index + 1}` : (lesson.lessonTitle || lesson.title || `Bài học ${index + 1}`);
                     const lessonDescription = typeof lesson === 'object' ? (lesson.description || lesson.lessonShortTitle || '') : '';
+                    const lessonStatus = typeof lesson === 'object' ? lesson.status : null;
                     
                     return (
                       <div key={index} className="flex items-start p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
@@ -1363,7 +1530,16 @@ export default function CourseDetailPage() {
                           {index + 1}
                         </div>
                         <div className="flex-grow">
-                          <h4 className="font-medium text-gray-900">{lessonTitle}</h4>
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-medium text-gray-900">{lessonTitle}</h4>
+                            {/* Hiển thị badge trạng thái - null hoặc INACTIVE thì hiển thị "Không hoạt động" */}
+                            <span className={`px-2 py-0.5 text-xs rounded-full ${
+                              lessonStatus === 'ACTIVE' ? 'bg-green-100 text-green-800' : 
+                              'bg-gray-100 text-gray-800'
+                            }`}>
+                              {lessonStatus === 'ACTIVE' ? 'Hoạt động' : 'Không hoạt động'}
+                            </span>
+                          </div>
                           {lessonDescription && <p className="text-sm text-gray-500">{lessonDescription}</p>}
                         </div>
                         <div className="flex items-center ml-4">
@@ -1430,6 +1606,7 @@ export default function CourseDetailPage() {
                   course.quizzes.map((quiz, index) => {
                     const quizId = typeof quiz === 'string' ? quiz : (quiz.quizId || quiz._id);
                     const quizTitle = typeof quiz === 'object' && quiz.title ? quiz.title : `Bài kiểm tra ${index + 1}`;
+                    const quizStatus = typeof quiz === 'object' ? quiz.status : null;
                     
                     return (
                       <div key={index} className="flex items-start p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
@@ -1437,7 +1614,16 @@ export default function CourseDetailPage() {
                           {index + 1}
                         </div>
                         <div className="flex-grow">
-                          <h4 className="font-medium text-gray-900">{quizTitle}</h4>
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-medium text-gray-900">{quizTitle}</h4>
+                            {/* Hiển thị badge trạng thái - null hoặc INACTIVE thì hiển thị "Không hoạt động" */}
+                            <span className={`px-2 py-0.5 text-xs rounded-full ${
+                              quizStatus === 'ACTIVE' ? 'bg-green-100 text-green-800' : 
+                              'bg-gray-100 text-gray-800'
+                            }`}>
+                              {quizStatus === 'ACTIVE' ? 'Hoạt động' : 'Không hoạt động'}
+                            </span>
+                          </div>
                           <p className="text-sm text-gray-500">
                             {typeof quiz === 'object' && quiz.questionCount ? `${quiz.questionCount} câu hỏi` : 'Không có thông tin chi tiết'}
                           </p>
@@ -1577,6 +1763,13 @@ export default function CourseDetailPage() {
                               {isLesson ? 'Bài học' : 'Bài kiểm tra'}
                             </span>
                             <h4 className="font-medium text-gray-900">{itemTitle}</h4>
+                            {/* Hiển thị badge trạng thái - null hoặc INACTIVE thì hiển thị "Không hoạt động" */}
+                            <span className={`ml-2 px-2 py-0.5 text-xs rounded-full ${
+                              item.status === 'ACTIVE' ? 'bg-green-100 text-green-800' : 
+                              'bg-gray-100 text-gray-800'
+                            }`}>
+                              {item.status === 'ACTIVE' ? 'Hoạt động' : 'Không hoạt động'}
+                            </span>
                           </div>
                           {itemDescription && <p className="text-sm text-gray-500 mt-1">{itemDescription}</p>}
                           <div className="text-xs text-gray-400 mt-1">Thứ tự: {order}</div>
@@ -1635,84 +1828,126 @@ export default function CourseDetailPage() {
                 </div>
               </div>
 
-              <div className="space-y-4">
-                {!course?.studentsEnrolled || course.studentsEnrolled.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg">
-                    <p>Chưa có học viên nào đăng ký khóa học này</p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {course.studentsEnrolled.map((student) => {
-                      const studentId = typeof student === 'string' ? student : student._id;
-                      const studentName = typeof student !== 'string' 
-                        ? `${student.firstName || ''} ${student.lastName || ''}`.trim() || student.username || 'Học viên'
-                        : 'Học viên';
-                      const studentEmail = typeof student !== 'string' ? student.email : 'email@example.com';
-                      const enrolledDate = new Date((typeof student !== 'string' && student.enrolledAt) || Date.now());
-                      const progress = (typeof student !== 'string' && student.progress) || 0;
-                      
-                      return (
-                        <div key={studentId} className="bg-white p-4 rounded-lg shadow">
-                          <div className="flex items-start justify-between">
-                            <div className="flex items-start space-x-3">
-                              <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-semibold">
-                                {studentName.charAt(0).toUpperCase()}
-                              </div>
-                              <div>
-                                <h4 className="font-medium">{studentName}</h4>
-                                <p className="text-sm text-gray-500">{studentEmail}</p>
-                                <div className="mt-1 text-xs text-gray-400">
-                                  Đăng ký: {enrolledDate.toLocaleDateString('vi-VN')}
+              <div className="bg-white rounded-lg p-6 mb-6">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Học viên
+                        </th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Tiến độ
+                        </th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Ngày đăng ký
+                        </th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Trạng thái
+                        </th>
+                        <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Thao tác
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {!course?.studentsEnrolled || course.studentsEnrolled.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="px-6 py-4 text-center text-sm text-gray-500">
+                            Chưa có học viên nào đăng ký khóa học này
+                          </td>
+                        </tr>
+                      ) : (
+                        course.studentsEnrolled.map((student, index) => {
+                          const progress = student.progress || 0;
+                          return (
+                            <tr key={student._id || `student-${index}`}>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="flex items-center">
+                                  <div className="flex-shrink-0 h-10 w-10 bg-gray-200 rounded-full flex items-center justify-center">
+                                    {student.avatar ? (
+                                      <img className="h-10 w-10 rounded-full" src={student.avatar} alt={student.fullName || "Student"} />
+                                    ) : (
+                                      <span className="text-gray-500">{(student.fullName || "").charAt(0).toUpperCase()}</span>
+                                    )}
+                                  </div>
+                                  <div className="ml-4">
+                                    <div className="text-sm font-medium text-gray-900">{student.fullName || student.name || "Unknown"}</div>
+                                    <div className="text-sm text-gray-500">{student.email}</div>
+                                  </div>
                                 </div>
-                              </div>
-                            </div>
-                            <button 
-                              onClick={() => confirmStudentDelete(studentId, studentName, studentEmail)}
-                              className="text-red-500 hover:text-red-700 text-sm"
-                            >
-                              Xóa
-                            </button>
-                          </div>
-                          
-                          <div className="mt-4">
-                            <div className="flex justify-between items-center mb-1">
-                              <span className="text-sm font-medium">Tiến độ học tập</span>
-                              <span className="text-sm text-gray-600">{progress}%</span>
-                            </div>
-                            <div className="w-full bg-gray-200 rounded-full h-2">
-                              <div 
-                                className={`${
-                                  progress >= 80 
-                                    ? 'bg-green-500' 
-                                    : progress >= 30 
-                                      ? 'bg-yellow-500' 
-                                      : 'bg-red-500'
-                                } h-2 rounded-full`} 
-                                style={{ width: `${progress}%` }}
-                              ></div>
-                            </div>
-                            <div className="mt-2">
-                              <span className={`text-xs px-2 py-1 rounded-full ${
-                                progress === 100 
-                                  ? 'bg-green-100 text-green-800' 
-                                  : progress > 0 
-                                    ? 'bg-yellow-100 text-yellow-800' 
-                                    : 'bg-gray-100 text-gray-800'
-                              }`}>
-                                {progress === 100 
-                                  ? 'Hoàn thành' 
-                                  : progress > 0 
-                                    ? 'Đang học' 
-                                    : 'Chưa bắt đầu'
+                              </td>
+                              <td className="px-6 py-4">
+                                <div className="flex flex-col">
+                                  <div className="flex justify-between mb-1">
+                                    <span className="text-sm font-medium text-gray-700">
+                                      {progress}%
+                                    </span>
+                                    {progress === 100 && (
+                                      <span className="text-xs text-green-600 flex items-center">
+                                        <CheckCircle2 className="w-3 h-3 mr-1" />
+                                        Hoàn thành
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="w-full bg-gray-200 rounded-full h-2">
+                                    <div
+                                      className={`h-2 rounded-full ${
+                                        progress === 100 
+                                          ? 'bg-green-500' 
+                                          : progress >= 50 
+                                            ? 'bg-blue-500' 
+                                            : progress > 0
+                                              ? 'bg-orange-500'
+                                              : 'bg-gray-300'
+                                      }`}
+                                      style={{ width: `${progress}%` }}
+                                    ></div>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {student.enrolledAt 
+                                  ? new Date(student.enrolledAt).toLocaleDateString('vi-VN')
+                                  : 'N/A'
                                 }
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                  ${progress === 100 
+                                    ? 'bg-green-100 text-green-800' 
+                                    : progress >= 50 
+                                      ? 'bg-blue-100 text-blue-800' 
+                                      : progress > 0
+                                        ? 'bg-yellow-100 text-yellow-800'
+                                        : 'bg-gray-100 text-gray-800'
+                                  }`}>
+                                  {progress === 100 
+                                    ? 'Đã hoàn thành' 
+                                    : progress >= 50 
+                                      ? 'Đang học tích cực' 
+                                      : progress > 0
+                                        ? 'Đang học'
+                                        : 'Chưa bắt đầu'
+                                  }
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                <button
+                                  onClick={() => confirmStudentDelete(student._id || '', student.fullName || student.name || '', student.email || '')}
+                                  className="text-red-600 hover:text-red-900 flex items-center justify-end"
+                                >
+                                  <UserMinus className="w-4 h-4 mr-1" />
+                                  Xóa
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           )}

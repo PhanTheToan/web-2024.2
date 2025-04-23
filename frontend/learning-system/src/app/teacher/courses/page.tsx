@@ -4,7 +4,8 @@ import Link from 'next/link';
 import { Plus, Search, BookOpen, Users, Clock, GraduationCap } from 'lucide-react';
 import Image from 'next/image';
 import { toast } from 'react-hot-toast';
-
+import dotenv from 'dotenv';
+dotenv.config();
 // Định nghĩa interface cho Course
 interface Course {
   id: string;
@@ -22,7 +23,7 @@ interface Course {
 }
 
 // API Base URL
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8082/api';
+const API_BASE_URL = process.env.BASE_URL || 'http://localhost:8082/api';
 
 export default function TeacherCoursesPage() {
   const [courses, setCourses] = useState<Course[]>([]);

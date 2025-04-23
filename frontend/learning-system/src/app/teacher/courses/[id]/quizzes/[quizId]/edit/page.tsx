@@ -8,9 +8,10 @@ import {
 } from 'lucide-react';
 import { Course } from '@/app/types';
 import { toast } from 'react-hot-toast';
-
+import dotenv from 'dotenv';
+dotenv.config();
 // API Base URL
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8082/api';
+const API_BASE_URL = process.env.BASE_URL || 'http://localhost:8082/api';
 
 // Define Quiz-related types based on API response
 interface QuizQuestion {

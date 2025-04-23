@@ -8,9 +8,12 @@ import CourseItem from '@/app/components/courseitem/courseItem';
 import { BookOpen, Clock, Users, Star, CheckCircle, ClipboardCheck, PlayCircle, Lock } from 'lucide-react';
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import * as dotenv from "dotenv";
+
+dotenv.config();
 
 // API Base URL
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8082/api';
+const API_BASE_URL = process.env.BASE_URL;
 
 // Add interfaces for lesson and quiz responses
 interface LessonResponse {

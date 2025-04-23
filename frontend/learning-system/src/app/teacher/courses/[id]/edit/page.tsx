@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { ArrowLeft, Upload, X, Save, Loader2 } from 'lucide-react';
 import { CategoryItem } from '@/app/types';
 import { toast } from 'react-hot-toast';
-
+import dotenv from 'dotenv';
+dotenv.config();
 // Define the CourseData interface for the form
 interface CourseData {
   title: string;
@@ -53,7 +54,7 @@ export default function EditCoursePage() {
       setLoading(true);
       try {
         // Fetch course details via API
-        const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8082/api';
+        const API_BASE_URL = process.env.BASE_URL || 'http://localhost:8082/api';
         
         // Fetch course details
         const courseResponse = await fetch(`${API_BASE_URL}/course/info/${courseId}`, {

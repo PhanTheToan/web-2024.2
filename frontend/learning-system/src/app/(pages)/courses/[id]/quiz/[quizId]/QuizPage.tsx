@@ -3,17 +3,29 @@ import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "react-hot-toast";
-import { Clock, AlertTriangle, AlertCircle, CheckCircle, ChevronRight, BookOpen, Lock, PlayCircle } from "lucide-react";
+import { Clock, AlertTriangle, AlertCircle, CheckCircle, ChevronRight, BookOpen, Lock, PlayCircle, Check } from "lucide-react";
 import BreadcrumbContainer from "@/app/components/breadcrumb/BreadcrumbContainer";
+import * as dotenv from "dotenv";
+
+dotenv.config();
 
 // API Base URL
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8082/api';
+const API_BASE_URL = process.env.BASE_URL || 'http://localhost:8082/api';
 
 // Types for quiz data
 interface QuizQuestion {
   question: string;
-  options: string[];
-  correctAnswer?: string;
+  material?: string; // Tài liệu tham khảo (nếu có)
+  eQuestion: EQuestion; // Loại câu hỏi
+  options: string[]; // Danh sách đáp án
+  correctAnswer: string[] | string; // Đáp án đúng - có thể là array cho MULTIPLE_CHOICE hoặc string cho các loại khác
+}
+
+// Enum for question types
+enum EQuestion {
+  SINGLE_CHOICE = 'SINGLE_CHOICE', 
+  MULTIPLE_CHOICE = 'MULTIPLE_CHOICE', 
+  SHORT_ANSWER = 'SHORT_ANSWER'
 }
 
 // Add type definitions for API response items
@@ -64,6 +76,7 @@ interface QuizResult {
     isCorrect: boolean;
     correctAnswer?: string;
   }[];
+  passingScore: number;
 }
 
 // Interface for content items (lessons and quizzes)
@@ -125,10 +138,12 @@ interface QuizQuestionProps {
   question: string;
   options: string[];
   questionIndex: number;
-  selectedAnswer: string | null;
-  onSelectAnswer: (answer: string) => void;
+  selectedAnswer: string | string[] | null;
+  onSelectAnswer: (answer: string | string[]) => void;
   isSubmitted: boolean;
-  correctAnswer?: string;
+  correctAnswer?: string | string[];
+  questionType: EQuestion;
+  material?: string;
 }
 
 const QuizQuestion: React.FC<QuizQuestionProps> = ({
@@ -138,63 +153,152 @@ const QuizQuestion: React.FC<QuizQuestionProps> = ({
   selectedAnswer,
   onSelectAnswer,
   isSubmitted,
-  correctAnswer
+  correctAnswer,
+  questionType,
+  material
 }) => {
+  // Function to check if an option is selected for multiple choice
+  const isOptionSelected = (option: string): boolean => {
+    if (!selectedAnswer) return false;
+    
+    if (Array.isArray(selectedAnswer)) {
+      return selectedAnswer.includes(option);
+    } else {
+      return option === selectedAnswer;
+    }
+  };
+  
+  // Function to handle option selection based on question type
+  const handleOptionSelect = (option: string) => {
+    if (!isSubmitted) {
+      if (questionType === EQuestion.MULTIPLE_CHOICE) {
+        // For multiple choice, toggle selection
+        const currentSelections = Array.isArray(selectedAnswer) ? [...selectedAnswer] : [];
+        
+        if (currentSelections.includes(option)) {
+          // Remove if already selected
+          onSelectAnswer(currentSelections.filter(item => item !== option));
+        } else {
+          // Add to selections
+          onSelectAnswer([...currentSelections, option]);
+        }
+      } else {
+        // For single choice, just select the option
+        onSelectAnswer(option);
+      }
+    }
+  };
+  
+  // Function to check if answer is correct
+  const isCorrectAnswer = (option: string): boolean => {
+    if (!correctAnswer || !isSubmitted) return false;
+    
+    if (Array.isArray(correctAnswer)) {
+      return correctAnswer.includes(option);
+    } else {
+      return option === correctAnswer;
+    }
+  };
+  
   return (
     <div id={`question-${questionIndex}`} className="bg-white rounded-lg shadow-md p-6 mb-4">
       <h3 className="text-lg font-bold mb-4">
         Câu hỏi {questionIndex + 1}: {question}
       </h3>
-      <div className="space-y-3">
-        {options.map((option, index) => {
-          const isSelected = option === selectedAnswer;
-          let optionClassName = "p-4 border rounded-lg flex items-center";
-          
-          if (isSubmitted) {
-            if (option === correctAnswer) {
-              optionClassName += " bg-green-50 border-green-300";
-            } else if (isSelected && option !== correctAnswer) {
-              optionClassName += " bg-red-50 border-red-300";
+      
+      {material && (
+        <div className="mb-4 p-3 bg-gray-50 rounded-lg text-gray-700 border border-gray-200">
+          <p className="font-medium mb-1">Tài liệu tham khảo:</p>
+          <p>{material}</p>
+        </div>
+      )}
+      
+      {questionType === EQuestion.SHORT_ANSWER ? (
+        // Short answer input
+        <div className="mb-4">
+          <input
+            type="text"
+            className={`w-full p-3 border rounded-lg ${
+              isSubmitted ? 'bg-gray-100' : ''
+            }`}
+            placeholder="Nhập câu trả lời của bạn"
+            value={selectedAnswer as string || ''}
+            onChange={(e) => !isSubmitted && onSelectAnswer(e.target.value)}
+            disabled={isSubmitted}
+          />
+          {isSubmitted && (
+            <div className="mt-2 p-3 bg-blue-50 rounded-lg">
+              <p className="font-medium">Đáp án đúng:</p>
+              <p>{correctAnswer}</p>
+            </div>
+          )}
+        </div>
+      ) : (
+        // Multiple choice or single choice options
+        <div className="space-y-3">
+          {options.map((option, index) => {
+            const isSelected = isOptionSelected(option);
+            let optionClassName = "p-4 border rounded-lg flex items-center";
+            
+            if (isSubmitted) {
+              if (isCorrectAnswer(option)) {
+                optionClassName += " bg-green-50 border-green-300";
+              } else if (isSelected && !isCorrectAnswer(option)) {
+                optionClassName += " bg-red-50 border-red-300";
+              }
+            } else if (isSelected) {
+              optionClassName += " bg-blue-50 border-blue-300";
+            } else {
+              optionClassName += " hover:bg-gray-50";
             }
-          } else if (isSelected) {
-            optionClassName += " bg-blue-50 border-blue-300";
-          } else {
-            optionClassName += " hover:bg-gray-50";
-          }
-          
-          return (
-            <div 
-              key={index} 
-              className={optionClassName}
-              onClick={() => !isSubmitted && onSelectAnswer(option)}
-            >
-              <div className={`w-5 h-5 flex-shrink-0 rounded-full border mr-3 ${
-                isSelected ? 'bg-blue-500 border-blue-500' : 'border-gray-300'
-              }`}>
-                {isSelected && (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <div className="w-2 h-2 bg-white rounded-full"></div>
+            
+            return (
+              <div 
+                key={index} 
+                className={optionClassName}
+                onClick={() => handleOptionSelect(option)}
+              >
+                <div className={`w-5 h-5 flex-shrink-0 ${questionType === EQuestion.MULTIPLE_CHOICE ? 'rounded' : 'rounded-full'} border mr-3 ${
+                  isSelected ? 'bg-blue-500 border-blue-500' : 'border-gray-300'
+                }`}>
+                  {isSelected && (
+                    <div className="w-full h-full flex items-center justify-center">
+                      {questionType === EQuestion.MULTIPLE_CHOICE ? (
+                        <CheckCircle className="text-white w-3 h-3" />
+                      ) : (
+                        <div className="w-2 h-2 bg-white rounded-full"></div>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <span>{option}</span>
+                
+                {isSubmitted && (
+                  <div className="ml-auto">
+                    {isCorrectAnswer(option) ? (
+                      <CheckCircle className="text-green-500 w-5 h-5" />
+                    ) : (isSelected && !isCorrectAnswer(option)) ? (
+                      <AlertCircle className="text-red-500 w-5 h-5" />
+                    ) : null}
                   </div>
                 )}
               </div>
-              <span>{option}</span>
-              
-              {isSubmitted && (
-                <div className="ml-auto">
-                  {option === correctAnswer ? (
-                    <CheckCircle className="text-green-500 w-5 h-5" />
-                  ) : (isSelected && option !== correctAnswer) ? (
-                    <AlertCircle className="text-red-500 w-5 h-5" />
-                  ) : null}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };
+
+// Define an interface for API question data
+interface ApiQuizQuestion {
+  question: string;
+  options?: string[];
+  correctAnswer?: string | string[];
+  eQuestion?: EQuestion;
+  material?: string | null;
+}
 
 // Main Quiz Page component
 const QuizPage: React.FC = () => {
@@ -205,7 +309,7 @@ const QuizPage: React.FC = () => {
   
   const [quiz, setQuiz] = useState<Quiz | null>(null);
   const [course, setCourse] = useState<Course | null>(null);
-  const [selectedAnswers, setSelectedAnswers] = useState<Record<number, string>>({});
+  const [selectedAnswers, setSelectedAnswers] = useState<Record<number, string | string[]>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -430,7 +534,13 @@ const QuizPage: React.FC = () => {
         courseId: quizData.body.courseId,
         title: quizData.body.title,
         description: quizData.body.description,
-        questions: quizData.body.questions || [],
+        questions: (quizData.body.questions || []).map((q: ApiQuizQuestion) => ({
+          question: q.question,
+          options: q.options || [],
+          correctAnswer: q.correctAnswer || (q.eQuestion === EQuestion.MULTIPLE_CHOICE ? [] : ''),
+          eQuestion: q.eQuestion || EQuestion.SINGLE_CHOICE,
+          material: q.material || null
+        })),
         passingScore: quizData.body.passingScore || 70,
         timeLimit: quizData.body.timeLimit || 30,
         order: quizData.body.order || quizData.body.orderQuiz,
@@ -561,7 +671,7 @@ const QuizPage: React.FC = () => {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const handleSelectAnswer = (questionIndex: number, answer: string) => {
+  const handleSelectAnswer = (questionIndex: number, answer: string | string[]) => {
     setSelectedAnswers(prev => ({
       ...prev,
       [questionIndex]: answer
@@ -572,10 +682,53 @@ const QuizPage: React.FC = () => {
     if (!quiz) return { total: 0, answered: 0, unanswered: 0 };
     
     const total = quiz.questions.length;
-    const answered = Object.keys(selectedAnswers).length;
+    
+    // Count answered questions based on selected answers
+    // For multiple choice, an answer is considered "answered" if the array is not empty
+    // For short answer, an answer is considered "answered" if the string is not empty
+    const answered = Object.entries(selectedAnswers).reduce((count, [, answer]) => {
+      if (
+        (Array.isArray(answer) && answer.length > 0) || // Multiple choice with selections
+        (typeof answer === 'string' && answer.trim() !== '') || // Short answer or single choice with text
+        (answer !== null && answer !== undefined) // Any other valid answer
+      ) {
+        return count + 1;
+      }
+      
+      return count;
+    }, 0);
+    
     const unanswered = total - answered;
     
     return { total, answered, unanswered };
+  };
+
+  // Add function to update quiz progress using the API from the screenshot
+  const updateQuizProgress = async (newScore: number) => {
+    try {
+      // API shown in the screenshot
+      const response = await fetch(`${API_BASE_URL}/enrollments/update-quiz-progress?courseId=${courseId}&itemId=${quizId}&newScore=${newScore}`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        console.error('Failed to update quiz progress:', await response.text());
+        return false;
+      }
+
+      const data = await response.json();
+      console.log('Quiz progress update response:', data);
+      
+      // Return true if the update was successful
+      return data.statusCode === "OK" || data.body === "Cập nhật tiến độ thành công";
+    } catch (err) {
+      console.error('Error updating quiz progress:', err);
+      return false;
+    }
   };
 
   const handleSubmit = async () => {
@@ -590,14 +743,28 @@ const QuizPage: React.FC = () => {
     
     setIsSubmitting(true);
     try {
-      // Format answers for the API
+      // Format answers for the API according to the screenshot format
       const answers = Object.entries(selectedAnswers).map(([questionIndex, selectedAnswer]) => {
-        const question = quiz.questions[parseInt(questionIndex)];
+        const index = parseInt(questionIndex);
+        const question = quiz.questions[index];
+        
+        // Ensure selectedAnswer is always an array as shown in the screenshot
+        const formattedAnswer = Array.isArray(selectedAnswer) 
+          ? selectedAnswer 
+          : selectedAnswer !== null && selectedAnswer !== undefined 
+            ? [selectedAnswer.toString()] 
+            : [];
+        
         return {
           question: question.question,
-          selectedAnswer
+          selectedAnswer: formattedAnswer
         };
       });
+      
+      // Format request body according to the screenshot
+      const requestBody = {
+        answers: answers
+      };
       
       // Call the submit API with the formatted answers
       const response = await fetch(`${API_BASE_URL}/course/quiz/${quizId}/submit`, {
@@ -606,7 +773,7 @@ const QuizPage: React.FC = () => {
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ answers })
+        body: JSON.stringify(requestBody)
       });
       
       if (!response.ok) {
@@ -616,11 +783,30 @@ const QuizPage: React.FC = () => {
       const data = await response.json();
       console.log('Quiz submission response:', data);
       
-      // Process API response to match our QuizResult interface
-      const correctAnswers = data.body?.correctAnswers || 0;
+      // Process API response based on the format from the screenshot
+      const score = data.score || 0;
+      const passingScore = data.passingScore || quiz.passingScore;
+      const passed = data.passed === true;
+      const message = data.message || '';
+      const incorrectQuestions = data.incorrectQuestions || [];
+      
+      // Calculate correct answers based on total and incorrect count
       const totalQuestions = quiz.questions.length;
-      const score = Math.round((correctAnswers / totalQuestions) * 100);
-      const passed = score >= (quiz.passingScore || 70);
+      const correctAnswers = totalQuestions - incorrectQuestions.length;
+      
+      // Create a list of feedback items from the incorrectQuestions array
+      const feedback = quiz.questions.map((question, index) => {
+        // Check if this question index is in incorrectQuestions array
+        const isIncorrect = incorrectQuestions.includes(index);
+        
+        return {
+          questionIndex: index,
+          isCorrect: !isIncorrect,
+          correctAnswer: Array.isArray(question.correctAnswer) 
+            ? question.correctAnswer.join(', ') 
+            : question.correctAnswer as string
+        };
+      });
       
       // Create a QuizResult object
       const result: QuizResult = {
@@ -628,15 +814,25 @@ const QuizPage: React.FC = () => {
         totalQuestions,
         correctAnswers,
         passed,
-        feedback: data.body?.feedback || []
+        feedback,
+        passingScore
       };
       
       setQuizResult(result);
       
+      // If the quiz is passed, update the progress
+      if (passed) {
+        const progressUpdated = await updateQuizProgress(score);
+        if (progressUpdated) {
+          console.log('Quiz progress updated successfully');
+        }
+      }
+      
       // Refresh course content to update completed items
       await fetchCourseContent(true);
       
-      toast.success('Đã hoàn thành bài kiểm tra!');
+      // Use the message from the response if available
+      toast.success(message || (passed ? 'Chúc mừng! Bạn đã hoàn thành bài kiểm tra!' : 'Bạn đã hoàn thành bài kiểm tra!'));
     } catch (err) {
       console.error('Error submitting quiz:', err);
       toast.error('Không thể nộp bài kiểm tra');
@@ -973,13 +1169,51 @@ const QuizPage: React.FC = () => {
                         Điểm số: <span className="font-bold">{quizResult.score.toFixed(1)}%</span> 
                         (Đúng {quizResult.correctAnswers}/{quizResult.totalQuestions} câu)
                       </p>
-                      <div className="mt-4 flex">
+                      
+                      {/* Score progress bar */}
+                      <div className="mt-3 mb-4">
+                        <div className="flex justify-between text-sm mb-1">
+                          <span>Điểm đạt: {quiz.passingScore}%</span>
+                          <span>Điểm của bạn: {quizResult.score}%</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2.5">
+                          <div 
+                            className={`h-2.5 rounded-full ${quizResult.passed ? 'bg-green-500' : 'bg-red-500'}`}
+                            style={{ width: `${Math.min(quizResult.score, 100)}%` }}
+                          ></div>
+                          <div 
+                            className="relative h-0"
+                            style={{ 
+                              marginTop: '-10px', 
+                              marginLeft: `${quiz.passingScore}%`, 
+                              borderLeft: '2px dashed #666',
+                              height: '20px' 
+                            }}
+                          ></div>
+                        </div>
+                      </div>
+                      
+                      {/* Status indicator */}
+                      {quizResult.passed && (
+                        <div className="mb-4 p-3 bg-green-100 rounded-lg flex items-center">
+                          <div className="bg-green-500 text-white rounded-full p-1 mr-2">
+                            <Check className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <p className="text-green-800 font-medium">Bài kiểm tra đã được đánh dấu hoàn thành</p>
+                            <p className="text-green-700 text-sm">Bạn có thể tiếp tục học các nội dung tiếp theo</p>
+                          </div>
+                        </div>
+                      )}
+                      
+                      <div className="mt-4 flex flex-wrap gap-3">
                         <Link
                           href={`/courses/${courseId}`}
-                          className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-primary-700 mr-3"
+                          className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-primary-700"
                         >
                           Quay lại khóa học
                         </Link>
+                        
                         {!quizResult.passed && (
                           <button
                             onClick={() => {
@@ -993,6 +1227,33 @@ const QuizPage: React.FC = () => {
                           >
                             Làm lại bài kiểm tra
                           </button>
+                        )}
+                        
+                        {quizResult.passed && courseContent.length > 0 && (
+                          <>
+                            {/* Find the next item after this quiz */}
+                            {(() => {
+                              const currentIndex = courseContent.findIndex(item => 
+                                item.type === 'quiz' && item._id === quizId
+                              );
+                              
+                              if (currentIndex !== -1 && currentIndex < courseContent.length - 1) {
+                                const nextItem = courseContent[currentIndex + 1];
+                                return (
+                                  <Link
+                                    href={nextItem.type === 'lesson' 
+                                      ? `/courses/${courseId}/lesson/${nextItem._id}` 
+                                      : `/courses/${courseId}/quiz/${nextItem._id}`}
+                                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center"
+                                  >
+                                    <span>Tiếp tục học</span>
+                                    <ChevronRight className="w-5 h-5 ml-1" />
+                                  </Link>
+                                );
+                              }
+                              return null;
+                            })()}
+                          </>
                         )}
                       </div>
                     </div>
@@ -1056,6 +1317,8 @@ const QuizPage: React.FC = () => {
                         selectedAnswer={selectedAnswers[index] || null}
                         onSelectAnswer={(answer) => handleSelectAnswer(index, answer)}
                         isSubmitted={false}
+                        questionType={question.eQuestion || EQuestion.SINGLE_CHOICE}
+                        material={question.material}
                       />
                     </div>
                   ))}
@@ -1122,6 +1385,8 @@ const QuizPage: React.FC = () => {
                       onSelectAnswer={() => {}}
                       isSubmitted={true}
                       correctAnswer={question.correctAnswer}
+                      questionType={question.eQuestion || EQuestion.SINGLE_CHOICE}
+                      material={question.material}
                     />
                   ))}
                 </div>
