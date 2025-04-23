@@ -116,7 +116,7 @@ public class AuthenticationController {
         cookie.setSecure(true);
         cookie.setMaxAge(24 * 60 * 60);
         cookie.setAttribute("SameSite", "None");
-        cookie.setDomain(".alphaeducation.io.vn");
+        cookie.setDomain("alphaeducation.io.vn");
         response.addCookie(cookie);
         return ResponseEntity.ok(authResponse);
     }
