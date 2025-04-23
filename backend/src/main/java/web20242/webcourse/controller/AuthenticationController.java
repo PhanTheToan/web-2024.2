@@ -113,7 +113,10 @@ public class AuthenticationController {
         Cookie cookie = new Cookie("jwtToken", authResponse.getToken());
         cookie.setHttpOnly(true);
         cookie.setPath("/");
+        cookie.setSecure(true);
         cookie.setMaxAge(24 * 60 * 60);
+        cookie.setAttribute("SameSite", "None");
+        cookie.setDomain(".alphaeducation.io.vn");
         response.addCookie(cookie);
         return ResponseEntity.ok(authResponse);
     }
