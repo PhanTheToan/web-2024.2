@@ -1100,6 +1100,7 @@ public class CourseService {
         existingQuiz.setDescription(updatedQuiz.getDescription());
         existingQuiz.setOrder(updatedQuiz.getOrder());
         existingQuiz.setPassingScore(updatedQuiz.getPassingScore());
+        existingQuiz.setStatus(updatedQuiz.getStatus());
         existingQuiz.setTimeLimit(updatedQuiz.getTimeLimit());
 
         if (updatedQuiz.getQuestions() != null) {
@@ -1126,6 +1127,7 @@ public class CourseService {
         existingLesson.setShortTile(updatedLesson.getShortTile());
         existingLesson.setContent(updatedLesson.getContent());
         existingLesson.setVideoUrl(updatedLesson.getVideoUrl());
+        existingLesson.setStatus(updatedLesson.getStatus());
         existingLesson.setOrder(updatedLesson.getOrder());
         existingLesson.setTimeLimit(updatedLesson.getTimeLimit());
 
