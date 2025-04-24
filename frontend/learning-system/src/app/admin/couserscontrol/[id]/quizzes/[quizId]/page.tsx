@@ -279,8 +279,8 @@ export default function QuizDetailPage() {
             <div className="border-b p-4">
               <div className="flex justify-between items-start">
                 <div>
-                  <h2 className="text-xl font-bold">{quiz.title}</h2>
-                  <p className="text-gray-500 mt-1">{quiz.description || 'Không có mô tả'}</p>
+              <h2 className="text-xl font-bold">{quiz.title}</h2>
+              <p className="text-gray-500 mt-1">{quiz.description || 'Không có mô tả'}</p>
                 </div>
                 <div>
                   <span className={`inline-flex px-3 py-1 rounded-full text-xs font-medium ${
@@ -344,7 +344,7 @@ export default function QuizDetailPage() {
                         {index + 1}
                       </span>
                       <div>
-                        <h4 className="font-medium">{question.question}</h4>
+                      <h4 className="font-medium">{question.question}</h4>
                         <div className="text-xs text-gray-500 mt-1">
                           {question.equestion === EQuestion.SINGLE_CHOICE ? 'Chọn một đáp án' : 
                           question.equestion === EQuestion.MULTIPLE_CHOICE ? 'Chọn nhiều đáp án' : 
@@ -387,24 +387,24 @@ export default function QuizDetailPage() {
                               : option === question.correctAnswer || optionIndex.toString() === question.correctAnswer;
                             
                             return (
-                              <div 
-                                key={optionIndex} 
-                                className={`p-2 rounded-md flex items-center ${
+                        <div 
+                          key={optionIndex} 
+                          className={`p-2 rounded-md flex items-center ${
                                   isCorrect
-                                    ? 'bg-green-50 border border-green-200' 
-                                    : 'bg-gray-50 border border-gray-200'
-                                }`}
-                              >
+                              ? 'bg-green-50 border border-green-200' 
+                              : 'bg-gray-50 border border-gray-200'
+                          }`}
+                        >
                                 {isCorrect ? (
-                                  <CheckCircle className="w-4 h-4 text-green-600 mr-2 flex-shrink-0" />
-                                ) : (
-                                  <X className="w-4 h-4 text-gray-400 mr-2 flex-shrink-0" />
-                                )}
+                            <CheckCircle className="w-4 h-4 text-green-600 mr-2 flex-shrink-0" />
+                          ) : (
+                            <X className="w-4 h-4 text-gray-400 mr-2 flex-shrink-0" />
+                          )}
                                 <span className={isCorrect ? 'font-medium' : ''}>{option}</span>
                                 {isCorrect && (
-                                  <span className="ml-2 text-xs text-green-600 font-medium">Đáp án đúng</span>
-                                )}
-                              </div>
+                            <span className="ml-2 text-xs text-green-600 font-medium">Đáp án đúng</span>
+                          )}
+                        </div>
                             );
                           })}
                         </>
