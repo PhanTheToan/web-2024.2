@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import Link from 'next/link';
 
 // Định nghĩa interface cho khóa học đã hoàn thành
 interface CompletedCourse {
@@ -120,23 +121,26 @@ export function CompletedCourses() {
                       Hoàn thành:{' '}
                       {Array.isArray(course.completeDate) && course.completeDate.length >= 3
                         ? new Date(
-                            course.completeDate[0],
-                            course.completeDate[1] - 1,
-                            course.completeDate[2]
-                          ).toLocaleDateString('vi-VN')
+                          course.completeDate[0],
+                          course.completeDate[1] - 1,
+                          course.completeDate[2]
+                        ).toLocaleDateString('vi-VN')
                         : typeof course.completeDate === 'string'
-                        ? new Date(course.completeDate).toLocaleDateString('vi-VN')
-                        : 'N/A'}
+                          ? new Date(course.completeDate).toLocaleDateString('vi-VN')
+                          : 'N/A'}
                     </p>
                   </div>
                   <div className="mt-4">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="mt-2 self-start w-full border-[#FF782D] text-[#FF782D] hover:bg-[#FF782D] hover:text-white transition"
-                    >
-                      Xem chứng chỉ
-                    </Button>
+
+                    <Link href="/contact">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="mt-2 self-start w-full border-[#FF782D] text-[#FF782D] hover:bg-[#FF782D] hover:text-white transition"
+                      >
+                        Đăng ký nhận chứng chỉ
+                      </Button>
+                    </Link>
                   </div>
                 </div>
               </div>
