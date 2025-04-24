@@ -1317,28 +1317,28 @@ const LessonDetailPage: React.FC = () => {
                 </button>
               ) : (
                 // Button for incomplete lessons
-                <button
-                  onClick={handleMarkComplete}
-                  disabled={isUpdatingProgress}
-                  className="w-full sm:w-auto px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg shadow transition flex items-center justify-center disabled:opacity-70"
-                >
-                  {isUpdatingProgress ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
-                      Đang xử lý...
-                    </>
-                  ) : nextContent ? (
-                    <>
-                      <span>Tiếp tục</span>
-                      <ChevronRight className="w-5 h-5 ml-2" />
-                    </>
-                  ) : (
-                    <>
-                      <Check className="w-5 h-5 mr-2" />
-                      <span>Hoàn thành khóa học</span>
-                    </>
-                  )}
-                </button>
+              <button
+                onClick={handleMarkComplete}
+                disabled={isUpdatingProgress}
+                className="w-full sm:w-auto px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg shadow transition flex items-center justify-center disabled:opacity-70"
+              >
+                {isUpdatingProgress ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
+                    Đang xử lý...
+                  </>
+                ) : nextContent ? (
+                  <>
+                    <span>Tiếp tục</span>
+                    <ChevronRight className="w-5 h-5 ml-2" />
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-5 h-5 mr-2" />
+                    <span>Hoàn thành khóa học</span>
+                  </>
+                )}
+              </button>
               )}
 
               {nextContent ? (

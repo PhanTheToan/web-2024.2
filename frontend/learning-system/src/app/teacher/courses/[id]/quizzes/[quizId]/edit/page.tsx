@@ -13,12 +13,27 @@ dotenv.config();
 // API Base URL
 const API_BASE_URL = process.env.BASE_URL || 'http://localhost:8082/api';
 
-// Define Quiz-related types based on API response
+// Định nghĩa enum cho QuizStatus
+export enum QuizStatus {
+  ACTIVE = 'ACTIVE',
+  INACTIVE = 'INACTIVE'
+}
+
+// Định nghĩa enum cho QuestionType
+export enum QuestionType {
+  SINGLE_CHOICE = 'SINGLE_CHOICE',
+  MULTIPLE_CHOICE = 'MULTIPLE_CHOICE'
+}
+
+// Define Quiz-related types
 interface QuizQuestion {
   question: string;
   options: string[];
-  correctAnswer: string;
+  correctAnswer: string | string[];
   material?: string | null;
+  equestion?: QuestionType;
+  id?: string;
+  _id?: string;
 }
 
 // interface Quiz {
@@ -30,8 +45,19 @@ interface QuizQuestion {
 //   passingScore: number;
 //   timeLimit?: number;
 //   order?: number;
+//   status?: QuizStatus;
 //   createdAt?: Date;
 // }
+
+// Định nghĩa interface
+interface QuizInfoState {
+  title: string;
+  description: string;
+  timeLimit: number;
+  passingScore: number;
+  order: number;
+  status: QuizStatus;
+}
 
 export default function EditQuizPage() {
   const params = useParams();
@@ -47,13 +73,14 @@ export default function EditQuizPage() {
   const [success, setSuccess] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
 
-  // Basic quiz information
-  const [quizInfo, setQuizInfo] = useState({
+  // Quiz info state
+  const [quizInfo, setQuizInfo] = useState<QuizInfoState>({
     title: '',
     description: '',
-    timeLimit: 30, // in minutes
-    passingScore: 70, // percentage
+    timeLimit: 10,
+    passingScore: 70,
     order: 1,
+    status: QuizStatus.INACTIVE
   });
 
   // Questions state
@@ -123,9 +150,10 @@ export default function EditQuizPage() {
         setQuizInfo({
           title: quizData.title || '',
           description: quizData.description || '',
-          timeLimit: quizData.timeLimit || 30,
+          timeLimit: quizData.timeLimit || 10,
           passingScore: quizData.passingScore || 70,
           order: quizData.order || 1,
+          status: quizData.status || QuizStatus.INACTIVE
         });
         
         // Set questions
@@ -134,7 +162,10 @@ export default function EditQuizPage() {
             question: q.question,
             options: q.options || [],
             correctAnswer: q.correctAnswer,
-            material: q.material || null
+            material: q.material || null,
+            equestion: q.equestion || QuestionType.SINGLE_CHOICE,
+            ...(q._id ? { _id: q._id } : {}),
+            ...(q.id ? { id: q.id } : {})
           })));
         }
         
@@ -366,31 +397,68 @@ export default function EditQuizPage() {
     setSuccess(null);
 
     try {
-      // Validate form data
-      if (!quizInfo.title.trim()) {
-        throw new Error('Vui lòng nhập tiêu đề bài kiểm tra');
+      if (!quizInfo.title) {
+        toast.error('Please enter a quiz title');
+        setSubmitting(false);
+        return;
       }
 
       if (questions.length === 0) {
-        throw new Error('Vui lòng thêm ít nhất một câu hỏi');
+        toast.error('Please add at least one question');
+        setSubmitting(false);
+        return;
       }
 
-      // Prepare request data for API
-      const requestData = {
+      for (const question of questions) {
+        if (!question.question) {
+          toast.error('Please enter a question');
+          setSubmitting(false);
+          return;
+        }
+
+        if ((question.equestion === QuestionType.SINGLE_CHOICE || question.equestion === QuestionType.MULTIPLE_CHOICE) && 
+            question.options.length < 2) {
+          toast.error('Please add at least two options for each question');
+          setSubmitting(false);
+          return;
+        }
+
+        if (question.equestion === QuestionType.SINGLE_CHOICE || question.equestion === QuestionType.MULTIPLE_CHOICE) {
+          if (question.equestion === QuestionType.SINGLE_CHOICE && !question.correctAnswer) {
+            toast.error('Please select a correct answer for each question');
+            setSubmitting(false);
+            return;
+          }
+          
+          if (question.equestion === QuestionType.MULTIPLE_CHOICE && 
+              (Array.isArray(question.correctAnswer) && question.correctAnswer.length === 0)) {
+            toast.error('Please select at least one correct answer for multiple choice questions');
+            setSubmitting(false);
+            return;
+          }
+        }
+      }
+
+      const updatedQuizData = {
         title: quizInfo.title,
         description: quizInfo.description,
-        order: quizInfo.order,
-        passingScore: quizInfo.passingScore,
         timeLimit: quizInfo.timeLimit,
+        passingScore: quizInfo.passingScore,
+        order: quizInfo.order,
+        status: quizInfo.status,
         questions: questions.map(q => ({
-          question: q.question,
-          options: q.options,
-          correctAnswer: q.correctAnswer,
-          material: q.material || null
+          id: q.id,
+          content: q.question,
+          type: q.equestion,
+          options: q.options.map(opt => ({
+            id: opt,
+            content: opt,
+            isCorrect: opt === q.correctAnswer
+          }))
         }))
       };
 
-      console.log("Updating quiz with data:", requestData);
+      console.log("Updating quiz with data:", updatedQuizData);
       
       // Use the update-quiz API from screenshot
       const response = await fetch(`${API_BASE_URL}/course/update-quiz/${quizId}?courseId=${courseId}`, {
@@ -399,7 +467,7 @@ export default function EditQuizPage() {
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(requestData)
+        body: JSON.stringify(updatedQuizData)
       });
       
       if (!response.ok) {
@@ -495,12 +563,12 @@ export default function EditQuizPage() {
       )}
       
       {/* Quiz Edit Form */}
-      <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-md overflow-hidden">
-        <div className="p-6 border-b">
-          <h2 className="text-xl font-bold mb-6">Thông tin bài kiểm tra</h2>
+      <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow mb-6">
+        <div className="p-6 space-y-6">
+          <div>
+            <h2 className="text-lg font-bold mb-4">Thông tin bài kiểm tra</h2>
           
-          {/* Basic Quiz Info */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-4">
             <div>
               <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
                 Tiêu đề <span className="text-red-500">*</span>
@@ -511,8 +579,9 @@ export default function EditQuizPage() {
                 name="title"
                 value={quizInfo.title}
                 onChange={handleQuizInfoChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                  className="w-full rounded-md border border-gray-300 p-2 focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
                 placeholder="Nhập tiêu đề bài kiểm tra"
+                  required
               />
             </div>
             
@@ -525,28 +594,30 @@ export default function EditQuizPage() {
                 name="description"
                 value={quizInfo.description}
                 onChange={handleQuizInfoChange}
+                  className="w-full rounded-md border border-gray-300 p-2 focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+                  placeholder="Nhập mô tả cho bài kiểm tra (tùy chọn)"
                 rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-                placeholder="Nhập mô tả bài kiểm tra"
-              ></textarea>
+                />
             </div>
             
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label htmlFor="order" className="block text-sm font-medium text-gray-700 mb-1">
-                Thứ tự
+                  <label htmlFor="timeLimit" className="block text-sm font-medium text-gray-700 mb-1">
+                    Thời gian làm bài (phút) <span className="text-red-500">*</span>
               </label>
               <input
                 type="number"
-                id="order"
-                name="order"
-                value={quizInfo.order}
+                    id="timeLimit"
+                    name="timeLimit"
+                    value={quizInfo.timeLimit}
                 onChange={handleQuizInfoChange}
-                min="1"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                    className="w-full rounded-md border border-gray-300 p-2 focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+                    placeholder="Nhập thời gian làm bài"
+                    min={1}
+                    required
               />
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label htmlFor="passingScore" className="block text-sm font-medium text-gray-700 mb-1">
                   Điểm đạt (%) <span className="text-red-500">*</span>
@@ -557,29 +628,55 @@ export default function EditQuizPage() {
                   name="passingScore"
                   value={quizInfo.passingScore}
                   onChange={handleQuizInfoChange}
-                  min="0"
-                  max="100"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                    className="w-full rounded-md border border-gray-300 p-2 focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+                    placeholder="Nhập điểm đạt"
+                    min={0}
+                    max={100}
+                    required
                 />
               </div>
               
               <div>
-                <label htmlFor="timeLimit" className="block text-sm font-medium text-gray-700 mb-1">
-                  Thời gian làm bài (phút)
+                  <label htmlFor="order" className="block text-sm font-medium text-gray-700 mb-1">
+                    Thứ tự
                 </label>
                 <input
                   type="number"
-                  id="timeLimit"
-                  name="timeLimit"
-                  value={quizInfo.timeLimit}
+                    id="order"
+                    name="order"
+                    value={quizInfo.order}
                   onChange={handleQuizInfoChange}
-                  min="1"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                    className="w-full rounded-md border border-gray-300 p-2 focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+                    placeholder="Thứ tự hiển thị"
+                    min="0"
                 />
               </div>
+                
+                <div>
+                  <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">
+                    Trạng thái
+                  </label>
+                  <select
+                    id="status"
+                    name="status"
+                    value={quizInfo.status}
+                    onChange={handleQuizInfoChange}
+                    className="w-full rounded-md border border-gray-300 p-2 focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+                  >
+                    <option value={QuizStatus.ACTIVE}>Kích hoạt</option>
+                    <option value={QuizStatus.INACTIVE}>Vô hiệu hóa</option>
+                  </select>
+                  <p className="text-sm text-gray-500 mt-1">
+                    {quizInfo.status === QuizStatus.ACTIVE 
+                      ? "Học viên có thể truy cập và làm bài kiểm tra này." 
+                      : "Học viên không thể truy cập bài kiểm tra này."}
+                  </p>
             </div>
           </div>
         </div>
+          </div>
+        </div>
+      </form>
         
         {/* Questions Section */}
         <div className="p-6">
@@ -800,7 +897,6 @@ export default function EditQuizPage() {
             )}
           </button>
         </div>
-      </form>
     </div>
   );
 } 

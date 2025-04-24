@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Plus, Search, BookOpen, Users, Clock, GraduationCap } from 'lucide-react';
+import { Plus, Search, BookOpen, Users, Clock, GraduationCap, Check, X } from 'lucide-react';
 import Image from 'next/image';
 import { toast } from 'react-hot-toast';
 import dotenv from 'dotenv';
@@ -31,6 +31,7 @@ export default function TeacherCoursesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState('all');
   const [error, setError] = useState<string | null>(null);
+  const [statusUpdating, setStatusUpdating] = useState<string | null>(null);
   
   // Fetch user info
   useEffect(() => {
@@ -125,6 +126,44 @@ export default function TeacherCoursesPage() {
     return matchesSearch;
   });
 
+  // Add a function to toggle course status
+  const toggleCourseStatus = async (courseId: string, currentStatus: string) => {
+    // Set the courseId that's being updated to show loading state
+    setStatusUpdating(courseId);
+    
+    try {
+      const newStatus = currentStatus === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+      
+      const response = await fetch(`${API_BASE_URL}/course/update/status/${courseId}`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Không thể cập nhật trạng thái khóa học. Mã lỗi: ${response.status}`);
+      }
+      
+      // Update the course in the state
+      setCourses(prevCourses => 
+        prevCourses.map(course => 
+          course.id === courseId ? {...course, courseStatus: newStatus} : course
+        )
+      );
+      
+      // Show success message
+      toast.success(`Đã ${newStatus === 'ACTIVE' ? 'kích hoạt' : 'vô hiệu hóa'} khóa học`);
+    } catch (error) {
+      console.error('Error toggling course status:', error);
+      toast.error('Không thể cập nhật trạng thái khóa học');
+    } finally {
+      // Reset the updating state
+      setStatusUpdating(null);
+    }
+  };
+
   return (
     <div className="p-8 max-w-7xl mx-auto">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
@@ -203,12 +242,14 @@ export default function TeacherCoursesPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {filteredCourses.map((course) => (
-            <Link
-              href={`/teacher/courses/${course.id}`}
+            <div
               key={course.id}
               className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-all duration-300 flex flex-col cursor-pointer group relative h-full"
             >
-              <div className="relative h-48">
+              <Link
+                href={`/teacher/courses/${course.id}`}
+                className="relative h-48"
+              >
                 <Image 
                   src={course.thumbnail || 'https://via.placeholder.com/400x200?text=No+Thumbnail'} 
                   alt={course.title}
@@ -216,11 +257,11 @@ export default function TeacherCoursesPage() {
                   unoptimized
                   className="object-cover transition-transform group-hover:scale-105 duration-300"
                 />
-                <div className="absolute top-3 left-3">
+                {/* <div className="absolute top-3 left-3">
                   <span className={`${course.courseStatus === 'ACTIVE' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'} text-xs font-medium px-2.5 py-1 rounded-full`}>
                     {course.courseStatus === 'ACTIVE' ? 'Đang hoạt động' : 'Vô hiệu hóa'}
                   </span>
-                </div>
+                </div> */}
                 {course.categories && course.categories.includes('POPULAR') && (
                   <div className="absolute top-3 right-3">
                     <span className="bg-amber-100 text-amber-800 text-xs font-medium px-2.5 py-1 rounded-full">
@@ -228,11 +269,13 @@ export default function TeacherCoursesPage() {
                     </span>
                   </div>
                 )}
-              </div>
+              </Link>
               
               <div className="p-5 flex-grow">
-                <h2 className="text-xl font-semibold mb-2 text-gray-800 line-clamp-1 group-hover:text-indigo-600 transition-colors">{course.title}</h2>
-                <p className="text-gray-600 text-sm line-clamp-2 mb-5">{course.description || 'Không có mô tả'}</p>
+                <Link href={`/teacher/courses/${course.id}`}>
+                  <h2 className="text-xl font-semibold mb-2 text-gray-800 line-clamp-1 group-hover:text-indigo-600 transition-colors">{course.title}</h2>
+                  <p className="text-gray-600 text-sm line-clamp-2 mb-5">{course.description || 'Không có mô tả'}</p>
+                </Link>
                 
                 <div className="grid grid-cols-2 gap-2 text-sm mb-4">
                   <div className="flex items-center text-gray-600">
@@ -258,9 +301,36 @@ export default function TeacherCoursesPage() {
               </div>
               
               <div className="px-5 py-4 bg-gray-50 border-t flex justify-between items-center">
-                <span className="text-sm text-gray-500">
-                  ID: {course.id}
-                </span>
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleCourseStatus(course.id, course.courseStatus);
+                  }}
+                  disabled={statusUpdating === course.id}
+                  className={`
+                    px-3 py-1 rounded-md text-sm font-medium flex items-center
+                    ${course.courseStatus === 'INACTIVE' 
+                      ? 'bg-red-100 text-red-700 hover:bg-red-200' 
+                      : 'bg-green-100 text-green-700 hover:bg-green-200'
+                    }
+                    transition-colors duration-200
+                    ${statusUpdating === course.id ? 'opacity-70 cursor-not-allowed' : ''}
+                  `}
+                >
+                  {statusUpdating === course.id ? (
+                    <div className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full mr-1.5"></div>
+                  ) : course.courseStatus === 'ACTIVE' ? (
+                    < Check className="w-4 h-4 mr-1.5" />
+                  ) : (
+                    <X className="w-4 h-4 mr-1.5" />
+                  )}
+                  {statusUpdating === course.id 
+                    ? 'Đang xử lý...' 
+                    : course.courseStatus === 'ACTIVE' 
+                      ? 'Đang hoạt động' 
+                      : 'Vô hiệu hóa'
+                  }
+                </button>
                 <Link 
                   href={`/teacher/courses/${course.id}/students`}
                   className="text-sm font-medium text-indigo-600 hover:text-indigo-800 transition-colors"
@@ -269,7 +339,7 @@ export default function TeacherCoursesPage() {
                   Học viên
                 </Link>
               </div>
-            </Link>
+            </div>
           ))}
         </div>
       )}

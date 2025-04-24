@@ -235,57 +235,57 @@ const QuizQuestion: React.FC<QuizQuestionProps> = ({
         </div>
       ) : (
         // Multiple choice or single choice options
-        <div className="space-y-3">
-          {options.map((option, index) => {
+      <div className="space-y-3">
+        {options.map((option, index) => {
             const isSelected = isOptionSelected(option);
-            let optionClassName = "p-4 border rounded-lg flex items-center";
-            
-            if (isSubmitted) {
+          let optionClassName = "p-4 border rounded-lg flex items-center";
+          
+          if (isSubmitted) {
               if (isCorrectAnswer(option)) {
-                optionClassName += " bg-green-50 border-green-300";
+              optionClassName += " bg-green-50 border-green-300";
               } else if (isSelected && !isCorrectAnswer(option)) {
-                optionClassName += " bg-red-50 border-red-300";
-              }
-            } else if (isSelected) {
-              optionClassName += " bg-blue-50 border-blue-300";
-            } else {
-              optionClassName += " hover:bg-gray-50";
+              optionClassName += " bg-red-50 border-red-300";
             }
-            
-            return (
-              <div 
-                key={index} 
-                className={optionClassName}
+          } else if (isSelected) {
+            optionClassName += " bg-blue-50 border-blue-300";
+          } else {
+            optionClassName += " hover:bg-gray-50";
+          }
+          
+          return (
+            <div 
+              key={index} 
+              className={optionClassName}
                 onClick={() => handleOptionSelect(option)}
-              >
+            >
                 <div className={`w-5 h-5 flex-shrink-0 ${questionType === EQuestion.MULTIPLE_CHOICE ? 'rounded' : 'rounded-full'} border mr-3 ${
-                  isSelected ? 'bg-blue-500 border-blue-500' : 'border-gray-300'
-                }`}>
-                  {isSelected && (
-                    <div className="w-full h-full flex items-center justify-center">
+                isSelected ? 'bg-blue-500 border-blue-500' : 'border-gray-300'
+              }`}>
+                {isSelected && (
+                  <div className="w-full h-full flex items-center justify-center">
                       {questionType === EQuestion.MULTIPLE_CHOICE ? (
                         <CheckCircle className="text-white w-3 h-3" />
                       ) : (
-                        <div className="w-2 h-2 bg-white rounded-full"></div>
+                    <div className="w-2 h-2 bg-white rounded-full"></div>
                       )}
-                    </div>
-                  )}
-                </div>
-                <span>{option}</span>
-                
-                {isSubmitted && (
-                  <div className="ml-auto">
-                    {isCorrectAnswer(option) ? (
-                      <CheckCircle className="text-green-500 w-5 h-5" />
-                    ) : (isSelected && !isCorrectAnswer(option)) ? (
-                      <AlertCircle className="text-red-500 w-5 h-5" />
-                    ) : null}
                   </div>
                 )}
               </div>
-            );
-          })}
-        </div>
+              <span>{option}</span>
+              
+              {isSubmitted && (
+                <div className="ml-auto">
+                    {isCorrectAnswer(option) ? (
+                    <CheckCircle className="text-green-500 w-5 h-5" />
+                    ) : (isSelected && !isCorrectAnswer(option)) ? (
+                    <AlertCircle className="text-red-500 w-5 h-5" />
+                  ) : null}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
       )}
     </div>
   );

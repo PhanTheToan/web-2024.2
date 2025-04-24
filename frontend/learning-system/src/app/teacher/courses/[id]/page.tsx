@@ -32,6 +32,7 @@ interface Quiz {
   orderQuiz: number;
   questionCount: number;
   passingScore: number;
+  status?: string;
 }
 
 interface Lesson {
@@ -41,6 +42,7 @@ interface Lesson {
   lessonShortTitle: string;
   orderLesson: number;
   description?: string;
+  status?: string;
 }
 
 interface Course {
@@ -73,6 +75,7 @@ interface CourseContentItem {
   description?: string;
   order?: number;
   type: 'lesson' | 'quiz';
+  status?: string;
   [key: string]: string | number | boolean | undefined;
 }
 
@@ -84,6 +87,76 @@ interface EnrollmentRequest {
   email?: string;
   courseId?: string;
 }
+
+// CourseAnalytics component to display completion rate and average progress
+const CourseAnalytics = ({ students }: { students: User[] }) => {
+  // Calculate completion rate and average progress
+  const calculateAnalytics = () => {
+    if (!students || students.length === 0) {
+      return {
+        registrations: 0,
+        completionRate: 0,
+        averageProgress: 0,
+        revenue: 0
+      };
+    }
+
+    const registrations = students.length;
+    
+    // Count completed students (progress = 100%)
+    const completedCount = students.filter(student => 
+      student.progress && student.progress >= 100
+    ).length;
+    
+    // Calculate completion rate
+    const completionRate = registrations > 0 
+      ? Math.round((completedCount / registrations) * 100) 
+      : 0;
+    
+    // Calculate average progress
+    const totalProgress = students.reduce((sum, student) => 
+      sum + (student.progress || 0), 0);
+    const averageProgress = registrations > 0 
+      ? Math.round(totalProgress / registrations) 
+      : 0;
+    
+    return {
+      registrations,
+      completionRate,
+      averageProgress,
+      revenue: 0 // This will be calculated in the render function below
+    };
+  };
+
+  const analytics = calculateAnalytics();
+
+  return (
+    <div className="bg-white rounded-lg shadow-md p-6 mt-6">
+      <h2 className="text-xl font-semibold mb-4 flex items-center">
+        <BarChart2 className="mr-2" /> 
+        Phân tích khóa học
+      </h2>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="p-4 bg-gray-50 rounded-lg">
+          <div className="text-sm text-gray-500">Lượt đăng ký</div>
+          <div className="text-2xl font-bold mt-1">{analytics.registrations}</div>
+        </div>
+        <div className="p-4 bg-gray-50 rounded-lg">
+          <div className="text-sm text-gray-500">Tỷ lệ hoàn thành</div>
+          <div className="text-2xl font-bold mt-1">{analytics.completionRate}%</div>
+        </div>
+        <div className="p-4 bg-gray-50 rounded-lg">
+          <div className="text-sm text-gray-500">Tiến độ trung bình</div>
+          <div className="text-2xl font-bold mt-1">{analytics.averageProgress}%</div>
+        </div>
+        <div className="p-4 bg-gray-50 rounded-lg">
+          <div className="text-sm text-gray-500">Doanh thu</div>
+          <div className="text-2xl font-bold mt-1">{(analytics.registrations * 699000).toLocaleString()} VNĐ</div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export default function TeacherCourseDetailPage() {
   const params = useParams();
@@ -100,12 +173,6 @@ export default function TeacherCourseDetailPage() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [isReorderingContent, setIsReorderingContent] = useState(false);
   const [contentOrderSaving, setContentOrderSaving] = useState(false);
-  const [analyticsData, setAnalyticsData] = useState<{
-    totalViews: number;
-    completionRate: number;
-    averageProgress: number;
-    revenueGenerated: string;
-  } | null>(null);
   const [studentToDelete, setStudentToDelete] = useState<{id: string, name: string, email?: string} | null>(null);
   const [studentDeleteModalOpen, setStudentDeleteModalOpen] = useState(false);
   const [studentDeleteError, setStudentDeleteError] = useState<string | null>(null);
@@ -239,14 +306,6 @@ export default function TeacherCourseDetailPage() {
       await fetchStudents(parsedCourse);
       
       setCourse(parsedCourse);
-      
-      // Add analytics data
-      setAnalyticsData({
-        totalViews: parsedCourse.studentsCount * 10 || 100,
-        completionRate: Math.floor(Math.random() * 60) + 20,
-        averageProgress: Math.floor(Math.random() * 70) + 10,
-        revenueGenerated: (parsedCourse.price * parsedCourse.studentsCount).toFixed(2)
-      });
     } catch (error) {
       console.error("Error fetching course:", error);
       setError("Không thể tải khóa học. Vui lòng thử lại sau.");
@@ -342,7 +401,8 @@ export default function TeacherCourseDetailPage() {
             title: lesson.lessonTitle || lesson.lessonShortTitle || 'Bài học',
             description: lesson.lessonShortTitle || '',
             order: lesson.orderLesson || 0,
-            type: 'lesson'
+            type: 'lesson',
+            status: lesson.status
           });
         });
       }
@@ -358,7 +418,8 @@ export default function TeacherCourseDetailPage() {
             order: quiz.orderQuiz || 999,
             type: 'quiz',
             questionCount: quiz.questionCount || 0,
-            passingScore: quiz.passingScore || 60
+            passingScore: quiz.passingScore || 60,
+            status: quiz.status
           });
         });
       }
@@ -928,32 +989,8 @@ export default function TeacherCourseDetailPage() {
             </div>
             
             {/* Analytics Section */}
-            {analyticsData && (
-              <div className="bg-white rounded-lg shadow-md p-6 mt-6">
-                <div className="flex items-center mb-4">
-                  <BarChart2 className="w-5 h-5 mr-2 text-indigo-600" />
-                  <h3 className="text-lg font-bold">Phân tích khóa học</h3>
-                </div>
-                
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <div className="text-sm text-gray-500 mb-1">Lượt đăng ký</div>
-                    <div className="text-xl font-bold">{course.studentsCount || (course.studentsEnrolled ? course.studentsEnrolled.length : 0)}</div>
-                  </div>
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <div className="text-sm text-gray-500 mb-1">Tỷ lệ hoàn thành</div>
-                    <div className="text-xl font-bold">{analyticsData.completionRate}%</div>
-                  </div>
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <div className="text-sm text-gray-500 mb-1">Tiến độ trung bình</div>
-                    <div className="text-xl font-bold">{analyticsData.averageProgress}%</div>
-                  </div>
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <div className="text-sm text-gray-500 mb-1">Doanh thu</div>
-                    <div className="text-xl font-bold">${analyticsData.revenueGenerated}</div>
-                  </div>
-                </div>
-              </div>
+            {course && course.studentsEnrolled && (
+              <CourseAnalytics students={course.studentsEnrolled} />
             )}
           </div>
 
@@ -967,7 +1004,7 @@ export default function TeacherCourseDetailPage() {
                     <DollarSign className="w-5 h-5 mr-2 text-gray-400" />
                     Giá
                   </div>
-                  <div className="font-medium">${course.price}</div>
+                  <div className="font-medium">{course.price.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ".")} VNĐ</div>
                 </div>
                 <div className="flex justify-between items-center pb-2 border-b">
                   <div className="flex items-center text-gray-600">
@@ -1104,7 +1141,18 @@ export default function TeacherCourseDetailPage() {
                           {index + 1}
                         </div>
                         <div className="flex-grow">
+                          <div className="flex items-center gap-2">
                           <h4 className="font-medium text-gray-900">{lessonTitle}</h4>
+                            {/* Hiển thị badge trạng thái */}
+                            {typeof lesson === 'object' && (
+                              <span className={`px-2 py-0.5 text-xs rounded-full ${
+                                lesson.status === 'ACTIVE' ? 'bg-green-100 text-green-800' : 
+                                'bg-gray-100 text-gray-800'
+                              }`}>
+                                {lesson.status === 'ACTIVE' ? 'Hoạt động' : 'Không hoạt động'}
+                              </span>
+                            )}
+                          </div>
                           {lessonDescription && <p className="text-sm text-gray-500">{lessonDescription}</p>}
                         </div>
                         <div className="flex items-center ml-4">
@@ -1176,7 +1224,18 @@ export default function TeacherCourseDetailPage() {
                           {index + 1}
                         </div>
                         <div className="flex-grow">
+                          <div className="flex items-center gap-2">
                           <h4 className="font-medium text-gray-900">{quizTitle}</h4>
+                            {/* Hiển thị badge trạng thái */}
+                            {typeof quiz === 'object' && (
+                              <span className={`px-2 py-0.5 text-xs rounded-full ${
+                                quiz.status === 'ACTIVE' ? 'bg-green-100 text-green-800' : 
+                                'bg-gray-100 text-gray-800'
+                              }`}>
+                                {quiz.status === 'ACTIVE' ? 'Hoạt động' : 'Không hoạt động'}
+                              </span>
+                            )}
+                          </div>
                           <p className="text-sm text-gray-500">
                             {typeof quiz === 'object' && quiz.questionCount ? `${quiz.questionCount} câu hỏi` : 'Không có thông tin chi tiết'}
                           </p>
@@ -1315,6 +1374,13 @@ export default function TeacherCourseDetailPage() {
                               {isLesson ? 'Bài học' : 'Bài kiểm tra'}
                             </span>
                             <h4 className="font-medium text-gray-900">{itemTitle}</h4>
+                            {/* Hiển thị trạng thái */}
+                            <span className={`ml-2 px-2 py-0.5 text-xs rounded-full ${
+                              item.status === 'ACTIVE' ? 'bg-green-100 text-green-800' : 
+                              'bg-gray-100 text-gray-800'
+                            }`}>
+                              {item.status === 'ACTIVE' ? 'Hoạt động' : 'Không hoạt động'}
+                            </span>
                           </div>
                           {itemDescription && <p className="text-sm text-gray-500 mt-1">{itemDescription}</p>}
                           <div className="text-xs text-gray-400 mt-1">Thứ tự: {order}</div>
@@ -1365,7 +1431,7 @@ export default function TeacherCourseDetailPage() {
                     >
                       <option value="progress">Tiến độ</option>
                       <option value="name">Tên</option>
-                      <option value="date">Ngày đăng ký</option>
+                      {/* <option value="date">Ngày đăng ký</option> */}
                     </select>
                     
                     <button
@@ -1426,8 +1492,8 @@ export default function TeacherCourseDetailPage() {
                         
                         // Lấy dữ liệu tiến độ học tập
                         const progress = getProgress(student);
-                        const lastActive = getDate(student);
-                        const enrolledAt = getDate(student);
+                        // const lastActive = getDate(student);
+                        // const enrolledAt = getDate(student);
 
                         return (
                           <div key={studentId} className="bg-white p-4 rounded-lg shadow">
@@ -1439,11 +1505,11 @@ export default function TeacherCourseDetailPage() {
                                 <div>
                                   <h4 className="font-medium">{studentName}</h4>
                                   <p className="text-sm text-gray-500">{studentEmail}</p>
-                                  <div className="mt-1 text-xs text-gray-400">
+                                  {/* <div className="mt-1 text-xs text-gray-400">
                                     Đăng ký: {new Date(enrolledAt).toLocaleDateString('vi-VN')}
                                     <span className="mx-2">•</span>
                                     Hoạt động gần đây: {new Date(lastActive).toLocaleDateString('vi-VN')}
-                                  </div>
+                                  </div> */}
                                 </div>
                               </div>
                               <button 

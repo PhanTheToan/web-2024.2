@@ -681,44 +681,44 @@ export default function AdminCreateCoursePage() {
                       <h5 className="font-medium text-gray-700 mb-2 border-b pb-2">
                         Chọn ít nhất một danh mục bình thường
                       </h5>
-                      <div className="space-y-3">
+                  <div className="space-y-3">
                         {categories
                           .filter(cat => !cat.isSpecial)
                           .map(cat => {
-                            if (!cat || !cat.categoryId) {
-                              return null;
-                            }
-                            
-                            const isSelected = formData.categories.includes(cat.categoryId);
-                            return (
-                              <div 
-                                key={cat.categoryId} 
-                                className={`flex items-center p-3 rounded-lg border cursor-pointer transition-all
-                                  ${isSelected ? 'border-indigo-200 bg-indigo-50' : 'border-gray-200 hover:border-indigo-200 hover:bg-gray-50'}`}
-                                onClick={() => {
-                                  const updatedCategories = isSelected 
-                                    ? formData.categories.filter(c => c !== cat.categoryId)
-                                    : [...formData.categories, cat.categoryId];
-                                    
-                                  setFormData({
-                                    ...formData,
-                                    categories: updatedCategories
-                                  });
-                                }}
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={isSelected}
-                                  onChange={() => {}} // Controlled by the div onClick
-                                  className="h-5 w-5 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
-                                />
-                                <div className="ml-3 flex-1">
-                                  <span className="text-gray-800 font-medium">{cat.categoryDisplayName || cat.categoryName || "Danh mục"}</span>
-                                  {cat.categoryName && <span className="text-gray-500 text-sm ml-2">({cat.categoryName})</span>}
-                                </div>
-                              </div>
-                            );
-                          })}
+                      if (!cat || !cat.categoryId) {
+                        return null;
+                      }
+                      
+                      const isSelected = formData.categories.includes(cat.categoryId);
+                      return (
+                        <div 
+                          key={cat.categoryId} 
+                          className={`flex items-center p-3 rounded-lg border cursor-pointer transition-all
+                            ${isSelected ? 'border-indigo-200 bg-indigo-50' : 'border-gray-200 hover:border-indigo-200 hover:bg-gray-50'}`}
+                          onClick={() => {
+                            const updatedCategories = isSelected 
+                              ? formData.categories.filter(c => c !== cat.categoryId)
+                              : [...formData.categories, cat.categoryId];
+                                
+                            setFormData({
+                              ...formData,
+                              categories: updatedCategories
+                            });
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => {}} // Controlled by the div onClick
+                            className="h-5 w-5 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
+                          />
+                          <div className="ml-3 flex-1">
+                            <span className="text-gray-800 font-medium">{cat.categoryDisplayName || cat.categoryName || "Danh mục"}</span>
+                            {cat.categoryName && <span className="text-gray-500 text-sm ml-2">({cat.categoryName})</span>}
+                          </div>
+                        </div>
+                      );
+                    })}
                       </div>
                     </div>
                   </div>
@@ -764,40 +764,40 @@ export default function AdminCreateCoursePage() {
                 )}
                 
                 {/* Display selected regular categories */}
-                {formData.categories.length > 0 && (
+              {formData.categories.length > 0 && (
                   <div>
-                    <div className="text-sm font-medium text-gray-700 mb-2">Danh mục đã chọn:</div>
-                    <div className="flex flex-wrap gap-2">
-                      {formData.categories.map(categoryId => {
-                        const category = categories.find(c => c.categoryId === categoryId);
-                        return (
-                          <div 
-                            key={categoryId}
-                            className="flex items-center bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded-full text-sm"
+                  <div className="text-sm font-medium text-gray-700 mb-2">Danh mục đã chọn:</div>
+                  <div className="flex flex-wrap gap-2">
+                    {formData.categories.map(categoryId => {
+                      const category = categories.find(c => c.categoryId === categoryId);
+                      return (
+                        <div 
+                          key={categoryId}
+                          className="flex items-center bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded-full text-sm"
+                        >
+                          {category?.categoryDisplayName || categoryId}
+                          <button
+                            type="button"
+                            className="ml-1.5 text-indigo-500 hover:text-indigo-700"
+                            onClick={() => {
+                              setFormData({
+                                ...formData,
+                                categories: formData.categories.filter(c => c !== categoryId)
+                              });
+                            }}
                           >
-                            {category?.categoryDisplayName || categoryId}
-                            <button
-                              type="button"
-                              className="ml-1.5 text-indigo-500 hover:text-indigo-700"
-                              onClick={() => {
-                                setFormData({
-                                  ...formData,
-                                  categories: formData.categories.filter(c => c !== categoryId)
-                                });
-                              }}
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                              </svg>
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </div>
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                            </svg>
+                          </button>
+                        </div>
+                      );
+                    })}
                   </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
+              </div>
           </div>
           
           <div className="mb-6">
