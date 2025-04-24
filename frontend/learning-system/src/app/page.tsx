@@ -9,10 +9,11 @@ import Image from 'next/image';
 import { ChevronRight, Star } from "@mui/icons-material";
 import CourseGrid from "./components/courses-grid/page";
 import { Check } from "lucide-react";
-// import * as dotenv from "dotenv";
+import { Course } from "./types";
+import * as dotenv from "dotenv";
 
-// dotenv.config();
-const API_BASE_URL = "http://localhost:8082/api";
+dotenv.config();
+const API_BASE_URL = process.env.BASE_URL || "http://localhost:8082/api";
 console.log("API_BASE_URL:", API_BASE_URL);
 
 const defaultCourses: Course[] = [
