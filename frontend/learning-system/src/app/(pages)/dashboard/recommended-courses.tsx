@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import Link from 'next/link';
 
 // Định nghĩa interface cho khóa học chưa bắt đầu
 interface NotStartedCourse {
@@ -111,13 +112,15 @@ export function RecommendedCourses() {
                     <p className="text-xs text-[#666666]">{course.teacherName}</p>
                     <p className="mt-1 text-xs line-clamp-2 text-[#444]">{course.description}</p>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="mt-2 self-start border-[#FF782D] text-[#FF782D] hover:bg-[#FF782D] hover:text-white transition"
-                  >
-                    Bắt đầu học
-                  </Button>
+                  <Link href={`/courses/${course.id}`}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="mt-2 self-start border-[#FF782D] text-[#FF782D] hover:bg-[#FF782D] hover:text-white transition"
+                      >
+                        Bắt đầu học
+                      </Button>
+                    </Link>
                 </div>
               </div>
             ))
