@@ -17,6 +17,7 @@ import web20242.webcourse.repository.CourseRepository;
 import web20242.webcourse.repository.EnrollmentRepository;
 import web20242.webcourse.repository.UserRepository;
 
+import java.security.Principal;
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -104,12 +105,11 @@ public class UserService implements UserDetailsService {
             throw new IllegalArgumentException("User not found with id: " + user.getId());
         }
     }
-    public void editInformationUsersForUser(User user){
-        Optional<User> existingUser = userRepository.findByUsername(user.getUsername());
+    public void editInformationUsersForUser(User user, Principal principal){
+        Optional<User> existingUser = userRepository.findByUsername(principal.getName());
         if(existingUser.isPresent()){
             User userToUpdate = existingUser.get();
-            if(user.getId() == userToUpdate.getId())
-            {
+
 //                userToUpdate.setUsername(user.getUsername());
 //            userToUpdate.setPassword(user.getPassword());
 //            if (user.getPassword() != null && !user.getPassword().isEmpty()) {
@@ -125,9 +125,6 @@ public class UserService implements UserDetailsService {
                 userToUpdate.setProfileImage(user.getProfileImage());
                 userToUpdate.setUpdatedAt(LocalDateTime.now());
                 userRepository.save(userToUpdate);
-            }else {
-                throw new IllegalArgumentException("User not found with id: " + user.getId());
-            }
         }
         else {
             throw new IllegalArgumentException("User not found with id: " + user.getId());

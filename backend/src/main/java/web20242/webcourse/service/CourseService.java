@@ -891,6 +891,7 @@ public class CourseService {
                 lessonMap.put("lessonTitle", lesson.getTitle());
                 lessonMap.put("lessonShortTitle", lesson.getShortTile()); // Fixed typo from "lessonShortTilte"
                 lessonMap.put("orderLesson", lesson.getOrder());
+                lessonMap.put("status", lesson.getStatus());
                 lessonList.add(lessonMap);
             });
 
@@ -902,6 +903,7 @@ public class CourseService {
                 quizMap.put("passingScore", quiz.getPassingScore());
                 quizMap.put("questionCount", quiz.getQuestions() != null ? quiz.getQuestions().size() : 0);
                 quizMap.put("orderQuiz", quiz.getOrder());
+                quizMap.put("status",quiz.getStatus());
                 quizList.add(quizMap);
             });
 
@@ -974,6 +976,8 @@ public class CourseService {
         User user = userService.findByUsername(principal.getName());
         for (Map.Entry<String, String> entry : list.entrySet()) {
             String itemId = entry.getKey();
+            System.out.println("Item ID: " + itemId);
+            System.out.println("New Order: " + entry.getValue());
             String newOrderStr = entry.getValue();
             Integer newOrder = Integer.parseInt(newOrderStr);
             Optional<Lesson> lessonOptional = lessonRepository.findById(new ObjectId(itemId));
@@ -993,11 +997,16 @@ public class CourseService {
             } else if (quizzesOptional.isPresent()) {
                 Quizzes quizzes = quizzesOptional.get();
                 Course course = courseRepository.findById(quizzes.getCourseId()).orElse(null);
-                if (course != null && !user.getId().equals(course.getTeacherId())) {
-                    return ResponseEntity.status(HttpStatus.FORBIDDEN).body("You are not the owner of this course");
+                if(user.getRole() == ERole.ROLE_ADMIN) {
+                    quizzes.setOrder(newOrder);
+                    quizzesRepository.save(quizzes);
                 }
-                quizzes.setOrder(newOrder);
-                quizzesRepository.save(quizzes);
+                else if (course != null && !user.getId().equals(course.getTeacherId())) {
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN).body("You are not the owner of this course");
+                }else {
+                        quizzes.setOrder(newOrder);
+                        quizzesRepository.save(quizzes);
+                }
             }
         }
         return ResponseEntity.ok("Done !");

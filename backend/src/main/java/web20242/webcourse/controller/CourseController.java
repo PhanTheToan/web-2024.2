@@ -69,6 +69,7 @@ public class CourseController {
         );
         return ResponseEntity.ok(coursePage);
     }
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
     @GetMapping("/search-course-admin")
     public ResponseEntity<Page<Map<String, Object>>> searchCoursesForAdmin(
             @RequestParam(defaultValue = "0") int page,
@@ -139,7 +140,7 @@ public class CourseController {
     }
     @PreAuthorize("hasRole('ROLE_TEACHER') || hasRole('ROLE_ADMIN')")
     @PutMapping("/update-order-list")
-    public ResponseEntity<?> updateOrder(@RequestParam Map<String,String> list, Principal principal) {
+    public ResponseEntity<?> updateOrder(@RequestBody Map<String,String> list, Principal principal) {
         return ResponseEntity.ok(courseService.updateOrderForList(list, principal));
     }
     @PreAuthorize("hasRole('ROLE_TEACHER')")

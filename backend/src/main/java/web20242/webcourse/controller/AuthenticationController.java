@@ -265,6 +265,9 @@ public class AuthenticationController {
             }
 
             User user = otpData.getUser();
+            if(user.getRole() == null)
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(new ApiResponse<>(HttpStatus.BAD_REQUEST.value(), "Need Role", null));
             if(user.getRole() == ERole.ROLE_USER)
                 user.setStatus(EStatus.ACTIVE);
             else

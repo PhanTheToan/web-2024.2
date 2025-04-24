@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.*;
 import web20242.webcourse.model.User;
 import web20242.webcourse.service.UserService;
 
+import java.security.Principal;
 import java.util.List;
 
 @RestController
@@ -27,10 +28,10 @@ public class UserController {
         userService.editInformationUsers(user);
         return ResponseEntity.ok("User edited successfully");
     }
-    @PreAuthorize("hasRole('ROLE_USER') || hasRole('ROLE_TEACHER')")
+    @PreAuthorize("hasRole('ROLE_USER') || hasRole('ROLE_TEACHER') || hasRole('ROLE_ADMIN')")
     @PutMapping("/edit")
-    public ResponseEntity<?> editUser(@RequestBody User user) {
-        userService.editInformationUsersForUser(user);
+    public ResponseEntity<?> editUser(@RequestBody User user, Principal principal) {
+        userService.editInformationUsersForUser(user, principal);
         return ResponseEntity.ok("User edited successfully");
     }
 //    @PreAuthorize("hasRole('ROLE_ADMIN')")
