@@ -32,6 +32,7 @@ export function CompletedCourses() {
         });
 
         const data = await response.json();
+        console.log(data);
 
         if (response.ok) {
           // Lấy data.body và kiểm tra xem nó có phải mảng không

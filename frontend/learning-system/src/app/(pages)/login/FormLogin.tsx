@@ -34,15 +34,11 @@ export const FormLogin = () => {
       const data = await response.json()
 
       if (response.ok) {
-        // Lưu token vào cookie
-        document.cookie = `jwtToken=${data.token}; path=/; `
-
-        // Chuyển về trang chủ hoặc trang yêu cầu sau khi login thành công
         window.location.href = "/"
       } else {
         setError(data.message || "Sai username hoặc mật khẩu!")
       }
-    } catch (err) {
+    } catch {
       setError("Lỗi kết nối, vui lòng thử lại sau!")
     }
 
