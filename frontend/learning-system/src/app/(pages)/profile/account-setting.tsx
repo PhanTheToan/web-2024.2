@@ -1,11 +1,41 @@
+"use client"
+
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Switch } from "@/components/ui/switch"
+import Link from "next/link"
+import { useState } from "react"
 
+const BASE_URL = process.env.BASE_URL || ""
+
+const handleDelete = async () => {
+  if (confirm("Bạn có chắc chắn muốn xóa tài khoản này không?")) {
+    setIsDeleting(true)
+    try {
+      const response = await fetch(`${BASE_URL}/user/delete-user/67f1e88a856df17345728ea0`, {
+        method: "DELETE",
+        credentials: "include",  // Đảm bảo cookie được gửi
+      })
+
+      if (response.ok) {
+        alert("Tài khoản đã được xóa thành công")
+        // Chuyển hướng hoặc xử lý sau khi xóa thành công
+      } else {
+        alert("Có lỗi xảy ra khi xóa tài khoản")
+      }
+    } catch (error) {
+      console.error("Error deleting account:", error)
+      alert("Đã xảy ra lỗi khi xóa tài khoản")
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+}
 export function AccountSettings() {
+  const [isDeleting, setIsDeleting] = useState(false)
   return (
     <div className="space-y-6">
       <Card>
@@ -13,22 +43,10 @@ export function AccountSettings() {
           <CardTitle>Đổi mật khẩu</CardTitle>
           <CardDescription>Cập nhật mật khẩu để bảo vệ tài khoản của bạn</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="current-password">Mật khẩu hiện tại</Label>
-            <Input id="current-password" type="password" />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="new-password">Mật khẩu mới</Label>
-            <Input id="new-password" type="password" />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="confirm-password">Xác nhận mật khẩu mới</Label>
-            <Input id="confirm-password" type="password" />
-          </div>
-        </CardContent>
         <CardFooter>
+        <Link href="/reset-password">
           <Button>Cập nhật mật khẩu</Button>
+        </Link>
         </CardFooter>
       </Card>
 
@@ -95,10 +113,20 @@ export function AccountSettings() {
           </p>
         </CardContent>
         <CardFooter>
-          <Button variant="destructive">Xóa tài khoản</Button>
+          <Button
+            variant="destructive"
+            onClick={handleDelete}
+            disabled={isDeleting} // Disable khi đang thực hiện xóa
+          >
+            {isDeleting ? "Đang xóa..." : "Xóa tài khoản"}
+          </Button>
         </CardFooter>
       </Card>
     </div>
   )
+}
+
+function setIsDeleting(arg0: boolean) {
+  throw new Error("Function not implemented.")
 }
 
