@@ -3,10 +3,7 @@ package web20242.webcourse.controller;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import web20242.webcourse.service.UpdateService;
 
 @RestController
@@ -30,6 +27,11 @@ public class UpdateController {
     @GetMapping("/ping")
     public ResponseEntity<String> ping() {
         return new ResponseEntity<>("Pong", HttpStatus.OK);
+    }
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @PutMapping("/update-course-enroll")
+    public ResponseEntity<?> update_course(){
+        return ResponseEntity.ok(quizMigrationService.update_course_enroll());
     }
 
 

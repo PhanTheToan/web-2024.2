@@ -729,6 +729,7 @@ public class CourseService {
                     lessonMap.put("lessonTitle", lesson.getTitle());
                     lessonMap.put("lessonShortTile",lesson.getShortTile());
                     lessonMap.put("orderLesson", lesson.getOrder());
+                    lessonMap.put("status",lesson.getStatus());
                     return lessonMap;
                 }).collect(Collectors.toList());
 
@@ -736,8 +737,10 @@ public class CourseService {
                     Map<String, Object> quizMap = new HashMap<>();
                     quizMap.put("quizId", quiz.getId().toString());
                     quizMap.put("passingScore", quiz.getPassingScore());
+                    quizMap.put("title",quiz.getTitle());
                     quizMap.put("questionCount", quiz.getQuestions().size());
                     quizMap.put("orderQuiz", quiz.getOrder());
+                    quizMap.put("status",quiz.getStatus());
                     return quizMap;
                 }).collect(Collectors.toList());
 
@@ -1304,10 +1307,8 @@ public class CourseService {
 
         double totalQuestions = quizQuestions.size();
         double score = (correctCount / totalQuestions) * 100;
-
         double passingScore = quiz.getPassingScore() != null ? quiz.getPassingScore() : 0;
         boolean passed = score >= passingScore;
-
         QuizSubmissionResponseDto response = new QuizSubmissionResponseDto();
         response.setScore(score);
         response.setPassingScore(passingScore);

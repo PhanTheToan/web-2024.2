@@ -1,20 +1,33 @@
 package web20242.webcourse.service;
 
+import org.bson.types.ObjectId;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import web20242.webcourse.model.Enrollment;
 import web20242.webcourse.model.Quizzes;
+import web20242.webcourse.model.User;
 import web20242.webcourse.model.constant.EQuestion;
 import web20242.webcourse.model.createRequest.Question;
+import web20242.webcourse.repository.EnrollmentRepository;
 import web20242.webcourse.repository.PopularCategoryRepository;
 import web20242.webcourse.repository.QuizzesRepository;
+import web20242.webcourse.repository.UserRepository;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class UpdateService {
 
     private final QuizzesRepository quizRepository;
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private EnrollmentRepository enrollmentRepository;
 
     public UpdateService(QuizzesRepository quizRepository) {
         this.quizRepository = quizRepository;
@@ -64,5 +77,19 @@ public class UpdateService {
                 quizRepository.save(quiz);
             }
         }
+    }
+
+    public ResponseEntity<?> update_course_enroll() {
+        List<User> userOptional = userRepository.findAll();
+        userOptional.forEach(user -> {
+            List<Enrollment> enrollmentList = enrollmentRepository.findByUserId(user.getId());
+            ArrayList<ObjectId> courseEnroll = new ArrayList<>();
+            enrollmentList.forEach(enrollment -> {
+                courseEnroll.add(enrollment.getCourseId());
+            });
+            user.setCoursesEnrolled(courseEnroll);
+            userRepository.save(user);
+        });
+        return ResponseEntity.ok("Done !");
     }
 }
