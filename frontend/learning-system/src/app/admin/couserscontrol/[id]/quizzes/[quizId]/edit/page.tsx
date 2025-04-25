@@ -191,8 +191,8 @@ export default function EditQuizPage() {
           }
           
           return {
-            question: q.question,
-            options: q.options || [],
+          question: q.question,
+          options: q.options || [],
             correctAnswer: correctAnswerArray,
             material: q.material || null,
             equestion: q.equestion || EQuestion.SINGLE_CHOICE,
@@ -248,10 +248,10 @@ export default function EditQuizPage() {
       });
     } else {
       // Xử lý các thay đổi khác
-      setCurrentQuestion({
-        ...currentQuestion,
-        [name]: value,
-      });
+    setCurrentQuestion({
+      ...currentQuestion,
+      [name]: value,
+    });
     }
   };
 
@@ -473,15 +473,15 @@ export default function EditQuizPage() {
       // For multiple/single choice
       if (!questionToAdd.options || questionToAdd.options.length < 2 || questionToAdd.options.some(o => !o.trim())) {
         toast.error('Vui lòng nhập ít nhất 2 lựa chọn và không để trống lựa chọn nào');
-        return;
-      }
+      return;
+    }
 
       // Check if correctAnswer is set based on question type
       if (questionToAdd.equestion === EQuestion.SINGLE_CHOICE) {
         if (!questionToAdd.correctAnswer || questionToAdd.correctAnswer.length === 0) {
           toast.error('Vui lòng chọn đáp án đúng cho câu hỏi một lựa chọn');
-          return;
-        }
+      return;
+    }
       } else if (questionToAdd.equestion === EQuestion.MULTIPLE_CHOICE) {
         if (questionToAdd.correctAnswer.length === 0) {
           toast.error('Vui lòng chọn ít nhất một đáp án đúng cho câu hỏi nhiều lựa chọn');
@@ -609,8 +609,8 @@ export default function EditQuizPage() {
           }
           
           return {
-            question: q.question,
-            options: q.options,
+          question: q.question,
+          options: q.options,
             correctAnswer: formattedAnswer,
             material: q.material || null,
             equestion: q.equestion
@@ -713,7 +713,7 @@ export default function EditQuizPage() {
       </div>
     ));
   };
-
+  
   if (loading) {
     return (
       <div className="p-6 max-w-5xl mx-auto">
@@ -878,7 +878,7 @@ export default function EditQuizPage() {
                     <div className="flex items-center text-green-600">
                       <CheckCircle className="w-4 h-4 mr-1" />
                       <span>Bài kiểm tra đang được kích hoạt</span>
-                    </div>
+            </div>
                   ) : (
                     <div className="flex items-center text-gray-500">
                       <AlertCircle className="w-4 h-4 mr-1" />
@@ -1017,13 +1017,13 @@ export default function EditQuizPage() {
                   />
                 </div>
               ) : (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                     Các phương án trả lời <span className="text-red-500">*</span>
-                  </label>
-                  
-                  {currentQuestion.options.map((option, idx) => (
-                    <div key={idx} className="flex items-center mb-2">
+                </label>
+                
+                {currentQuestion.options.map((option, idx) => (
+                  <div key={idx} className="flex items-center mb-2">
                       <input
                         type={currentQuestion.equestion === EQuestion.MULTIPLE_CHOICE ? "checkbox" : "radio"}
                         name="correct-answer"
@@ -1036,21 +1036,21 @@ export default function EditQuizPage() {
                         }
                         disabled={!option.trim()}
                       />
-                      <input
-                        type="text"
-                        value={option}
-                        onChange={(e) => handleOptionChange(idx, e.target.value)}
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-                        placeholder={`Phương án ${idx + 1}`}
-                      />
-                    </div>
-                  ))}
+                    <input
+                      type="text"
+                      value={option}
+                      onChange={(e) => handleOptionChange(idx, e.target.value)}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                      placeholder={`Phương án ${idx + 1}`}
+                    />
+                  </div>
+                ))}
                   <p className="text-sm text-gray-500 mt-1">
                     {currentQuestion.equestion === EQuestion.MULTIPLE_CHOICE
                       ? "Chọn các đáp án đúng bằng cách tích vào các ô tương ứng."
                       : "Chọn đáp án đúng bằng cách nhấp vào nút tròn bên trái."}
                   </p>
-                </div>
+              </div>
               )}
               
               <div className="flex justify-end space-x-3">

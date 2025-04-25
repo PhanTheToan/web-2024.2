@@ -1,11 +1,77 @@
+"use client"
+
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import {
+  RadioGroup,
+  RadioGroupItem,
+} from "@/components/ui/radio-group"
 import { Switch } from "@/components/ui/switch"
+import Link from "next/link"
+import { useEffect, useState } from "react"
+
+const BASE_URL = process.env.BASE_URL || ""
 
 export function AccountSettings() {
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [userId, setUserId] = useState("")
+
+  // Lấy userId từ API xác thực
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const res = await fetch(`${BASE_URL}/auth/check`, {
+          credentials: "include",
+        })
+        if (res.ok) {
+          const data = await res.json()
+          setUserId(data?.data?.id || "") // Gán userId từ backend
+        }
+      } catch (err) {
+        console.error("Error fetching user ID:", err)
+      }
+    }
+    fetchUser()
+  }, [])
+
+  const handleDelete = async () => {
+    if (!userId) {
+      alert("Không tìm thấy ID người dùng.")
+      return
+    }
+
+    if (confirm("Bạn có chắc chắn muốn xóa tài khoản này không?")) {
+      setIsDeleting(true)
+      try {
+        const response = await fetch(`${BASE_URL}/user/delete-user/${userId}`, {
+          method: "DELETE",
+          credentials: "include",
+        })
+
+        if (response.ok) {
+          alert("Tài khoản đã được xóa thành công")
+          // Có thể chuyển hướng tại đây
+        } else {
+          alert("Có lỗi xảy ra khi xóa tài khoản")
+        }
+      } catch (error) {
+        console.error("Error deleting account:", error)
+        alert("Đã xảy ra lỗi khi xóa tài khoản")
+      } finally {
+        setIsDeleting(false)
+      }
+    }
+  }
+
   return (
     <div className="space-y-6">
       <Card>
@@ -13,22 +79,10 @@ export function AccountSettings() {
           <CardTitle>Đổi mật khẩu</CardTitle>
           <CardDescription>Cập nhật mật khẩu để bảo vệ tài khoản của bạn</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="current-password">Mật khẩu hiện tại</Label>
-            <Input id="current-password" type="password" />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="new-password">Mật khẩu mới</Label>
-            <Input id="new-password" type="password" />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="confirm-password">Xác nhận mật khẩu mới</Label>
-            <Input id="confirm-password" type="password" />
-          </div>
-        </CardContent>
         <CardFooter>
-          <Button>Cập nhật mật khẩu</Button>
+          <Link href="/reset-password">
+            <Button>Cập nhật mật khẩu</Button>
+          </Link>
         </CardFooter>
       </Card>
 
@@ -38,26 +92,13 @@ export function AccountSettings() {
           <CardDescription>Quản lý cài đặt thông báo</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Các thiết lập thông báo */}
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
               <Label htmlFor="email-notifications">Thông báo qua email</Label>
               <p className="text-sm text-muted-foreground">Nhận thông báo về khóa học qua email</p>
             </div>
             <Switch id="email-notifications" defaultChecked />
-          </div>
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label htmlFor="sms-notifications">Thông báo qua SMS</Label>
-              <p className="text-sm text-muted-foreground">Nhận thông báo về khóa học qua SMS</p>
-            </div>
-            <Switch id="sms-notifications" />
-          </div>
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label htmlFor="marketing-notifications">Thông báo tiếp thị</Label>
-              <p className="text-sm text-muted-foreground">Nhận thông tin về khóa học mới và khuyến mãi</p>
-            </div>
-            <Switch id="marketing-notifications" defaultChecked />
           </div>
         </CardContent>
       </Card>
@@ -95,10 +136,15 @@ export function AccountSettings() {
           </p>
         </CardContent>
         <CardFooter>
-          <Button variant="destructive">Xóa tài khoản</Button>
+          <Button
+            variant="destructive"
+            onClick={handleDelete}
+            disabled={isDeleting}
+          >
+            {isDeleting ? "Đang xóa..." : "Xóa tài khoản"}
+          </Button>
         </CardFooter>
       </Card>
     </div>
   )
 }
-

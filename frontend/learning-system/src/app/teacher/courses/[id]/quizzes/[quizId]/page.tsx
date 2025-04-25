@@ -1,25 +1,39 @@
 "use client";
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { 
-  ArrowLeft, Edit, Clock, Calendar, 
-  AlertCircle, Loader2, CheckCircle, 
-  List, Award, HelpCircle
+  ArrowLeft, Edit, List, Clock, Calendar, Award, 
+  AlertCircle, Loader2, CheckCircle, X, Trash, HelpCircle
 } from 'lucide-react';
 import { Course } from '@/app/types';
 import { formatDate } from '@/lib/utils';
+import { toast } from 'react-hot-toast';
 import dotenv from 'dotenv';
 dotenv.config();
 // API Base URL
 const API_BASE_URL = process.env.BASE_URL || 'http://localhost:8082/api';
 
+// Enum cho loại câu hỏi
+enum EQuestion {
+  SINGLE_CHOICE = 'SINGLE_CHOICE',
+  MULTIPLE_CHOICE = 'MULTIPLE_CHOICE',
+  SHORT_ANSWER = 'SHORT_ANSWER'
+}
+
+// Enum cho trạng thái quiz
+enum QuizStatus {
+  ACTIVE = 'ACTIVE',
+  INACTIVE = 'INACTIVE'
+}
+
 // Define Quiz-related types based on API response
 interface QuizQuestion {
   question: string;
   options: string[];
-  correctAnswer: string;
+  correctAnswer: string | string[];
   material?: string | null;
+  equestion?: EQuestion;
 }
 
 interface Quiz {
@@ -31,12 +45,14 @@ interface Quiz {
   passingScore: number;
   timeLimit?: number;
   order?: number;
+  status?: QuizStatus;
   createdAt: string | Date;
   updatedAt?: string | Date;
 }
 
 export default function QuizDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const courseId = params.id as string;
   const quizId = params.quizId as string;
   
@@ -44,6 +60,8 @@ export default function QuizDetailPage() {
   const [quiz, setQuiz] = useState<Quiz | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -105,6 +123,41 @@ export default function QuizDetailPage() {
     
     fetchData();
   }, [courseId, quizId]);
+  
+  const handleDeleteQuiz = async () => {
+    if (!course || !quiz) return;
+    
+    try {
+      setDeleting(true);
+      
+      // Delete the quiz using the API
+      const response = await fetch(`${API_BASE_URL}/course/delete-quiz/${quizId}?courseId=${courseId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Delete quiz error:', errorText);
+        throw new Error('Không thể xóa bài kiểm tra');
+      }
+      
+      toast.success('Đã xóa bài kiểm tra thành công');
+      
+      // Redirect after successful deletion
+      router.push(`/teacher/courses/${courseId}`);
+    } catch (err) {
+      console.error('Failed to delete quiz:', err);
+      setError('Không thể xóa bài kiểm tra. Vui lòng thử lại sau.');
+      setDeleteModalOpen(false);
+      toast.error('Không thể xóa bài kiểm tra');
+    } finally {
+      setDeleting(false);
+    }
+  };
   
   if (loading) {
     return (
@@ -184,6 +237,14 @@ export default function QuizDetailPage() {
             <Edit className="w-4 h-4 mr-2" />
             Chỉnh sửa
           </Link>
+          
+          <button
+            onClick={() => setDeleteModalOpen(true)}
+            className="bg-red-600 text-white px-4 py-2 rounded-md flex items-center hover:bg-red-700"
+          >
+            <Trash className="w-4 h-4 mr-2" />
+            Xóa bài kiểm tra
+          </button>
         </div>
       </div>
       
@@ -223,13 +284,33 @@ export default function QuizDetailPage() {
                 </div>
               </div>
               
-              <div className="flex items-center md:col-span-3">
+              <div className="flex items-center">
                 <Calendar className="text-gray-400 w-5 h-5 mr-2" />
                 <div>
                   <p className="text-sm text-gray-500">Ngày tạo</p>
-                  <p className="font-medium">{formatDate(quiz.createdAt.toString())}</p>
+                  <p className="font-medium">{formatDate(quiz.createdAt ? quiz.createdAt.toString() : '')}</p>
                 </div>
               </div>
+            </div>
+            
+            {/* Thêm phần hiển thị trạng thái */}
+            <div className="p-4 border-t">
+              <h3 className="text-sm font-medium mb-2">Trạng thái bài kiểm tra:</h3>
+              <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm ${
+                quiz.status === 'ACTIVE' 
+                  ? 'bg-green-100 text-green-800' 
+                  : 'bg-gray-100 text-gray-800'
+              }`}>
+                <div className={`w-2 h-2 rounded-full mr-2 ${
+                  quiz.status === 'ACTIVE' ? 'bg-green-500' : 'bg-gray-500'
+                }`}></div>
+                {quiz.status === 'ACTIVE' ? 'Hoạt động' : 'Không hoạt động'}
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                {quiz.status === 'ACTIVE'
+                  ? "Bài kiểm tra đang được kích hoạt. Học viên có thể truy cập bài kiểm tra này."
+                  : "Bài kiểm tra đang bị vô hiệu hóa. Học viên không thể truy cập bài kiểm tra này."}
+              </p>
             </div>
           </div>
           
@@ -247,49 +328,80 @@ export default function QuizDetailPage() {
                       <span className="bg-primary-100 text-primary-800 rounded-full w-6 h-6 flex items-center justify-center mr-2 flex-shrink-0 mt-0.5">
                         {index + 1}
                       </span>
+                      <div>
                       <h4 className="font-medium">{question.question}</h4>
+                        <div className="text-xs text-gray-500 mt-1">
+                          {question.equestion === EQuestion.SINGLE_CHOICE ? 'Chọn một đáp án' : 
+                          question.equestion === EQuestion.MULTIPLE_CHOICE ? 'Chọn nhiều đáp án' : 
+                          question.equestion === EQuestion.SHORT_ANSWER ? 'Câu trả lời ngắn' : 'Trắc nghiệm'}
+                        </div>
+                      </div>
                     </div>
                     
                     {question.material && (
-                      <div className="ml-8 mb-3">
+                      <div className="pl-8 mb-3">
                         <img 
                           src={question.material} 
                           alt={`Hình ảnh cho câu hỏi ${index + 1}`} 
-                          className="max-h-36 rounded border mb-2"
+                          className="max-h-64 rounded-md border border-gray-200"
                         />
                       </div>
                     )}
                     
-                    <div className="ml-8 space-y-2">
+                    <div className="pl-8 space-y-2">
+                      {question.equestion === EQuestion.SHORT_ANSWER ? (
+                        // Hiển thị câu trả lời ngắn
+                        <div className="bg-blue-50 border border-blue-200 p-3 rounded-md">
+                          <h5 className="font-medium text-sm text-blue-700 mb-2">Các đáp án được chấp nhận:</h5>
+                          <ul className="list-disc pl-5 space-y-1">
+                            {Array.isArray(question.correctAnswer) ? 
+                              question.correctAnswer.map((answer, idx) => (
+                                <li key={idx} className="text-blue-800">{answer}</li>
+                              )) : 
+                              <li className="text-blue-800">{question.correctAnswer}</li>
+                            }
+                          </ul>
+                        </div>
+                      ) : (
+                        // Hiển thị trắc nghiệm (SINGLE_CHOICE hoặc MULTIPLE_CHOICE)
+                        <>
                       {question.options.map((option, optionIndex) => {
-                        const isCorrect = option === question.correctAnswer;
+                            // Xác định xem option có phải là đáp án đúng không
+                            const isCorrect = Array.isArray(question.correctAnswer) 
+                              ? question.correctAnswer.includes(optionIndex.toString()) || question.correctAnswer.includes(option)
+                              : option === question.correctAnswer || optionIndex.toString() === question.correctAnswer;
                         
                         return (
                           <div 
                             key={optionIndex}
-                            className={`flex items-start p-2 rounded-md ${
-                              isCorrect ? 'bg-green-50 border border-green-100' : ''
+                                className={`p-2 rounded-md flex items-center ${
+                                  isCorrect
+                                    ? 'bg-green-50 border border-green-200' 
+                                    : 'bg-gray-50 border border-gray-200'
                             }`}
                           >
                             {isCorrect ? (
-                              <CheckCircle className="w-5 h-5 text-green-500 mr-2 flex-shrink-0" />
+                                  <CheckCircle className="w-4 h-4 text-green-600 mr-2 flex-shrink-0" />
                             ) : (
-                              <div className="w-5 h-5 rounded-full border border-gray-300 mr-2 flex-shrink-0" />
+                                  <X className="w-4 h-4 text-gray-400 mr-2 flex-shrink-0" />
                             )}
-                            <span className={isCorrect ? 'font-medium' : ''}>
-                              {option}
-                            </span>
+                                <span className={isCorrect ? 'font-medium' : ''}>{option}</span>
+                                {isCorrect && (
+                                  <span className="ml-2 text-xs text-green-600 font-medium">Đáp án đúng</span>
+                                )}
                           </div>
                         );
                       })}
+                        </>
+                      )}
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="p-4 text-center">
-                <HelpCircle className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-                <p className="text-gray-500">Không có câu hỏi nào được tạo cho bài kiểm tra này.</p>
+              <div className="p-6 text-center text-gray-500">
+                <HelpCircle className="mx-auto w-10 h-10 text-gray-400 mb-2" />
+                <p>Chưa có câu hỏi nào cho bài kiểm tra này</p>
               </div>
             )}
           </div>
@@ -331,6 +443,45 @@ export default function QuizDetailPage() {
           </div>
         </div>
       </div>
+      
+      {/* Delete confirmation modal */}
+      {deleteModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full">
+            <h3 className="text-xl font-bold mb-4">Xác nhận xóa</h3>
+            <p className="text-gray-600 mb-6">
+              Bạn có chắc chắn muốn xóa bài kiểm tra <span className="font-semibold">{quiz.title}</span>? 
+              Hành động này không thể hoàn tác.
+            </p>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setDeleteModalOpen(false)}
+                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100"
+                disabled={deleting}
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleDeleteQuiz}
+                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 flex items-center"
+                disabled={deleting}
+              >
+                {deleting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Đang xóa...
+                  </>
+                ) : (
+                  <>
+                    <Trash className="w-4 h-4 mr-2" />
+                    Xóa bài kiểm tra
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 } 

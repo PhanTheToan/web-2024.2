@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
+import Link from 'next/link';
 
 // Định nghĩa interface cho khóa học đang học
 interface CourseInProgress {
@@ -125,10 +126,10 @@ export function CoursesInProgress() {
                       Bắt đầu:{' '}
                       {course.startDate && course.startDate.length >= 3
                         ? new Date(
-                            course.startDate[0],
-                            course.startDate[1] - 1,
-                            course.startDate[2]
-                          ).toLocaleDateString('vi-VN')
+                          course.startDate[0],
+                          course.startDate[1] - 1,
+                          course.startDate[2]
+                        ).toLocaleDateString('vi-VN')
                         : 'N/A'}
                     </p>
                     <p className="mt-1 text-sm text-muted-foreground">
@@ -136,13 +137,15 @@ export function CoursesInProgress() {
                     </p>
                   </div>
                   <div className="mt-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="mt-2 self-start border-[#FF782D] text-[#FF782D] hover:bg-[#FF782D] hover:text-white transition"
-                    >
-                      Tiếp tục học
-                    </Button>
+                    <Link href={`/courses/${course.id}`}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="mt-2 self-start border-[#FF782D] text-[#FF782D] hover:bg-[#FF782D] hover:text-white transition"
+                      >
+                        Tiếp tục học
+                      </Button>
+                    </Link>
                   </div>
                 </div>
               </div>

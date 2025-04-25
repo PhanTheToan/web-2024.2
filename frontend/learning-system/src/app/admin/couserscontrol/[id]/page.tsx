@@ -673,24 +673,46 @@ export default function CourseDetailPage() {
     try {
       setSavingOrder(true);
       
-      // Get the lesson IDs
-      const lessonIds = course.lessons.map((lesson: Lesson) => {
-        if (typeof lesson === 'object' && lesson._id) {
-          return lesson._id;
-        }
-        return ''; // Return empty string for invalid IDs
-      }).filter(Boolean) as string[]; // Filter out empty strings and cast to string[]
+      // Create order object according to the API format
+      const orderData: Record<string, string> = {};
       
-      // Call the service to update the order
-      await courseService.updateLessonOrder(courseId, lessonIds);
+      // Add lessons to order object
+      course.lessons.forEach((lesson, index) => {
+        const lessonId = typeof lesson === 'object' ? (lesson._id || lesson.lessonId) : lesson;
+        if (lessonId) {
+          orderData[lessonId] = String(index + 1); // Convert order to string as shown in Postman
+        }
+      });
+      
+      console.log("Order data to send:", orderData);
+      
+      // Call the API to update the order
+      const response = await fetch(`${API_BASE_URL}/course/update-order-list`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(orderData)
+      });
+      
+      if (!response.ok) {
+        throw new Error('Không thể cập nhật thứ tự bài học');
+      }
       
       setIsReorderingLessons(false);
       
       // Show success message
-      alert('Thứ tự bài học đã được cập nhật thành công');
+      toast.success('Thứ tự bài học đã được cập nhật thành công');
+      
+      // Fetch both detailed course data and lessons/quizzes data
+      await fetchCourse();
+      if (course) {
+        await fetchLessonsAndQuizzes(course);
+      }
     } catch (error) {
       console.error('Failed to save lesson order:', error);
-      alert('Không thể cập nhật thứ tự bài học. Vui lòng thử lại sau.');
+      toast.error('Không thể cập nhật thứ tự bài học. Vui lòng thử lại sau.');
     } finally {
       setSavingOrder(false);
     }
@@ -738,21 +760,46 @@ export default function CourseDetailPage() {
     try {
       setSavingOrder(true);
       
-      // Get the quiz IDs and fix the type issue
-      const quizIds = course.quizzes
-        .map((quiz: Quiz) => typeof quiz === 'object' ? quiz._id : quiz)
-        .filter(id => id !== undefined) as string[];
+      // Create order object according to the API format
+      const orderData: Record<string, string> = {};
       
-      // Call the service to update the order
-      await courseService.updateQuizOrder(courseId, quizIds);
+      // Add quizzes to order object
+      course.quizzes.forEach((quiz, index) => {
+        const quizId = typeof quiz === 'object' ? (quiz._id || quiz.quizId) : quiz;
+        if (quizId) {
+          orderData[quizId] = String(index + 1); // Convert order to string as shown in Postman
+        }
+      });
+      
+      console.log("Order data to send:", orderData);
+      
+      // Call the API to update the order
+      const response = await fetch(`${API_BASE_URL}/course/update-order-list`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(orderData)
+      });
+      
+      if (!response.ok) {
+        throw new Error('Không thể cập nhật thứ tự bài kiểm tra');
+      }
       
       setIsReorderingQuizzes(false);
       
       // Show success message
-      alert('Thứ tự bài kiểm tra đã được cập nhật thành công');
+      toast.success('Thứ tự bài kiểm tra đã được cập nhật thành công');
+      
+      // Fetch both detailed course data and lessons/quizzes data
+      await fetchCourse();
+      if (course) {
+        await fetchLessonsAndQuizzes(course);
+      }
     } catch (error) {
       console.error('Failed to save quiz order:', error);
-      alert('Không thể cập nhật thứ tự bài kiểm tra. Vui lòng thử lại sau.');
+      toast.error('Không thể cập nhật thứ tự bài kiểm tra. Vui lòng thử lại sau.');
     } finally {
       setSavingOrder(false);
     }
@@ -1144,27 +1191,30 @@ export default function CourseDetailPage() {
     setContentOrderSaving(true);
     
     try {
-      // Lưu lần lượt thứ tự cho từng item thay vì gửi tất cả cùng lúc
-      for (let i = 0; i < courseContent.length; i++) {
-        const item = courseContent[i];
-        const newOrder = i + 1;
-        const itemType = item.type.toUpperCase(); // 'lesson' -> 'LESSON', 'quiz' -> 'QUIZ'
-        const itemId = item._id;
-        
-        console.log(`Updating order for ${itemType} ${itemId}: new order = ${newOrder}`);
-        
-        // Gọi API update-order với query params theo định dạng mới
-        const response = await fetch(`${API_BASE_URL}/update-order?itemType=${itemType}&itemId=${itemId}&newOrder=${newOrder}`, {
-          method: 'PUT',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        });
-        
-        if (!response.ok) {
-          throw new Error(`Không thể cập nhật thứ tự cho ${itemType} ${itemId}`);
+      // Create order object according to the API format
+      const orderData: Record<string, string> = {};
+      
+      // Add all content items to order object
+      courseContent.forEach((item, index) => {
+        if (item._id) {
+          orderData[item._id] = String(index + 1); // Convert order to string as shown in Postman
         }
+      });
+      
+      console.log("Order data to send:", orderData);
+      
+      // Call the API to update the order list
+      const response = await fetch(`${API_BASE_URL}/course/update-order-list`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(orderData)
+      });
+      
+      if (!response.ok) {
+        throw new Error('Không thể cập nhật thứ tự nội dung khóa học');
       }
       
       // Exit reordering mode
@@ -1173,8 +1223,12 @@ export default function CourseDetailPage() {
       // Show success message
       toast.success('Thứ tự nội dung khóa học đã được cập nhật thành công');
       
-      // Refetch course data to get updated orders
-      fetchCourse();
+      // Fetch complete course data, lessons/quizzes data, and reload content
+      await fetchCourse();
+      if (course) {
+        await fetchLessonsAndQuizzes(course);
+        await loadCourseContent();
+      }
     } catch (error) {
       console.error('Failed to save content order:', error);
       toast.error('Không thể cập nhật thứ tự nội dung khóa học. Vui lòng thử lại sau.');

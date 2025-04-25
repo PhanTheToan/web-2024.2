@@ -357,10 +357,10 @@ export default function CreateQuizPage() {
       if (question.equestion !== EQuestion.SHORT_ANSWER) {
         // Đếm số lựa chọn có nội dung
         const validOptions = question.options.filter(option => option.trim());
-        
+
         if (validOptions.length < 2) {
           errors[index] = "Câu hỏi trắc nghiệm phải có ít nhất 2 lựa chọn";
-          isValid = false;
+        isValid = false;
           return;
         }
 
@@ -420,8 +420,8 @@ export default function CreateQuizPage() {
             options: string[];
             correctAnswer: string[];
           } = {
-            question: q.question,
-            material: q.material || null,
+          question: q.question,
+          material: q.material || null,
             equestion: q.equestion,
             options: [],
             correctAnswer: []
@@ -787,8 +787,8 @@ export default function CreateQuizPage() {
                             }}
                             className="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
                           />
-                          <input
-                            type="text"
+                    <input
+                      type="text"
                             placeholder={`Lựa chọn ${optionIndex + 1}`}
                             value={option}
                             onChange={(e) => {
@@ -827,12 +827,12 @@ export default function CreateQuizPage() {
                           const answers = e.target.value.split('\n').filter(answer => answer.trim() !== '');
                           handleQuestionChange(index, 'correctAnswer', answers);
                         }}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                         rows={3}
-                      />
-                    </div>
+                    />
+                  </div>
                   )}
-
+                  
                   <div className="mb-4">
                     <label
                       htmlFor={`material-${index}`}
