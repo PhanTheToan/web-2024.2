@@ -483,16 +483,17 @@ export default function EditLessonPage() {
             <label className="block text-gray-700 font-medium mb-2" htmlFor="orderLesson">
               Thứ tự bài học
             </label>
-            <input
-              id="orderLesson"
-              name="orderLesson"
-              type="number"
-              min="1"
-              placeholder="Nhập thứ tự bài học"
-              className="w-full px-3 py-2 border rounded-md"
-              value={formData.orderLesson}
-              onChange={handleChange}
-            />
+            <div className="flex items-center">
+              <span className="w-full px-3 py-2 border rounded-md bg-gray-50 text-gray-600">
+                {formData.orderLesson}
+              </span>
+              <span className="ml-2 text-sm text-gray-500">
+                (Thứ tự được quản lý tự động trong phần sắp xếp nội dung khóa học)
+              </span>
+            </div>
+            <p className="text-gray-500 text-sm mt-2">
+              Để thay đổi thứ tự, vui lòng sử dụng chức năng &quot;Sắp xếp lại&quot; trong trang chi tiết khóa học
+            </p>
           </div>
           
           <div className="mb-6">
