@@ -21,6 +21,7 @@ import web20242.webcourse.security.dto.AuthenticationRequest;
 import web20242.webcourse.security.dto.AuthenticationResponse;
 import web20242.webcourse.security.service.AuthenticationService;
 import web20242.webcourse.security.service.JwtService;
+import web20242.webcourse.service.EmailService;
 import web20242.webcourse.service.UserService;
 import web20242.webcourse.model.User;
 import web20242.webcourse.model.constant.ERole;
@@ -41,6 +42,7 @@ public class AuthenticationController {
     private final JwtService jwtService;
     private final UserDetailsService userDetailsService;
     private final JavaMailSender javaMailSender;
+    private final EmailService emailService;
 
     private final Map<String, OtpData> otpStorage = new HashMap<>();
 
@@ -239,7 +241,7 @@ public class AuthenticationController {
             String otp = generateOTP();
             user.setRole(role); // Đặt role tương ứng
             otpStorage.put(user.getEmail(), new OtpData(otp, user));
-            sendOtpEmail(user.getEmail(), otp);
+            emailService.sendOtp(user.getUsername(),otp,user.getEmail());
 
             return ResponseEntity.ok(new ApiResponse<>(HttpStatus.OK.value(), "OTP đã được gửi đến email", null));
         } catch (Exception e) {
@@ -302,7 +304,7 @@ public class AuthenticationController {
             String otp = generateOTP();
             otpStorage.put(email, new OtpData(otp, user));
 
-            sendOtpEmail(email, otp);
+            emailService.sendOtp(user.getUsername(),otp,user.getEmail());
 
             return ResponseEntity.ok(new ApiResponse<>(HttpStatus.OK.value(), "OTP đã được gửi đến email", null));
         } catch (Exception e) {

@@ -7,6 +7,7 @@
 /home/ptt/PTT-Works/2024.2/web/backend/src/main/java/web20242/webcourse/controller/AuthenticationController.java
 /home/ptt/PTT-Works/2024.2/web/backend/src/main/java/web20242/webcourse/controller/CategoriesController.java
 /home/ptt/PTT-Works/2024.2/web/backend/src/main/java/web20242/webcourse/controller/CourseController.java
+/home/ptt/PTT-Works/2024.2/web/backend/src/main/java/web20242/webcourse/controller/EmailController.java
 /home/ptt/PTT-Works/2024.2/web/backend/src/main/java/web20242/webcourse/controller/EnrollmentController.java
 /home/ptt/PTT-Works/2024.2/web/backend/src/main/java/web20242/webcourse/controller/FileController.java
 /home/ptt/PTT-Works/2024.2/web/backend/src/main/java/web20242/webcourse/controller/QuizController.java
@@ -27,6 +28,7 @@
 /home/ptt/PTT-Works/2024.2/web/backend/src/main/java/web20242/webcourse/model/constant/EStatus.java
 /home/ptt/PTT-Works/2024.2/web/backend/src/main/java/web20242/webcourse/model/createRequest/CourseCreateRequest.java
 /home/ptt/PTT-Works/2024.2/web/backend/src/main/java/web20242/webcourse/model/createRequest/CourseFilterRequest.java
+/home/ptt/PTT-Works/2024.2/web/backend/src/main/java/web20242/webcourse/model/createRequest/EmailDetail.java
 /home/ptt/PTT-Works/2024.2/web/backend/src/main/java/web20242/webcourse/model/createRequest/Logo.java
 /home/ptt/PTT-Works/2024.2/web/backend/src/main/java/web20242/webcourse/model/createRequest/OtpData.java
 /home/ptt/PTT-Works/2024.2/web/backend/src/main/java/web20242/webcourse/model/createRequest/Question.java
@@ -52,6 +54,7 @@
 /home/ptt/PTT-Works/2024.2/web/backend/src/main/java/web20242/webcourse/security/service/JwtService.java
 /home/ptt/PTT-Works/2024.2/web/backend/src/main/java/web20242/webcourse/service/CategoryService.java
 /home/ptt/PTT-Works/2024.2/web/backend/src/main/java/web20242/webcourse/service/CourseService.java
+/home/ptt/PTT-Works/2024.2/web/backend/src/main/java/web20242/webcourse/service/EmailService.java
 /home/ptt/PTT-Works/2024.2/web/backend/src/main/java/web20242/webcourse/service/EnrollmentService.java
 /home/ptt/PTT-Works/2024.2/web/backend/src/main/java/web20242/webcourse/service/FileService.java
 /home/ptt/PTT-Works/2024.2/web/backend/src/main/java/web20242/webcourse/service/QuizGenerationService.java
