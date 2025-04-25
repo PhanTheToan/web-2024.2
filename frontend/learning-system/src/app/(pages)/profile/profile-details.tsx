@@ -10,6 +10,9 @@ const BASE_URL = process.env.BASE_URL || ""
 
 export function ProfileDetails() {
   const [isEditing, setIsEditing] = useState(false)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+
   const [profile, setProfile] = useState({
     id: "Truyen Id nguoi dung",
     username: "hoande",
@@ -17,7 +20,7 @@ export function ProfileDetails() {
     lastName: "Doe",
     email: "johndoe@example.com",
     phone: "123-456-7890",
-    dateOfBirth: "1990-01-01", // Sẽ thay đổi dựa trên dữ liệu GET
+    dateOfBirth: "1990-01-01",
     gender: "Male",
     profileImage: "http://example.com/profile.jpg",
   })
@@ -27,7 +30,7 @@ export function ProfileDetails() {
       try {
         const response = await fetch(`${BASE_URL}/auth/check`, {
           method: "GET",
-          credentials: "include", // Đảm bảo cookie được gửi
+          credentials: "include",
         })
 
         if (response.ok) {
@@ -36,6 +39,7 @@ export function ProfileDetails() {
             const { dateOfBirth, ...rest } = data.data
             const formattedDateOfBirth = `${dateOfBirth[0]}-${String(dateOfBirth[1]).padStart(2, '0')}-${String(dateOfBirth[2]).padStart(2, '0')}`
             setProfile({ ...rest, dateOfBirth: formattedDateOfBirth })
+            setPreviewUrl(data.data.profileImage)
           }
         } else {
           console.error("Failed to fetch profile")
@@ -52,20 +56,58 @@ export function ProfileDetails() {
     setProfile((prev) => ({ ...prev, [field]: value }))
   }
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      setSelectedFile(file)
+      setPreviewUrl(URL.createObjectURL(file))
+    }
+  }
+
   const handleSave = async () => {
+    let imageUrl = profile.profileImage
+    const fallbackUrl = "https://pub-82683fceb06e4dd98da0d728fdcd9630.r2.dev/1745549344137_SVjDV7m0W1uU3m4KLXHu33bV4Pmg7LxYGRNCxKCW44g.jpg"
+  
+    if (selectedFile) {
+      const formData = new FormData()
+      formData.append("file", selectedFile)
+  
+      try {
+        const res = await fetch(`${BASE_URL}/api/upload`, {
+          method: "POST",
+          body: formData,
+        })
+  
+        if (res.ok) {
+          const data = await res.json()
+          imageUrl = data.url || fallbackUrl
+        } else {
+          console.warn("Upload ảnh thất bại, dùng ảnh mặc định.")
+          imageUrl = fallbackUrl
+        }
+      } catch (error) {
+        console.error("Lỗi khi upload ảnh:", error)
+        imageUrl = fallbackUrl
+      }
+    }
+  
+    const updatedProfile = { ...profile, profileImage: imageUrl }
+  
     try {
       const response = await fetch(`${BASE_URL}/user/edit`, {
         method: "PUT",
-        credentials: "include", // Đảm bảo cookie được gửi
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(profile),  // Gửi profile đã được cập nhật, bao gồm cả ảnh đại diện
+        body: JSON.stringify(updatedProfile),
       })
-
+  
       if (response.ok) {
         alert("Lưu thay đổi thành công")
+        setProfile(updatedProfile)
         setIsEditing(false)
+        setSelectedFile(null)
       } else {
         alert("Lỗi khi lưu thay đổi")
       }
@@ -74,6 +116,7 @@ export function ProfileDetails() {
       alert("Đã xảy ra lỗi khi lưu thay đổi")
     }
   }
+  
 
   return (
     <div className="space-y-6">
@@ -120,13 +163,10 @@ export function ProfileDetails() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="profileImage">Ảnh đại diện</Label>
-              <Input
-                id="profileImage"
-                type="text"
-                value={profile.profileImage || ""}
-                onChange={(e) => handleChange("profileImage", e.target.value)}
-                placeholder="Nhập URL ảnh đại diện"
-              />
+              <Input id="profileImage" type="file" accept="image/*" onChange={handleFileChange} />
+              {previewUrl && (
+                <img src={previewUrl} alt="Preview" className="w-32 h-32 rounded-full object-cover mt-2" />
+              )}
             </div>
           </div>
           <div className="flex gap-2">
@@ -161,7 +201,7 @@ export function ProfileDetails() {
             </div>
             <div>
               <h3 className="font-medium text-muted-foreground">Ảnh đại diện</h3>
-              <img src={profile.profileImage || "https://www.google.com/imgres?q=m%C3%A8o&imgurl=https%3A%2F%2Ffagopet.vn%2Fstorage%2Fin%2Fr5%2Finr5f4qalj068szn2bs34qmv28r2_phoi-giong-meo-munchkin.webp"} alt="Profile Image" className="w-32 h-32 rounded-full" />
+              <img src={profile.profileImage || "https://via.placeholder.com/150"} alt="Profile" className="w-32 h-32 rounded-full" />
             </div>
           </div>
           <Button onClick={() => setIsEditing(true)}>Chỉnh sửa</Button>
