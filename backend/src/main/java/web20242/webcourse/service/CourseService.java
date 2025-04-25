@@ -906,6 +906,7 @@ public class CourseService {
                 quizMap.put("passingScore", quiz.getPassingScore());
                 quizMap.put("questionCount", quiz.getQuestions() != null ? quiz.getQuestions().size() : 0);
                 quizMap.put("orderQuiz", quiz.getOrder());
+                quizMap.put("title",quiz.getTitle());
                 quizMap.put("status",quiz.getStatus());
                 quizList.add(quizMap);
             });
@@ -1550,6 +1551,20 @@ public class CourseService {
                 })
                 .collect(Collectors.toList());
         return ResponseEntity.ok(teacherOverviews);
+    }
+
+    public ResponseEntity<?> updateCourseInfo(Course course) {
+        Course course1 = courseRepository.findById(course.getId()).orElse(null );
+        assert course1 != null;
+        course1.setTitle(course.getTitle());
+        course1.setDescription(course.getDescription());
+        course1.setTeacherId(course.getTeacherId());
+        course1.setPrice(course.getPrice());
+        course1.setCategories(course.getCategories());
+        course1.setStatus(course.getStatus());
+        course1.setThumbnail(course.getThumbnail());
+        courseRepository.save(course1);
+        return ResponseEntity.ok("Update succesfully");
     }
 //    public ResponseEntity<?> getCoursesByPage(int page) {
 //        int pageSize = 6;

@@ -11,6 +11,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.parameters.P;
 import org.springframework.web.bind.annotation.*;
 import web20242.webcourse.model.*;
+import web20242.webcourse.model.constant.ERole;
 import web20242.webcourse.model.createRequest.CourseCreateRequest;
 import web20242.webcourse.model.createRequest.QuizSubmissionRequestDto;
 import web20242.webcourse.repository.*;
@@ -296,6 +297,27 @@ public class CourseController {
         }
 
         return courseService.deleteQuiz(course, quiz);
+    }
+    @PreAuthorize("hasRole('ROLE_TEACHER') || hasRole('ROLE_ADMIN')")
+    @PutMapping("/update/course-info")
+    public ResponseEntity<?> updateCourseInfo(@RequestBody Course course, Principal principal){
+        Optional<User> userOptional = userRepository.findByUsername(principal.getName());
+        if (userOptional.isPresent()){
+            User user = userOptional.get();
+            if(user.getRole() == ERole.ROLE_ADMIN){
+                return ResponseEntity.ok(courseService.updateCourseInfo(course));
+            }else {
+                Course course1 = courseRepository.findById(course.getId()).orElse(null);
+                assert course1 != null;
+                if(course1.getTeacherId() == user.getId()){
+                    return ResponseEntity.ok(courseService.updateCourseInfo(course));
+                }else {
+                    return ResponseEntity.status(401).body("Not Authenticated");
+                }
+            }
+        }else {
+            return ResponseEntity.status(401).body("User not found");
+        }
     }
     @PreAuthorize("hasRole('ROLE_TEACHER') || hasRole('ROLE_ADMIN')")
     @DeleteMapping("/delete-lesson/{lessonId}")
