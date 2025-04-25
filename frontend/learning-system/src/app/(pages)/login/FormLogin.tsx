@@ -12,10 +12,11 @@ export const FormLogin = () => {
   const [confirmPassword, setConfirmPassword] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
-  const [userData, setUserData] = useState(null)
+  // const [userData, setUserData] = useState(null)
   const [otp, setOtp] = useState("")
   const [isOtpSent, setIsOtpSent] = useState(false) // Track if OTP is sent
-  const BASE_URL = process.env.BASE_URL || "http://localhost:8082/api"
+  const [role, setRole] = useState("ROLE_USER") // Default role is user
+  const BASE_URL = process.env.BASE_URL 
 
   const handleLoginSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -43,7 +44,7 @@ export const FormLogin = () => {
         setError(data.message || "Sai username hoặc mật khẩu!")
       }
     } catch (err) {
-      setError("Lỗi kết nối, vui lòng thử lại sau!")
+      setError(err instanceof Error ? err.message : "Đã xảy ra lỗi không xác định!")
     }
 
     setLoading(false)
@@ -76,6 +77,7 @@ export const FormLogin = () => {
           gender: "",
           profileImage: null,
           coursesEnrolled: [],
+          role, // Include the selected role
         }),
       })
 
@@ -88,7 +90,7 @@ export const FormLogin = () => {
         setError(signupData.message || "Đăng ký thất bại!")
       }
     } catch (err) {
-      setError("Lỗi kết nối, vui lòng thử lại sau!")
+      setError(err instanceof Error ? err.message : "Đã xảy ra lỗi không xác định!")
     }
 
     setLoading(false)
@@ -120,16 +122,25 @@ export const FormLogin = () => {
         setError(verifyOtpData.message || "Xác minh OTP thất bại!")
       }
     } catch (err) {
-      setError("Lỗi kết nối, vui lòng thử lại sau!")
+      setError(err instanceof Error ? err.message : "Đã xảy ra lỗi không xác định!")
     }
 
     setLoading(false)
   }
 
-  const toggleForm = () => {
-    setIsLogin(!isLogin)
-    setError("")
-  }
+  const handleButtonClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault(); // Ngăn chặn hành vi mặc định của nút
+    if (isOtpSent) {
+      handleVerifyOtp(); // Gọi hàm xử lý OTP
+    } else {
+      handleRegisterSubmit(event as unknown as React.FormEvent<HTMLFormElement>); // Ép kiểu sự kiện
+    }
+  };
+
+  // const toggleForm = () => {
+  //   setIsLogin(!isLogin)
+  //   setError("")
+  // }
 
   const formVariants = {
     hidden: { opacity: 0, x: isLogin ? -100 : 100 },
@@ -268,6 +279,24 @@ export const FormLogin = () => {
                   required
                 />
               </div>
+              
+              <div className="mb-[15px]">
+                <label className="block mb-[5px] font-[600] text-[14px]" htmlFor="role">
+                  <span className="text-[#333333]">Vai Trò</span>
+                  <span className="text-[#FF782D] ml-[5px]">*</span>
+                </label>
+                <select
+                  name="role"
+                  id="role"
+                  value={role}
+                  onChange={(e) => setRole(e.target.value)}
+                  className="h-[50px] w-full bg-white rounded-[6px] px-[16px] font-[600] text-[14px] border border-solid border-gray-400"
+                  required
+                >
+                  <option value="ROLE_USER">USER</option>
+                  <option value="ROLE_TEACHER">TEACHER</option>
+                </select>
+              </div>
 
               <div className="mb-[15px]">
                 <label className="block mb-[5px] font-[600] text-[14px]" htmlFor="register-password">
@@ -324,7 +353,7 @@ export const FormLogin = () => {
 
               <button
                 type="button"
-                onClick={isOtpSent ? handleVerifyOtp : handleRegisterSubmit}
+                onClick={handleButtonClick}
                 className="h-[50px] w-full bg-[#FF782D] text-white rounded-[6px] font-[600] text-[16px] disabled:bg-[#FF782D]/70"
                 disabled={loading || (isOtpSent && !otp)}
               >
