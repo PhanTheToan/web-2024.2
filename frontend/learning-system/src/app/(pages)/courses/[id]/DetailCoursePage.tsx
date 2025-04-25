@@ -5,7 +5,7 @@ import { Course } from "@/app/types";
 import { toast } from "react-hot-toast";
 import BreadcrumbContainer from "@/app/components/breadcrumb/BreadcrumbContainer";
 import CourseItem from '@/app/components/courseitem/courseItem';
-import { BookOpen, Clock, Users, Star, CheckCircle, ClipboardCheck, PlayCircle, Lock } from 'lucide-react';
+import { BookOpen, Clock, Users, Star, CheckCircle, ClipboardCheck, PlayCircle, Lock, MessageSquare } from 'lucide-react';
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import * as dotenv from "dotenv";
@@ -65,6 +65,17 @@ interface LastAccessedContent {
   title: string;
 }
 
+// Add this near the top of the file with the other interfaces
+interface Review {
+  _id: string;
+  userId: string;
+  userFullName?: string;
+  courseId: string;
+  rating: number;
+  comment: string;
+  createdAt: string | Date;
+}
+
 const DetailCoursePage: React.FC = () => {
   const params = useParams();
   const router = useRouter();
@@ -81,6 +92,13 @@ const DetailCoursePage: React.FC = () => {
   const [loadingContent, setLoadingContent] = useState(false);
   const [lastAccessedContent, setLastAccessedContent] = useState<LastAccessedContent | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [userReview, setUserReview] = useState<{ rating: number; comment: string } | null>(null);
+  const [userHasReviewed, setUserHasReviewed] = useState(false);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState('');
+  const [submittingReview, setSubmittingReview] = useState(false);
+  const [reviewError, setReviewError] = useState<string | null>(null);
 
   // Fetch course details
   const fetchCourse = async () => {
@@ -544,6 +562,127 @@ const DetailCoursePage: React.FC = () => {
     return allPreviousItemsCompleted;
   };
 
+  // Add new effect to fetch course reviews
+  useEffect(() => {
+    const fetchReviews = async () => {
+      if (!courseId) return;
+      
+      try {
+        const response = await fetch(`${API_BASE_URL}/course/review/${courseId}`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.body && Array.isArray(data.body)) {
+            setReviews(data.body);
+            
+            // Check if the authenticated user has already reviewed the course
+            if (isAuthenticated) {
+              const userId = localStorage.getItem('userId');
+              if (userId) {
+                const userReviewData = data.body.find((review: Review) => review.userId === userId);
+                if (userReviewData) {
+                  setUserHasReviewed(true);
+                  setUserReview({
+                    rating: userReviewData.rating,
+                    comment: userReviewData.comment
+                  });
+                }
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching reviews:', error);
+      }
+    };
+    
+    fetchReviews();
+  }, [courseId, isAuthenticated]);
+
+  // Add function to submit a review
+  const handleSubmitReview = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!isAuthenticated) {
+      toast.error('Bạn cần đăng nhập để đánh giá khóa học');
+      return;
+    }
+    
+    if (!isEnrolled) {
+      toast.error('Bạn cần đăng ký khóa học để đánh giá');
+      return;
+    }
+    
+    if (enrollmentProgress < 100) {
+      toast.error('Bạn cần hoàn thành khóa học để đánh giá');
+      return;
+    }
+    
+    if (userHasReviewed) {
+      toast.error('Bạn đã đánh giá khóa học này');
+      return;
+    }
+    
+    setSubmittingReview(true);
+    setReviewError(null);
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/course/review`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          courseId,
+          rating: reviewRating,
+          comment: reviewComment
+        })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setUserHasReviewed(true);
+        setUserReview({
+          rating: reviewRating,
+          comment: reviewComment
+        });
+        
+        // Add the new review to the list
+        setReviews([
+          {
+            _id: data.body._id || Date.now().toString(),
+            userId: localStorage.getItem('userId') || 'anonymous',
+            courseId: courseId,
+            rating: reviewRating,
+            comment: reviewComment,
+            createdAt: new Date().toISOString()
+          },
+          ...reviews
+        ]);
+        
+        toast.success('Đánh giá khóa học thành công!');
+        setReviewComment('');
+      } else {
+        const errorData = await response.json();
+        setReviewError(errorData.message || 'Không thể đánh giá khóa học');
+        toast.error('Không thể đánh giá khóa học');
+      }
+    } catch (error) {
+      console.error('Error submitting review:', error);
+      setReviewError('Đã xảy ra lỗi khi gửi đánh giá');
+      toast.error('Đã xảy ra lỗi khi gửi đánh giá');
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
+
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -782,6 +921,149 @@ const DetailCoursePage: React.FC = () => {
                   })}
                 </div>
               )}
+            </div>
+
+            {/* Reviews section */}
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h2 className="text-2xl font-bold mb-4 flex items-center">
+                <MessageSquare className="mr-2" size={24} />
+                Đánh giá khóa học
+              </h2>
+              
+              {/* Review Form */}
+              {isAuthenticated && isEnrolled && enrollmentProgress >= 100 && !userHasReviewed && (
+                <div className="mb-8 border rounded-lg p-4 bg-gray-50">
+                  <h3 className="text-lg font-semibold mb-4">Để lại đánh giá của bạn</h3>
+                  
+                  <form onSubmit={handleSubmitReview}>
+                    <div className="mb-4">
+                      <label className="block text-gray-700 mb-2">Đánh giá của bạn</label>
+                      <div className="flex items-center">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <button
+                            key={star}
+                            type="button"
+                            className="mr-1 focus:outline-none"
+                            onClick={() => setReviewRating(star)}
+                          >
+                            <Star
+                              size={24}
+                              className={star <= reviewRating ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}
+                            />
+                          </button>
+                        ))}
+                        <span className="ml-2 text-gray-600">{reviewRating}/5</span>
+                      </div>
+                    </div>
+                    
+                    <div className="mb-4">
+                      <label htmlFor="review-comment" className="block text-gray-700 mb-2">
+                        Nhận xét của bạn
+                      </label>
+                      <textarea
+                        id="review-comment"
+                        className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                        rows={4}
+                        placeholder="Chia sẻ trải nghiệm của bạn về khóa học này..."
+                        value={reviewComment}
+                        onChange={(e) => setReviewComment(e.target.value)}
+                        required
+                      ></textarea>
+                    </div>
+                    
+                    {reviewError && (
+                      <div className="mb-4 p-2 bg-red-50 text-red-600 rounded-lg">
+                        {reviewError}
+                      </div>
+                    )}
+                    
+                    <button
+                      type="submit"
+                      className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={submittingReview}
+                    >
+                      {submittingReview ? 'Đang gửi...' : 'Gửi đánh giá'}
+                    </button>
+                  </form>
+                </div>
+              )}
+              
+              {isAuthenticated && isEnrolled && enrollmentProgress >= 100 && userHasReviewed && (
+                <div className="mb-8 border rounded-lg p-4 bg-green-50">
+                  <h3 className="text-lg font-semibold mb-2 text-green-700 flex items-center">
+                    <CheckCircle className="mr-2" size={20} />
+                    Bạn đã đánh giá khóa học này
+                  </h3>
+                  
+                  {userReview && (
+                    <div className="mt-2">
+                      <div className="flex items-center mb-2">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <Star
+                            key={star}
+                            size={20}
+                            className={star <= userReview.rating ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}
+                          />
+                        ))}
+                        <span className="ml-2 text-gray-700">{userReview.rating}/5</span>
+                      </div>
+                      <p className="text-gray-700">{userReview.comment}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              {/* Display message for unenrolled or incomplete course */}
+              {isAuthenticated && (!isEnrolled || enrollmentProgress < 100) && (
+                <div className="mb-8 border rounded-lg p-4 bg-gray-50">
+                  <p className="text-gray-700">
+                    {!isEnrolled 
+                      ? 'Bạn cần đăng ký khóa học để đánh giá' 
+                      : 'Bạn cần hoàn thành khóa học (100%) để đánh giá'}
+                  </p>
+                </div>
+              )}
+              
+              {/* Reviews List */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold border-b pb-2">
+                  Tất cả đánh giá ({reviews.length})
+                </h3>
+                
+                {reviews.length === 0 ? (
+                  <p className="text-gray-500 italic py-4">Chưa có đánh giá nào cho khóa học này</p>
+                ) : (
+                  <div className="space-y-4 mt-4">
+                    {reviews.map((review) => (
+                      <div key={review._id} className="border-b pb-4">
+                        <div className="flex items-center mb-2">
+                          <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center text-gray-700 font-semibold mr-3">
+                            {review.userFullName ? review.userFullName.charAt(0).toUpperCase() : 'U'}
+                          </div>
+                          <div>
+                            <div className="font-semibold">{review.userFullName || 'Người dùng'}</div>
+                            <div className="flex items-center">
+                              <div className="flex mr-2">
+                                {[1, 2, 3, 4, 5].map((star) => (
+                                  <Star
+                                    key={star}
+                                    size={16}
+                                    className={star <= review.rating ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}
+                                  />
+                                ))}
+                              </div>
+                              <span className="text-sm text-gray-500">
+                                {new Date(review.createdAt).toLocaleDateString()}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        <p className="text-gray-700 ml-13">{review.comment}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 

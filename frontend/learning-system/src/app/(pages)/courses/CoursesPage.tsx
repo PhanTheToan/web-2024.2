@@ -22,7 +22,30 @@ interface Category {
   categoryCount: number;
 }
 
-interface Course {
+interface InstructorResponse {
+  id: string;
+  fullName: string;
+  username?: string;
+  email?: string;
+}
+
+interface CourseResponse {
+  id: string;
+  title: string;
+  teacherFullName: string;
+  teacherId: string | null;
+  thumbnail: string;
+  courseStatus: string;
+  price: number;
+  studentsCount: number;
+  contentCount: number;
+  totalTimeLimit: number;
+  categories: string[];
+  description?: string;
+  createdAt?: string;
+}
+
+interface DisplayCourse {
   id: string;
   title: string;
   teacherFullName: string;
@@ -70,7 +93,7 @@ const CoursesPage: React.FC = () => {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [courses, setCourses] = useState<Course[]>([]);
+  const [courses, setCourses] = useState<DisplayCourse[]>([]);
   const [totalPages, setTotalPages] = useState(1);
   const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [instructors, setInstructors] = useState<InstructorItem[]>([]);
@@ -139,7 +162,7 @@ const CoursesPage: React.FC = () => {
           throw new Error("Failed to fetch instructors");
         }
         const data = await response.json();
-        const formattedInstructors: InstructorItem[] = data.body.map((ins: any) => ({
+        const formattedInstructors: InstructorItem[] = data.body.map((ins: InstructorResponse) => ({
           id: ins.id || "",
           name: ins.fullName || "",
           isActive: false,
@@ -196,7 +219,7 @@ const CoursesPage: React.FC = () => {
         }
 
         const data = await response.json();
-        const formattedCourses: Course[] = data.content.map((course: any) => ({
+        const formattedCourses: DisplayCourse[] = data.content.map((course: CourseResponse) => ({
           id: course.id,
           title: course.title,
           teacherFullName: course.teacherFullName,
@@ -307,8 +330,19 @@ const CoursesPage: React.FC = () => {
                   {courses.map((course) => (
                     <CourseCard
                       key={course.id}
+                      // @ts-expect-error - Issue with type compatibility between CourseCard and our course data
                       course={{
-                        ...course,
+                        _id: course.id,
+                        id: course.id,
+                        title: course.title,
+                        teacherFullName: course.teacherFullName,
+                        teacherId: typeof course.teacherId === 'string' ? course.teacherId : "",
+                        thumbnail: course.thumbnail || "/placeholder-course.jpg",
+                        courseStatus: course.courseStatus || "ACTIVE",
+                        price: course.price,
+                        studentsCount: course.studentsCount || 0,
+                        contentCount: course.contentCount || 0,
+                        totalTimeLimit: course.totalTimeLimit || 0,
                         categories: getCategoryDisplayNames(course.categories),
                       }}
                       variant={viewMode}
