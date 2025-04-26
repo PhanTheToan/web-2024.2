@@ -29,6 +29,7 @@ public class EmailService {
             htmlTemplate = htmlTemplate.replace("{{recipientEmail}}", email);
 
             helper.setTo(email);
+
             helper.setSubject("Mã OTP từ Alpha Education");
             helper.setText(htmlTemplate, true);
             helper.setFrom("mclasspart1@gmail.com");
