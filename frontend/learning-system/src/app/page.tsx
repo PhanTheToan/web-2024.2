@@ -4,12 +4,11 @@ import React, { useEffect, useState } from "react";
 import { StatisticCards } from "./components/statisticcards/StatisticCards";
 import { FaStar } from "react-icons/fa";
 import { FaCheckCircle } from "react-icons/fa";
-import { Button, Grid, Typography, Box } from '@mui/material';
+import { Button, Typography, Box } from '@mui/material';
 import Image from 'next/image';
-import { ChevronRight, Star } from "@mui/icons-material";
-import CourseGrid from "./components/courses-grid/page";
 import { Check } from "lucide-react";
 import * as dotenv from "dotenv";
+import CourseGrid from "./components/courses-grid/CourseGrid";
 
 dotenv.config();
 const API_BASE_URL = process.env.BASE_URL;

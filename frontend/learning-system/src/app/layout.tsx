@@ -3,7 +3,6 @@ import "./globals.css";
 import { Footer } from "./components/footer/Footer";
 import { Suspense } from "react";
 import { Header } from "./components/header/Header";
-import { usePathname } from "next/navigation";
 
 export const metadata: Metadata = {
   title: "Learning System",
