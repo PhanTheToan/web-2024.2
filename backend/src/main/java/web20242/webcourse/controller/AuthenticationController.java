@@ -73,6 +73,7 @@ public class AuthenticationController {
             userInfo.put("phone", user.getPhone());
             userInfo.put("dateOfBirth", user.getDateOfBirth());
             userInfo.put("gender", user.getGender());
+            userInfo.put("requestCourse", user.getRequestedCourses());
             userInfo.put("profileImage", user.getProfileImage());
             userInfo.put("coursesEnrolled", user.getCoursesEnrolled());
             userInfo.put("createdAt", user.getCreatedAt());
