@@ -74,7 +74,8 @@ public class CategoryService {
             map.put("categoryId", category.getId().toHexString());
             map.put("categoryName", category.getCategory());
             map.put("categoryUrl", category.getUrlLogo());
-            map.put("categoryCount",String.valueOf(category.getCount()));
+            String count = countCategory(category);
+            map.put("categoryCount",count);
             map.put("categoryDisplayName", category.getDisplayName());
             return map;
         }).collect(Collectors.toList());
@@ -101,12 +102,16 @@ public class CategoryService {
             map.put("categoryId", category.getId().toHexString());
             map.put("categoryName", category.getCategory());
             map.put("categoryDisplayName", category.getDisplayName());
-            map.put("categoryCount",String.valueOf(category.getCount()));
+            String count = countCategory(category);
+            map.put("categoryCount",count);
             return map;
         }).collect(Collectors.toList());
         return ResponseEntity.ok(result);
     }
-
+    public String countCategory(Category category){
+        List<Course> courses = courseRepository.findByCategoriesIn(Collections.singletonList(category.getCategory()));
+        return String.valueOf(courses.size());
+    }
     public ResponseEntity<?> deleteCategory(String id) {
         try {
             Optional<Category> category = popularCategoryRepository.findById(new ObjectId(id));

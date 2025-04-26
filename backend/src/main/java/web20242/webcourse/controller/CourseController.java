@@ -154,6 +154,10 @@ public class CourseController {
     @PostMapping("/create")
     public ResponseEntity<?> createCourse(@RequestBody CourseCreateRequest course, Principal principal) {
         User user = userService.findByUsername(principal.getName());
+        String teacherId = course.getTeacherId();
+        if (!ObjectId.isValid(teacherId)) {
+            return ResponseEntity.status(400).body("Invalid teacherId format");
+        }
         return ResponseEntity.ok(courseService.createCourse(course, user));
     }
     @PreAuthorize("hasRole('ROLE_ADMIN')")
@@ -161,6 +165,10 @@ public class CourseController {
     public ResponseEntity<?> updateCourse(@RequestBody CourseCreateRequest course) {
         String id = course.getTeacherId();
         User user = userService.findById(id).orElse(null);
+        String teacherId = course.getTeacherId();
+        if (!ObjectId.isValid(teacherId)) {
+            return ResponseEntity.status(400).body("Invalid teacherId format");
+        }
         if(user!=null) {
             return ResponseEntity.ok(courseService.createCourse(course, user));
         }else

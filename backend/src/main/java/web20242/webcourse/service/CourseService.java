@@ -1035,19 +1035,10 @@ public class CourseService {
         List<?> categoriesInput = input.getCategories();
         if (categoriesInput != null) {
             for (Object category : categoriesInput) {
-                if (category != null) {
-                    categories.add(category.toString().trim());
-                    String categoryName = category.toString().trim();
-                    categories.add(categoryName);
-
-                    Category category1 = popularCategoryRepository.findByCategory(categoryName);
-                    if (category1 != null) {
-                        int count = category1.getCount();
-                        category1.setCount(count + 1);
-                        popularCategoryRepository.save(category1);
-                    } else {
-                        // Xử lý nếu category không tồn tại trong cơ sở dữ liệu
-                        System.out.println("Category not found: " + categoryName);
+                if (category instanceof String categoryId && ObjectId.isValid(categoryId)) {
+                    Category categoryOptional = popularCategoryRepository.findById(new ObjectId(categoryId)).orElse(null);
+                    if (categoryOptional != null) {
+                        categories.add(categoryOptional.category);
                     }
                 }
             }
