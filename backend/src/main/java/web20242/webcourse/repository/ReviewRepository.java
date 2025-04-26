@@ -10,4 +10,6 @@ import java.util.List;
 @Repository
 public interface ReviewRepository extends MongoRepository<Review, ObjectId> {
     List<Review> findByCourseId(ObjectId courseId);
+
+    Review findByCourseIdAndUserId(ObjectId id, ObjectId id1);
 }

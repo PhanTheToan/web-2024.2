@@ -6,6 +6,7 @@ web20242/webcourse/controller/EmailController.class
 web20242/webcourse/repository/QuizzesRepository.class
 web20242/webcourse/security/jwt/AuthEntryPointJwt.class
 web20242/webcourse/model/createRequest/EmailDetail.class
+web20242/webcourse/model/createRequest/ReviewRequest.class
 web20242/webcourse/model/createRequest/QuizResponseDto$QuestionResponseDto.class
 web20242/webcourse/repository/LessonRepository.class
 web20242/webcourse/configuration/SecurityConfig.class
@@ -59,6 +60,7 @@ web20242/webcourse/security/service/JwtService.class
 web20242/webcourse/service/EnrollmentService.class
 web20242/webcourse/model/createRequest/CourseCreateRequest$CourseCreateRequestBuilder.class
 web20242/webcourse/controller/ReviewController.class
+web20242/webcourse/model/createRequest/ReviewRequest$ReviewRequestBuilder.class
 web20242/webcourse/service/CourseService.class
 web20242/webcourse/WebcourseApplication.class
 web20242/webcourse/model/Enrollment$QuizScore.class
