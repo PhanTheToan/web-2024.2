@@ -317,7 +317,7 @@ export default function TeacherCourseDetailPage() {
   const fetchLessonsAndQuizzes = async (parsedCourse: Course) => {
     try {
       // Fetch lessons and quizzes
-      const lessonsQuizResponse = await fetch(`${API_BASE_URL}/course/lesson_quiz/${courseId}`, {
+      const lessonsQuizResponse = await fetch(`${API_BASE_URL}/course/getlessonquiz/${courseId}`, {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -413,7 +413,7 @@ export default function TeacherCourseDetailPage() {
           content.push({
             id: quiz.quizId,
             courseId: courseId,
-            title: `Bài kiểm tra ${quiz.orderQuiz || ''}`,
+            title: quiz.title || `Bài kiểm tra ${quiz.orderQuiz || ''}`,
             description: `${quiz.questionCount || 0} câu hỏi • Điểm đạt: ${quiz.passingScore || 60}%`,
             order: quiz.orderQuiz || 999,
             type: 'quiz',
