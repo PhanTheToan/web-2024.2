@@ -81,53 +81,20 @@ public class UserService implements UserDetailsService {
     public Optional<User> findById(String id){
         return userRepository.findById(new ObjectId(id));
     }
-    public void editInformationUsers(User user){
-        Optional<User> existingUser = userRepository.findByUsername(user.getUsername());
-        if(existingUser.isPresent()){
+    public void editInformationUsersById(User updateRequest) {
+        Optional<User> existingUser = userRepository.findById(updateRequest.getId());
+        if (existingUser.isPresent()) {
             User userToUpdate = existingUser.get();
-//            userToUpdate.setUsername(user.getUsername());
-//            userToUpdate.setPassword(user.getPassword());
-//            if (user.getPassword() != null && !user.getPassword().isEmpty()) {
-//                userToUpdate.setPassword(passwordEncoder.encode(user.getPassword()));
-//            }
-//            userToUpdate.setEmail(user.getEmail());
-//            userToUpdate.setRole(user.getRole());
-              userToUpdate.setFirstName(user.getFirstName());
-              userToUpdate.setLastName(user.getLastName());
-              userToUpdate.setGender(user.getGender());
-              userToUpdate.setPhone(user.getPhone());
-              userToUpdate.setDateOfBirth(user.getDateOfBirth());
-              userToUpdate.setProfileImage(user.getProfileImage());
-              userToUpdate.setUpdatedAt(LocalDateTime.now());
-              userRepository.save(userToUpdate);
-        }
-        else {
-            throw new IllegalArgumentException("User not found with id: " + user.getId());
-        }
-    }
-    public void editInformationUsersForUser(User user, Principal principal){
-        Optional<User> existingUser = userRepository.findByUsername(principal.getName());
-        if(existingUser.isPresent()){
-            User userToUpdate = existingUser.get();
-
-//                userToUpdate.setUsername(user.getUsername());
-//            userToUpdate.setPassword(user.getPassword());
-//            if (user.getPassword() != null && !user.getPassword().isEmpty()) {
-//                userToUpdate.setPassword(passwordEncoder.encode(user.getPassword()));
-//            }
-//            userToUpdate.setEmail(user.getEmail());
-//            userToUpdate.setRole(user.getRole());
-                userToUpdate.setFirstName(user.getFirstName());
-                userToUpdate.setLastName(user.getLastName());
-                userToUpdate.setGender(user.getGender());
-                userToUpdate.setPhone(user.getPhone());
-                userToUpdate.setDateOfBirth(user.getDateOfBirth());
-                userToUpdate.setProfileImage(user.getProfileImage());
-                userToUpdate.setUpdatedAt(LocalDateTime.now());
-                userRepository.save(userToUpdate);
-        }
-        else {
-            throw new IllegalArgumentException("User not found with id: " + user.getId());
+            userToUpdate.setFirstName(updateRequest.getFirstName());
+            userToUpdate.setLastName(updateRequest.getLastName());
+            userToUpdate.setGender(updateRequest.getGender());
+            userToUpdate.setPhone(updateRequest.getPhone());
+            userToUpdate.setDateOfBirth(updateRequest.getDateOfBirth());
+            userToUpdate.setProfileImage(updateRequest.getProfileImage());
+            userToUpdate.setUpdatedAt(LocalDateTime.now());
+            userRepository.save(userToUpdate);
+        } else {
+            throw new IllegalArgumentException("User not found with id: " + updateRequest.getId());
         }
     }
     public void setStatusAllUser(){
