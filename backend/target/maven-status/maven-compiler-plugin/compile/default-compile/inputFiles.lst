@@ -5,6 +5,7 @@
 /home/ptt/PTT-Works/2024.2/web/backend/src/main/java/web20242/webcourse/configuration/SecurityConfig.java
 /home/ptt/PTT-Works/2024.2/web/backend/src/main/java/web20242/webcourse/controller/AdminController.java
 /home/ptt/PTT-Works/2024.2/web/backend/src/main/java/web20242/webcourse/controller/AuthenticationController.java
+/home/ptt/PTT-Works/2024.2/web/backend/src/main/java/web20242/webcourse/controller/BlogController.java
 /home/ptt/PTT-Works/2024.2/web/backend/src/main/java/web20242/webcourse/controller/CategoriesController.java
 /home/ptt/PTT-Works/2024.2/web/backend/src/main/java/web20242/webcourse/controller/CourseController.java
 /home/ptt/PTT-Works/2024.2/web/backend/src/main/java/web20242/webcourse/controller/EmailController.java
@@ -14,6 +15,7 @@
 /home/ptt/PTT-Works/2024.2/web/backend/src/main/java/web20242/webcourse/controller/ReviewController.java
 /home/ptt/PTT-Works/2024.2/web/backend/src/main/java/web20242/webcourse/controller/UpdateController.java
 /home/ptt/PTT-Works/2024.2/web/backend/src/main/java/web20242/webcourse/controller/UserController.java
+/home/ptt/PTT-Works/2024.2/web/backend/src/main/java/web20242/webcourse/model/Blog.java
 /home/ptt/PTT-Works/2024.2/web/backend/src/main/java/web20242/webcourse/model/Category.java
 /home/ptt/PTT-Works/2024.2/web/backend/src/main/java/web20242/webcourse/model/Course.java
 /home/ptt/PTT-Works/2024.2/web/backend/src/main/java/web20242/webcourse/model/Enrollment.java
@@ -37,6 +39,7 @@
 /home/ptt/PTT-Works/2024.2/web/backend/src/main/java/web20242/webcourse/model/createRequest/QuizSubmissionResponseDto.java
 /home/ptt/PTT-Works/2024.2/web/backend/src/main/java/web20242/webcourse/model/createRequest/RandomStringGenerator.java
 /home/ptt/PTT-Works/2024.2/web/backend/src/main/java/web20242/webcourse/model/createRequest/ReviewRequest.java
+/home/ptt/PTT-Works/2024.2/web/backend/src/main/java/web20242/webcourse/repository/BlogRepository.java
 /home/ptt/PTT-Works/2024.2/web/backend/src/main/java/web20242/webcourse/repository/CourseRepository.java
 /home/ptt/PTT-Works/2024.2/web/backend/src/main/java/web20242/webcourse/repository/EnrollmentRepository.java
 /home/ptt/PTT-Works/2024.2/web/backend/src/main/java/web20242/webcourse/repository/ImageRepository.java

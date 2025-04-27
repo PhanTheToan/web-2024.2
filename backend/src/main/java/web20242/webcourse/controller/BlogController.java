@@ -52,14 +52,16 @@ public class BlogController {
     }
 
     @PreAuthorize("hasRole('ROLE_ADMIN')")
-    @PostMapping("/update/{id}")
+    @PutMapping("/update/{id}")
     public void updateStatus(@PathVariable String id){
         Blog blog = blogRepository.findById(new ObjectId(id)).orElse(null);
         assert blog != null;
-        if(blog.getStatus()== EStatus.ACTIVE){
+        if(blog.getStatus() == EStatus.ACTIVE){
             blog.setStatus(EStatus.INACTIVE);
+            blogRepository.save(blog);
         }else {
             blog.setStatus(EStatus.ACTIVE);
+            blogRepository.save(blog);
         }
     }
 

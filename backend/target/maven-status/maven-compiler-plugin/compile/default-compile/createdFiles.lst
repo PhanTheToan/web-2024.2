@@ -2,6 +2,7 @@ web20242/webcourse/model/createRequest/Logo.class
 web20242/webcourse/repository/LogoRepository.class
 web20242/webcourse/configuration/JacksonConfig.class
 web20242/webcourse/model/Category.class
+web20242/webcourse/model/Blog.class
 web20242/webcourse/controller/EmailController.class
 web20242/webcourse/repository/QuizzesRepository.class
 web20242/webcourse/security/jwt/AuthEntryPointJwt.class
@@ -10,9 +11,12 @@ web20242/webcourse/model/createRequest/ReviewRequest.class
 web20242/webcourse/model/createRequest/QuizResponseDto$QuestionResponseDto.class
 web20242/webcourse/repository/LessonRepository.class
 web20242/webcourse/configuration/SecurityConfig.class
+web20242/webcourse/repository/BlogRepository.class
 web20242/webcourse/model/createRequest/Logo$LogoBuilder.class
+web20242/webcourse/model/Blog$BlogBuilder.class
 web20242/webcourse/service/FileService.class
 web20242/webcourse/model/Enrollment.class
+web20242/webcourse/controller/BlogController.class
 web20242/webcourse/controller/AuthenticationController.class
 web20242/webcourse/repository/ReviewRepository.class
 web20242/webcourse/controller/CategoriesController.class

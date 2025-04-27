@@ -34,6 +34,12 @@ public class Blog {
     @Field(name="content")
     private String content;
 
+    @Field(name="author")
+    private String author;
+
+    @Field(name="refer")
+    private String refer;
+
     @Field(name="image")
     private String image;
 
