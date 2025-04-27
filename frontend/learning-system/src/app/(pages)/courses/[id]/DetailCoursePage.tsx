@@ -1151,36 +1151,33 @@ const DetailCoursePage: React.FC = () => {
     <div className="min-h-screen bg-gray-50">
         <BreadcrumbContainer />
         
-        {/* Admin mode indicator */}
+        {/* Only show admin-related UI if user is an admin */}
         {isAdmin && (
-          <div className="bg-red-600 text-white py-1 px-4 text-center font-medium">
-            <div className="max-w-7xl mx-auto flex items-center justify-center">
-              <Trash className="mr-2" size={16} />
-              Bạn đang ở chế độ quản trị viên - Có thể xóa đánh giá
+          <>
+            {/* Admin mode indicator */}
+            <div className="bg-red-600 text-white py-1 px-4 text-center font-medium">
+              <div className="max-w-7xl mx-auto flex items-center justify-center">
+                <Trash className="mr-2" size={16} />
+                Bạn đang ở chế độ quản trị viên - Có thể xóa đánh giá
+              </div>
             </div>
-          </div>
-        )}
-        
-        {/* Debug admin mode toggle (only in development) */}
-        {process.env.NODE_ENV === 'development' && (
-          <div className="bg-gray-100 py-1 px-4 text-center">
-            <button 
-              onClick={() => {
-                const newAdminState = !isAdmin;
-                setIsAdmin(newAdminState);
-                if (newAdminState) {
-                  localStorage.setItem('isAdmin', 'true');
-                  toast.success('Bật chế độ admin cho mục đích kiểm thử');
-                } else {
-                  localStorage.removeItem('isAdmin');
-                  toast.success('Tắt chế độ admin');
-                }
-              }}
-              className="text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded"
-            >
-              {isAdmin ? 'Tắt chế độ admin' : 'Bật chế độ admin (debug)'}
-            </button>
-          </div>
+            
+            {/* Debug admin mode toggle (only in development) */}
+            {process.env.NODE_ENV === 'development' && (
+              <div className="bg-gray-100 py-1 px-4 text-center">
+                <button 
+                  onClick={() => {
+                    setIsAdmin(false);
+                    localStorage.removeItem('isAdmin');
+                    toast.success('Tắt chế độ admin');
+                  }}
+                  className="text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded"
+                >
+                  Tắt chế độ admin
+                </button>
+              </div>
+            )}
+          </>
         )}
         
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
