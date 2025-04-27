@@ -16,6 +16,12 @@ interface CompletedCourse {
   status: string;
 }
 
+interface HttpError {
+  response?: {
+    status: number;
+  };
+}
+
 const BASE_URL = process.env.BASE_URL || 'http://localhost:8082/api';
 
 export function CompletedCourses() {
@@ -56,8 +62,11 @@ export function CompletedCourses() {
           setError('Không thể tải danh sách khóa học đã hoàn thành');
         }
         setLoading(false);
-        if (typeof err === 'object' && err !== null && 'response' in err && (err as any).response?.status === 401 || (err as any).response?.status === 403) {
-          window.location.href = '/login'; // Chuyển hướng nếu chưa đăng nhập
+        if (typeof err === 'object' && err !== null) {
+          const httpError = err as HttpError;
+          if (httpError.response?.status === 401 || httpError.response?.status === 403) {
+            window.location.href = '/login'; // Chuyển hướng nếu chưa đăng nhập
+          }
         }
       }
     };
