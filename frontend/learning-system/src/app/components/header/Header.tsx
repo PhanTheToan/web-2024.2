@@ -208,13 +208,13 @@ export const Header = () => {
                     >
                       Trang cá nhân
                     </Link>
-                    <Link
+                  {/*  <Link
                       href="/dashboard"
                       className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                       onClick={() => setDropdownOpen(false)}
                     >
                       Dashboard
-                    </Link>
+                    </Link>  */}
                     <div className="border-t border-gray-100">
                       <button
                         className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"

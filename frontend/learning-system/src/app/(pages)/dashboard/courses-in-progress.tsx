@@ -19,6 +19,12 @@ interface CourseInProgress {
   status: string;
 }
 
+interface HttpError {
+  response?: {
+    status: number;
+  };
+}
+
 const BASE_URL = process.env.BASE_URL || 'http://localhost:8082/api';
 
 export function CoursesInProgress() {
@@ -51,10 +57,11 @@ export function CoursesInProgress() {
           throw new Error(data.message || 'Không thể tải danh sách khóa học đang học');
         }
       } catch (err) {
+        const httpError = err as HttpError;
         console.error('Lỗi khi gọi API /progress-course:', err);
         setError((err instanceof Error ? err.message : 'Không xác định lỗi') || 'Không thể tải danh sách khóa học đang học');
         setLoading(false);
-        if ((err as any)?.response?.status === 401 || (err as any)?.response?.status === 403) {
+        if (httpError.response?.status === 401 || httpError.response?.status === 403) {
           window.location.href = '/login'; // Chuyển hướng nếu chưa đăng nhập
         }
       }

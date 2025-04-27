@@ -208,8 +208,15 @@ const QuizQuestion: React.FC<QuizQuestionProps> = ({
       
       {material && (
         <div className="mb-4 p-3 bg-gray-50 rounded-lg text-gray-700 border border-gray-200">
-          <p className="font-medium mb-1">Tài liệu tham khảo:</p>
-          <p>{material}</p>
+          
+          <div className="mt-2">
+            <img 
+              src={material} 
+              alt="Tài liệu tham khảo" 
+              className="max-w-full rounded-md object-contain bg-center"
+              style={{ maxHeight: "300px", display: "block", margin: "0 auto" }} 
+            />
+          </div>
         </div>
       )}
       
@@ -663,7 +670,7 @@ const QuizPage: React.FC = () => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [remainingTime, quizResult, isTimeWarning, isConfirmed]);
+  }, [remainingTime, quizResult, isTimeWarning, isConfirmed,]);
 
   const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
@@ -1007,123 +1014,57 @@ const QuizPage: React.FC = () => {
             {/* Left sidebar with course content */}
             <div className="lg:col-span-1 order-2 lg:order-1">
               <div className="bg-white rounded-lg shadow-md p-4 sticky top-6">
-                <h3 className="text-xl font-medium mb-4 flex items-center border-b pb-3">
+                <h3 className="text-lg font-medium mb-4 flex items-center border-b pb-3">
                   <BookOpen className="mr-2 w-5 h-5" />
                   Nội dung khóa học
                 </h3>
                 
                 <div className="space-y-1 max-h-[calc(100vh-240px)] overflow-y-auto pr-2">
                   {courseContent.length > 0 ? (
-                    <>
-                      {/* Group and sort content by type and order */}
-                      {(() => {
-                        // First separate lessons and quizzes
-                        const lessons = courseContent.filter(item => item.type === 'lesson');
-                        const quizzes = courseContent.filter(item => item.type === 'quiz');
-                        
-                        // Group by lesson or order
-                        const grouped = [];
-                        
-                        // First add main lessons
-                        for (const lesson of lessons) {
-                          const lessonGroup = {
-                            header: lesson,
-                            items: quizzes.filter(quiz => {
-                              // Find quizzes that belong to this lesson based on order
-                              // Assuming quizzes come after their respective lessons
-                              const quizOrder = quiz.order || quiz.orderQuiz || 0;
-                              const thisLessonOrder = lesson.order || lesson.orderLesson || 0;
-                              const nextLessonOrder = lessons.find(l => 
-                                (l.order || l.orderLesson || 0) > thisLessonOrder
-                              )?.order || 999999;
-                              
-                              return quizOrder > thisLessonOrder && quizOrder < nextLessonOrder;
-                            })
-                          };
+                    <div className="flex flex-col gap-1">
+                      {courseContent.map((item, index) => (
+                        <Link
+                          key={`content-${item._id}-${index}`}
+                          href={isContentItemAccessible(item) 
+                            ? item.type === 'lesson' 
+                              ? `/courses/${courseId}/lesson/${item._id}` 
+                              : `/courses/${courseId}/quiz/${item._id}` 
+                            : '#'}
+                          className={`py-2 px-3 rounded flex items-center ${
+                            !isContentItemAccessible(item) && item._id !== quizId
+                              ? 'text-gray-400 cursor-not-allowed' 
+                              : item._id === quizId
+                                ? 'bg-blue-50 text-blue-700 font-medium'
+                                : 'hover:bg-gray-50'
+                          }`}
+                          onClick={(e) => !isContentItemAccessible(item) && item._id !== quizId && handleContentItemClick(e, item)}
+                        >
+                          {item.type === 'lesson' ? (
+                            <BookOpen className={`w-4 h-4 mr-2 ${
+                              item._id === quizId ? 'text-blue-500' : 'text-gray-500'
+                            }`} />
+                          ) : (
+                            <Clock className={`w-4 h-4 mr-2 ${
+                              item._id === quizId ? 'text-blue-500' : 'text-gray-500'
+                            }`} />
+                          )}
                           
-                          grouped.push(lessonGroup);
-                        }
-                        
-                        // Return the rendered content
-                        return grouped.map((group, groupIndex) => (
-                          <div key={`lesson-group-${groupIndex}`} className="mb-4">
-                            {/* Section header */}
-                            <div className={`py-2 px-3 rounded mb-1 flex items-center ${
-                              group.header.complete 
-                                ? 'text-gray-800 font-medium' 
-                                : (!isContentItemAccessible(group.header) && group.header._id !== quizId)
-                                  ? 'text-gray-400'
-                                  : 'text-gray-800 font-medium'
-                            }`}>
-                              <BookOpen className="mr-2 w-4 h-4" />
-                              <span className="truncate">{group.header.title}</span>
-                              {!isContentItemAccessible(group.header) && group.header._id !== quizId && (
-                                <Lock className="ml-auto w-3 h-3 text-gray-400" />
-                              )}
+                          <span className="truncate flex-1">
+                            {item.title || (item.type === 'lesson' ? 'Bài học' : 'Bài kiểm tra')}
+                          </span>
+                          
+                          {item.complete ? (
+                            <CheckCircle className="ml-1 w-4 h-4 text-green-500" />
+                          ) : item._id === quizId ? (
+                            <div className="ml-1 p-0.5 bg-blue-500 text-white rounded-full">
+                              <PlayCircle className="w-3 h-3" />
                             </div>
-                            
-                            {/* Main lesson (if it's not just a header) */}
-                            <Link
-                              href={isContentItemAccessible(group.header) 
-                                ? `/courses/${courseId}/lesson/${group.header._id}` 
-                                : '#'}
-                              className={`py-2 px-3 ml-4 rounded flex items-center ${
-                                !isContentItemAccessible(group.header) 
-                                  ? 'text-gray-400 cursor-not-allowed' 
-                                  : group.header._id === quizId
-                                    ? 'bg-blue-50 text-blue-700'
-                                    : 'hover:bg-gray-50'
-                              }`}
-                              onClick={(e) => !isContentItemAccessible(group.header) && handleContentItemClick(e, group.header)}
-                            >
-                              <BookOpen className={`mr-2 w-4 h-4 ${
-                                group.header._id === quizId ? 'text-blue-500' : 'text-gray-500'
-                              }`} />
-                              <span className="truncate flex-1">{group.header.title}</span>
-                              {group.header.complete ? (
-                                <CheckCircle className="ml-1 w-4 h-4 text-green-500" />
-                              ) : !isContentItemAccessible(group.header) && group.header._id !== quizId ? (
-                                <Lock className="ml-1 w-4 h-4 text-gray-400" />
-                              ) : null}
-                            </Link>
-                            
-                            {/* Quizzes for this section */}
-                            {group.items.map((quiz, idx) => (
-                              <Link
-                                key={`quiz-${quiz._id}-${idx}`}
-                                href={isContentItemAccessible(quiz) 
-                                  ? `/courses/${courseId}/quiz/${quiz._id}` 
-                                  : '#'}
-                                className={`py-2 px-3 ml-4 rounded flex items-center ${
-                                  !isContentItemAccessible(quiz) && quiz._id !== quizId
-                                    ? 'text-gray-400 cursor-not-allowed' 
-                                    : quiz._id === quizId
-                                      ? 'bg-blue-50 text-blue-700'
-                                      : 'hover:bg-gray-50'
-                                }`}
-                                onClick={(e) => !isContentItemAccessible(quiz) && quiz._id !== quizId && handleContentItemClick(e, quiz)}
-                              >
-                                <Clock className={`mr-2 w-4 h-4 ${
-                                  quiz._id === quizId ? 'text-blue-500' : 'text-gray-500'
-                                }`} />
-                                <span className="truncate flex-1">Quiz</span>
-                                {quiz.complete ? (
-                                  <div className="ml-1 p-0.5 bg-blue-500 text-white rounded-full">
-                                    <CheckCircle className="w-3 h-3" />
-                                  </div>
-                                ) : quiz._id === quizId ? (
-                                  <div className="ml-1 p-0.5 bg-blue-500 text-white rounded-full">
-                                    <PlayCircle className="w-3 h-3" />
-                                  </div>
-                                ) : !isContentItemAccessible(quiz) ? (
-                                  <Lock className="ml-1 w-4 h-4 text-gray-400" />
-                                ) : null}
-                              </Link>
-                            ))}
-                          </div>
-                        ));
-                      })()}
-                    </>
+                          ) : !isContentItemAccessible(item) ? (
+                            <Lock className="ml-1 w-4 h-4 text-gray-400" />
+                          ) : null}
+                        </Link>
+                      ))}
+                    </div>
                   ) : (
                     <div className="text-center py-6 text-gray-500">
                       <p>Đang tải nội dung khóa học...</p>
