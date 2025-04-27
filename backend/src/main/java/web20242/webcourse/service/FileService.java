@@ -1,5 +1,6 @@
 package web20242.webcourse.service;
 
+import org.bson.types.ObjectId;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
@@ -19,8 +20,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
-import java.util.Base64;
-import java.util.Optional;
+import java.util.*;
 
 @Service
 public class FileService {
@@ -41,40 +41,40 @@ public class FileService {
         this.imageRepository = imageRepository;
     }
 
-    public String uploadFile(MultipartFile file, String type, String altText) throws IOException, NoSuchAlgorithmException {
-        String originalFilename = file.getOriginalFilename();
-        if (originalFilename == null) {
-            throw new IllegalArgumentException("File name cannot be null");
-        }
-        String fileNameHash = hashFilename(originalFilename);
-        String extension = originalFilename.contains(".")
-                ? originalFilename.substring(originalFilename.lastIndexOf("."))
-                : "";
-        String fileName = System.currentTimeMillis() + "_"
-                + fileNameHash.replace("/", "")
-                + extension;
-
-
-        PutObjectRequest request = PutObjectRequest.builder()
-                .bucket(bucketName)
-                .key(fileName)
-                .contentType(determineContentType(extension)) // Thêm dòng này
-                .build();
-
-        s3Client.putObject(request, RequestBody.fromInputStream(file.getInputStream(), file.getSize()));
-
-        String filePublicUrl = publicUrl + fileName;
-
-        Image image = Image.builder()
-                .imageUrl(filePublicUrl)
-                .type(type != null ? type : "Default")
-                .altText(altText != null ? altText : "No description")
-                .createdAt(LocalDateTime.now())
-                .build();
-        imageRepository.save(image);
-
-        return filePublicUrl;
-    }
+//    public String uploadFile(MultipartFile file, String type, String altText) throws IOException, NoSuchAlgorithmException {
+//        String originalFilename = file.getOriginalFilename();
+//        if (originalFilename == null) {
+//            throw new IllegalArgumentException("File name cannot be null");
+//        }
+//        String fileNameHash = hashFilename(originalFilename);
+//        String extension = originalFilename.contains(".")
+//                ? originalFilename.substring(originalFilename.lastIndexOf("."))
+//                : "";
+//        String fileName = System.currentTimeMillis() + "_"
+//                + fileNameHash.replace("/", "")
+//                + extension;
+//
+//
+//        PutObjectRequest request = PutObjectRequest.builder()
+//                .bucket(bucketName)
+//                .key(fileName)
+//                .contentType(determineContentType(extension)) // Thêm dòng này
+//                .build();
+//
+//        s3Client.putObject(request, RequestBody.fromInputStream(file.getInputStream(), file.getSize()));
+//
+//        String filePublicUrl = publicUrl + fileName;
+//
+//        Image image = Image.builder()
+//                .imageUrl(filePublicUrl)
+//                .type(type != null ? type : "Default")
+//                .altText(altText != null ? altText : "No description")
+//                .createdAt(LocalDateTime.now())
+//                .build();
+//        imageRepository.save(image);
+//
+//        return filePublicUrl;
+//    }
     public String uploadFileR2(MultipartFile file) throws IOException, NoSuchAlgorithmException {
         String originalFilename = file.getOriginalFilename();
         if (originalFilename == null) {
@@ -176,5 +176,28 @@ public class FileService {
 
     public ResponseEntity<?> upLogo(Logo logo) {
         return ResponseEntity.ok(logoRepository.save(logo));
+    }
+
+    public ResponseEntity<?> getAllImageForAdmin() {
+        return ResponseEntity.ok(imageRepository.findAll());
+    }
+
+    public ResponseEntity<?> getAllImageHaveType(String type) {
+        return ResponseEntity.ok(imageRepository.findAllByType(type));
+    }
+
+    public ResponseEntity<?> save(Image image) {
+        image.setCreatedAt(LocalDateTime.now());
+        return ResponseEntity.ok(imageRepository.save(image));
+    }
+
+    public void deleteImage(String id) {
+        Image image = imageRepository.findById(new ObjectId(id)).orElse(null);
+        imageRepository.delete(image);
+    }
+
+    public void deleteAllImage() {
+        List<Image> imageList = imageRepository.findAll();
+        imageList.forEach(imageRepository::delete);
     }
 }

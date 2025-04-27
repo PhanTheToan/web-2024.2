@@ -25,6 +25,7 @@
 /home/ptt/PTT-Works/2024.2/web/backend/src/main/java/web20242/webcourse/model/Quizzes.java
 /home/ptt/PTT-Works/2024.2/web/backend/src/main/java/web20242/webcourse/model/Review.java
 /home/ptt/PTT-Works/2024.2/web/backend/src/main/java/web20242/webcourse/model/User.java
+/home/ptt/PTT-Works/2024.2/web/backend/src/main/java/web20242/webcourse/model/constant/EImage.java
 /home/ptt/PTT-Works/2024.2/web/backend/src/main/java/web20242/webcourse/model/constant/EQuestion.java
 /home/ptt/PTT-Works/2024.2/web/backend/src/main/java/web20242/webcourse/model/constant/ERole.java
 /home/ptt/PTT-Works/2024.2/web/backend/src/main/java/web20242/webcourse/model/constant/EStatus.java

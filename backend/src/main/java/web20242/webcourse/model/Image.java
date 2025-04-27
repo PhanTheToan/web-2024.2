@@ -9,6 +9,7 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
 import org.springframework.data.mongodb.core.mapping.FieldType;
+import web20242.webcourse.model.constant.EImage;
 
 import java.time.LocalDateTime;
 
@@ -22,13 +23,10 @@ public class Image {
     private ObjectId id; // _id là ObjectId, MongoDB tự sinh
 
     @Field(name = "type")
-    private String type; // "Banner", "Featured"
+    private EImage type;
 
     @Field(name = "image_url")
     private String imageUrl; // URL ảnh
-
-    @Field(name = "alt_text")
-    private String altText; // Mô tả ảnh
 
     @Field(name = "created_at", targetType = FieldType.TIMESTAMP)
     private LocalDateTime createdAt;

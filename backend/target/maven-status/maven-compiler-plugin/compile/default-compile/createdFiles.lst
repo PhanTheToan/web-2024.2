@@ -38,6 +38,7 @@ web20242/webcourse/security/dto/AuthenticationResponse.class
 web20242/webcourse/model/Quizzes$QuizzesBuilder.class
 web20242/webcourse/model/createRequest/QuizSubmissionRequestDto.class
 web20242/webcourse/security/dto/AuthenticationRequest.class
+web20242/webcourse/model/constant/EImage.class
 web20242/webcourse/repository/ImageRepository.class
 web20242/webcourse/model/Image.class
 web20242/webcourse/model/createRequest/OtpData.class

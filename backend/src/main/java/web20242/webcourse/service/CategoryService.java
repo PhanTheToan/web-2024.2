@@ -53,12 +53,22 @@ public class CategoryService {
     }
     public ResponseEntity<?> updateInfor(Category category) {
         try {
-            Category categoryUpdate = popularCategoryRepository.findByCategory(category.getCategory());
+            Category categoryUpdate = popularCategoryRepository.findById(category.getId()).orElse(null);
             if(categoryUpdate == null) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
                         .body("Category not found.");
-            }else {
+            } else if (Objects.equals(category.getCategory(), "PUBLIC") || Objects.equals(category.getCategory(), "PRIVATE")) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body("Category not change.");
+            } else {
+                if(!Objects.equals(category.getCategory(), categoryUpdate.getCategory())){
+                    updateCategoryForCourse(categoryUpdate.category,category.getCategory());
+                }
+                categoryUpdate.setCategory(category.getCategory());
                 categoryUpdate.setDisplayName(category.getDisplayName());
+                categoryUpdate.setStatus(category.getStatus());
+                categoryUpdate.setUrlLogo(category.getUrlLogo());
+
                 return ResponseEntity.ok(popularCategoryRepository.save(categoryUpdate));
             }
         } catch (Exception e) {
@@ -66,7 +76,16 @@ public class CategoryService {
                     .body("Failed to delete popular category: " + e.getMessage());
         }
     }
-
+    public void updateCategoryForCourse(String prename, String lastname){
+        List<Course> courseList = courseRepository.findByCategoriesIn(Collections.singletonList(prename));
+        courseList.forEach(course -> {
+            ArrayList<String> categories = course.getCategories();
+            categories.remove(prename);
+            categories.add(lastname);
+            course.setCategories(categories);
+            courseRepository.save(course);
+        });
+    }
     public ResponseEntity<?> getPopularCategories() {
         List<Category> categories = popularCategoryRepository.findByStatus(true);
         List<Map<String, String>> result = categories.stream().map(category -> {
@@ -118,12 +137,38 @@ public class CategoryService {
             if(category.isEmpty()){
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
                         .body("Category not found.");
+            }else if (Objects.equals(category.get().getCategory(), "PUBLIC") || Objects.equals(category.get().getCategory(), "PRIVATE")) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body("Category not change.");
             }
+            removeCategory(category.get().getCategory());
             popularCategoryRepository.delete(category.get());
             return ResponseEntity.ok("Category deleted successfully.");
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Failed to delete category: " + e.getMessage());
         }
+    }
+    public void removeCategory(String name){
+        List<Course> courseList = courseRepository.findByCategoriesIn(Collections.singletonList(name));
+        courseList.forEach(course -> {
+            ArrayList<String> categories = course.getCategories();
+            categories.remove(name);
+            course.setCategories(categories);
+            courseRepository.save(course);
+        });
+    }
+    public ResponseEntity<?> getAllCategory() {
+        List<Category> categories = popularCategoryRepository.findAll();
+        List<Map<String, String>> result = categories.stream().map(category -> {
+            Map<String, String> map = new HashMap<>();
+            map.put("categoryId", category.getId().toHexString());
+            map.put("categoryName", category.getCategory());
+            map.put("categoryDisplayName", category.getDisplayName());
+            map.put("categoryUrl", category.getUrlLogo());
+            map.put("categoryStatus", String.valueOf(category.getStatus()));
+            return map;
+        }).collect(Collectors.toList());
+        return ResponseEntity.ok(result);
     }
 }

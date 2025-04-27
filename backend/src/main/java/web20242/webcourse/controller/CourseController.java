@@ -307,9 +307,10 @@ public class CourseController {
         return courseService.deleteQuiz(course, quiz);
     }
     @PreAuthorize("hasRole('ROLE_TEACHER') || hasRole('ROLE_ADMIN')")
-    @PutMapping("/update/course-info")
-    public ResponseEntity<?> updateCourseInfo(@RequestBody Course course, Principal principal){
+    @PutMapping("/update/course-info/{id}")
+    public ResponseEntity<?> updateCourseInfo(@RequestBody Course course, @PathVariable String id,Principal principal){
         Optional<User> userOptional = userRepository.findByUsername(principal.getName());
+        course.setId(new ObjectId(id));
         if (userOptional.isPresent()){
             User user = userOptional.get();
             if(user.getRole() == ERole.ROLE_ADMIN){
