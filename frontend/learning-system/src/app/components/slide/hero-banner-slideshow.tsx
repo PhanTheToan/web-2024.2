@@ -1,28 +1,85 @@
-"use client"
+'use client'
 
 import { useState, useEffect } from "react"
-import { Box, Typography, Button } from "@mui/material"
+import { Box, Typography, Button, CircularProgress } from "@mui/material"
 import Link from "next/link"
 
 export default function HeroBanner() {
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
+  const [backgroundImages, setBackgroundImages] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
-  // Array of background images for the slideshow
-  const backgroundImages = [
-    "./images/HeroBanner.svg",
-    "https://gcs.tripi.vn/public-tripi/tripi-feed/img/473655Rej/scottish-fold-11932.jpg",
-    "https://kimipet.vn/wp-content/uploads/2021/06/Scottish-Fold-cute-.jpg",
-    "https://cdn.tgdd.vn/Files/2021/04/22/1345402/8-giong-meo-dep-va-pho-bien-duoc-yeu-thich-o-viet-nam-202104221315513099.jpg",
-  ]
-
-  // Set up the slideshow interval
+  // Fetch the image from the API
   useEffect(() => {
+    const fetchImageURL = async () => {
+      try {
+        const response = await fetch('https://api.alphaeducation.io.vn/api/upload/get-image/LANDING_PAGE')
+        const data = await response.json()
+
+        if (data && data.body && data.body[0] && data.body[0].imageUrl) {
+          // Set the fetched URL into the backgroundImages array
+          setBackgroundImages([data.body[0].imageUrl])
+        } else {
+          throw new Error("Image URL not found in the response.")
+        }
+      } catch (error) {
+        setError(error.message)
+        console.error("Error fetching image:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchImageURL()
+  }, [])
+
+  // Set up the slideshow interval, though now it only has one image
+  useEffect(() => {
+    if (backgroundImages.length === 0) return
+
     const interval = setInterval(() => {
       setCurrentImageIndex((prevIndex) => (prevIndex === backgroundImages.length - 1 ? 0 : prevIndex + 1))
-    }, 5000) // Change image every 5 seconds
+    }, 5000) // Change image every 5 seconds, though only one image in this case
 
     return () => clearInterval(interval)
-  }, [])
+  }, [backgroundImages]) // Dependency on backgroundImages
+
+  if (loading) {
+    return (
+      <Box
+        sx={{
+          position: "relative",
+          width: "100%",
+          minHeight: "80vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <CircularProgress />
+      </Box>
+    )
+  }
+
+  if (error) {
+    return (
+      <Box
+        sx={{
+          position: "relative",
+          width: "100%",
+          minHeight: "80vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <Typography variant="h5" color="error">
+          Error: {error}
+        </Typography>
+      </Box>
+    )
+  }
 
   return (
     <Box
@@ -39,7 +96,7 @@ export default function HeroBanner() {
         overflow: "hidden",
       }}
     >
-      {/* Background images with fade transition */}
+      {/* Background image with fade transition */}
       {backgroundImages.map((image, index) => (
         <Box
           key={index}
