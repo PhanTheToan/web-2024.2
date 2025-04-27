@@ -59,7 +59,8 @@ public class SecurityConfig {
                                 "/api/categories/popular",
                                 "/api/reviews",
                                 "/api/reviews/per",
-                                "/api/update/ping"
+                                "/api/update/ping",
+                                "api/blog"
                                 ).permitAll()
                         .anyRequest().authenticated()
                 )
