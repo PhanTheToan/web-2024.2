@@ -25,7 +25,8 @@ interface LessonResponse {
 
 interface QuizResponse {
   quizId: string;
-  title: string;
+  title?: string;  // Make title optional since it might be missing in lesson-quiz endpoint
+  name?: string;   // Add name as an alternative field that might be used
   questionCount: number;
   passingScore: number;
   orderQuiz: number;
@@ -282,6 +283,36 @@ const DetailCoursePage: React.FC = () => {
       const isUserEnrolled = userIsEnrolled || isEnrolled;
       console.log('fetchCourseContent - isUserEnrolled:', isUserEnrolled);
       
+      // First, get quiz data from lesson_quiz (with underscore) to ensure we have quiz titles
+      const quizTitlesMap = new Map<string, string>();
+      
+      try {
+        const quizDataResponse = await fetch(`${API_BASE_URL}/course/lesson_quiz/${courseId}`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (quizDataResponse.ok) {
+          const quizData = await quizDataResponse.json();
+          console.log('Quiz data for titles:', quizData);
+          
+          // Extract quiz titles and store them by ID
+          if (quizData.body && quizData.body.quizzes && Array.isArray(quizData.body.quizzes)) {
+            quizData.body.quizzes.forEach((quiz: QuizResponse) => {
+              if (quiz.quizId && (quiz.title || quiz.name)) {
+                quizTitlesMap.set(quiz.quizId, quiz.title || quiz.name || '');
+                console.log(`Stored quiz title: ${quiz.quizId} -> ${quiz.title || quiz.name}`);
+              }
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching quiz titles:', error);
+      }
+      
       // Use lesson-quiz (with hyphen) for enrolled users to get learned/not learned content
       // Use lesson_quiz (with underscore) for public/unauthenticated users
       const endpoint = isUserEnrolled 
@@ -328,10 +359,13 @@ const DetailCoursePage: React.FC = () => {
         // Process not learned quizzes
         if (contentData.body.notLearned.quizzes && Array.isArray(contentData.body.notLearned.quizzes)) {
           contentData.body.notLearned.quizzes.forEach((quiz: QuizResponse) => {
+            // Try to get title from our titles map, or from the response, or use a default
+            const quizTitle = quizTitlesMap.get(quiz.quizId) || quiz.title || quiz.name || `Quiz ${quiz.orderQuiz || ''}`;
+            
             combinedItems.push({
               _id: quiz.quizId,
               type: 'quiz',
-              title: quiz.title || 'Untitled Quiz',
+              title: quizTitle,
               questionCount: quiz.questionCount || 0,
               passingScore: quiz.passingScore || 70,
               orderQuiz: quiz.orderQuiz || 999,
@@ -364,10 +398,13 @@ const DetailCoursePage: React.FC = () => {
         // Process learned quizzes
         if (contentData.body.learned.quizzes && Array.isArray(contentData.body.learned.quizzes)) {
           contentData.body.learned.quizzes.forEach((quiz: QuizResponse) => {
+            // Try to get title from our titles map, or from the response, or use a default
+            const quizTitle = quizTitlesMap.get(quiz.quizId) || quiz.title || quiz.name || `Quiz ${quiz.orderQuiz || ''}`;
+            
             combinedItems.push({
               _id: quiz.quizId,
               type: 'quiz',
-              title: quiz.title || 'Untitled Quiz',
+              title: quizTitle,
               questionCount: quiz.questionCount || 0,
               passingScore: quiz.passingScore || 70,
               orderQuiz: quiz.orderQuiz || 999,
@@ -400,10 +437,13 @@ const DetailCoursePage: React.FC = () => {
         // Process quizzes
         if (contentData.body.quizzes && Array.isArray(contentData.body.quizzes)) {
           contentData.body.quizzes.forEach((quiz: QuizResponse) => {
+            // Try to get title from our titles map, or from the response, or use a default
+            const quizTitle = quizTitlesMap.get(quiz.quizId) || quiz.title || quiz.name || `Quiz ${quiz.orderQuiz || ''}`;
+            
             combinedItems.push({
               _id: quiz.quizId,
               type: 'quiz',
-              title: quiz.title || 'Untitled Quiz',
+              title: quizTitle,
               questionCount: quiz.questionCount || 0,
               passingScore: quiz.passingScore || 70,
               orderQuiz: quiz.orderQuiz || 999,
