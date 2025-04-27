@@ -17,6 +17,7 @@ import web20242.webcourse.service.EnrollmentService;
 import web20242.webcourse.service.UserService;
 
 import java.security.Principal;
+import java.util.ArrayList;
 import java.util.Optional;
 
 @RestController
@@ -43,6 +44,12 @@ public class EnrollmentController {
         Optional<User> userOptional = userRepository.findByUsername(principal.getName());
         if(userOptional.isPresent()){
             User user = userOptional.get();
+            Course course = courseRepository.findById(new ObjectId(courseId)).orElse(null);
+            assert course != null;
+            ArrayList<String> categoryList = course.getCategories();
+            if(categoryList.contains("PRIVATE")){
+                return ResponseEntity.status(401).body("User not authenticate");
+            }
             enrollmentService.createEnrollment(user.getId(), courseId);
             return ResponseEntity.ok("Enrolled successfully");
         }

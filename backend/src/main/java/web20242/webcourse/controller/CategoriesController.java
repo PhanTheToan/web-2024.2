@@ -1,5 +1,6 @@
 package web20242.webcourse.controller;
 
+import org.bson.types.ObjectId;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -28,7 +29,11 @@ public class CategoriesController {
     public ResponseEntity<?> getFeaturedCategory() {
         return ResponseEntity.ok(popularCategoryService.getFeaturedCategory());
     }
-
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @GetMapping("/all")
+    public ResponseEntity<?> getAllCategory() {
+        return ResponseEntity.ok(popularCategoryService.getAllCategory());
+    }
     @PreAuthorize("hasRole('ROLE_ADMIN')")
     @PutMapping("/featured-course")
     public ResponseEntity<?> updatePopularCategories(@RequestBody List<String> ids) {
@@ -42,16 +47,24 @@ public class CategoriesController {
     }
 
     @PreAuthorize("hasRole('ROLE_ADMIN')")
-    @PutMapping("/update-infor")
-    public ResponseEntity<?> changStatus(@RequestBody Category category) {
+    @PutMapping("/update-info/{id}")
+    public ResponseEntity<?> updateInformationCategory(@PathVariable String id, @RequestBody Category category){
+        category.setId(new ObjectId(id));
         return ResponseEntity.ok(popularCategoryService.updateInfor(category));
     }
 
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
-    @PutMapping("/update-count")
-    public ResponseEntity<?> updateCountByCategoryNameForSystem() {
-        return ResponseEntity.ok(popularCategoryService.updateCountByCategoryNameForSystem());
-    }
+//
+//    @PreAuthorize("hasRole('ROLE_ADMIN')")
+//    @PutMapping("/update-infor")
+//    public ResponseEntity<?> changStatus(@RequestBody Category category) {
+//        return ResponseEntity.ok(popularCategoryService.updateInfor(category));
+//    }
+//
+//    @PreAuthorize("hasRole('ROLE_ADMIN')")
+//    @PutMapping("/update-count")
+//    public ResponseEntity<?> updateCountByCategoryNameForSystem() {
+//        return ResponseEntity.ok(popularCategoryService.updateCountByCategoryNameForSystem());
+//    }
 
     @GetMapping("/popular")
     public ResponseEntity<?> getPopularCategories() {

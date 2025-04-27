@@ -21,6 +21,7 @@ import web20242.webcourse.security.dto.AuthenticationRequest;
 import web20242.webcourse.security.dto.AuthenticationResponse;
 import web20242.webcourse.security.service.AuthenticationService;
 import web20242.webcourse.security.service.JwtService;
+import web20242.webcourse.service.EmailService;
 import web20242.webcourse.service.UserService;
 import web20242.webcourse.model.User;
 import web20242.webcourse.model.constant.ERole;
@@ -41,6 +42,7 @@ public class AuthenticationController {
     private final JwtService jwtService;
     private final UserDetailsService userDetailsService;
     private final JavaMailSender javaMailSender;
+    private final EmailService emailService;
 
     private final Map<String, OtpData> otpStorage = new HashMap<>();
 
@@ -71,6 +73,7 @@ public class AuthenticationController {
             userInfo.put("phone", user.getPhone());
             userInfo.put("dateOfBirth", user.getDateOfBirth());
             userInfo.put("gender", user.getGender());
+            userInfo.put("requestCourse", user.getRequestedCourses());
             userInfo.put("profileImage", user.getProfileImage());
             userInfo.put("coursesEnrolled", user.getCoursesEnrolled());
             userInfo.put("createdAt", user.getCreatedAt());
@@ -113,7 +116,10 @@ public class AuthenticationController {
         Cookie cookie = new Cookie("jwtToken", authResponse.getToken());
         cookie.setHttpOnly(true);
         cookie.setPath("/");
+        cookie.setSecure(true);
         cookie.setMaxAge(24 * 60 * 60);
+        //cookie.setAttribute("SameSite", "None");
+        //cookie.setDomain("alphaeducation.io.vn");
         response.addCookie(cookie);
         return ResponseEntity.ok(authResponse);
     }
@@ -236,7 +242,7 @@ public class AuthenticationController {
             String otp = generateOTP();
             user.setRole(role); // Đặt role tương ứng
             otpStorage.put(user.getEmail(), new OtpData(otp, user));
-            sendOtpEmail(user.getEmail(), otp);
+            emailService.sendOtp(user.getUsername(),otp,user.getEmail());
 
             return ResponseEntity.ok(new ApiResponse<>(HttpStatus.OK.value(), "OTP đã được gửi đến email", null));
         } catch (Exception e) {
@@ -262,6 +268,9 @@ public class AuthenticationController {
             }
 
             User user = otpData.getUser();
+            if(user.getRole() == null)
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(new ApiResponse<>(HttpStatus.BAD_REQUEST.value(), "Need Role", null));
             if(user.getRole() == ERole.ROLE_USER)
                 user.setStatus(EStatus.ACTIVE);
             else
@@ -296,7 +305,7 @@ public class AuthenticationController {
             String otp = generateOTP();
             otpStorage.put(email, new OtpData(otp, user));
 
-            sendOtpEmail(email, otp);
+            emailService.sendOtp(user.getUsername(),otp,user.getEmail());
 
             return ResponseEntity.ok(new ApiResponse<>(HttpStatus.OK.value(), "OTP đã được gửi đến email", null));
         } catch (Exception e) {

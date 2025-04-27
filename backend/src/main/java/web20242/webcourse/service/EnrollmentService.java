@@ -329,6 +329,7 @@ public class EnrollmentService {
                 courseRepository.save(course);
                 requestCoursed.remove(course.getId());
                 user.setRequestedCourses(requestCoursed);
+                user.getCoursesEnrolled().add(course.getId());
                 userRepository.save(user);
                 try {
                     createEnrollment(user.getId(), courseId);
@@ -360,6 +361,7 @@ public class EnrollmentService {
                 courseRepository.save(course);
                 requestCoursed.remove(course.getId());
                 user.setRequestedCourses(requestCoursed);
+                user.getCoursesEnrolled().add(course.getId());
                 userRepository.save(user);
                 try {
                     createEnrollment(user.getId(), courseId);

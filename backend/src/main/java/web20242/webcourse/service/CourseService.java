@@ -2,11 +2,14 @@ package web20242.webcourse.service;
 
 import org.bson.types.ObjectId;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import web20242.webcourse.model.*;
+import web20242.webcourse.model.constant.EQuestion;
 import web20242.webcourse.model.constant.ERole;
 import web20242.webcourse.model.constant.EStatus;
 import web20242.webcourse.model.createRequest.*;
@@ -567,6 +570,41 @@ public class CourseService {
                     .body("User not found");
         }
     }
+    public ResponseEntity<?> getAllCoursesNotStarted(Principal principal) {
+        Optional<User> userOptional = userRepository.findByUsername(principal.getName());
+        if (userOptional.isPresent()) {
+            User user = userOptional.get();
+            List<Enrollment> enrollments = enrollmentRepository.findByUserId(user.getId());
+            List<Map<String, Object>> courseOverviews = enrollments.stream()
+                    .filter(enrollment -> EStatus.NOTSTARTED.equals(enrollment.getStatus()))
+                    .map(enrollment -> {
+                        Map<String, Object> overview = new HashMap<>();
+                        Course course = courseRepository.findById(enrollment.getCourseId()).orElse(null);
+                        if (course != null) {
+                            overview.put("id", String.valueOf(course.getId()));
+                            overview.put("title", course.getTitle());
+                            overview.put("status", enrollment.getStatus());
+                            overview.put("thumbnail", course.getThumbnail());
+                            String teacherName;
+                            Optional<User> userTeacher = userService.findById(String.valueOf(course.getTeacherId()));
+                            teacherName = userTeacher.map(value -> value.getFirstName() + " " + value.getLastName())
+                                    .orElse("Unknown Teacher");
+                            overview.put("teacherName", teacherName);
+                            overview.put("process", enrollment.getProgress());
+                            overview.put("timeCurrent", enrollment.getTimeCurrent());
+                            overview.put("startDate", enrollment.getEnrolledAt());
+                            return overview;
+                        }
+                        return null;
+                    })
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toList());
+            return ResponseEntity.ok(courseOverviews);
+        } else {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body("User not found");
+        }
+    }
 
     public ResponseEntity<?> updateOrder() {
         List<Course> courseList = courseRepository.findAll();
@@ -691,6 +729,7 @@ public class CourseService {
                     lessonMap.put("lessonTitle", lesson.getTitle());
                     lessonMap.put("lessonShortTile",lesson.getShortTile());
                     lessonMap.put("orderLesson", lesson.getOrder());
+                    lessonMap.put("status",lesson.getStatus());
                     return lessonMap;
                 }).collect(Collectors.toList());
 
@@ -698,8 +737,10 @@ public class CourseService {
                     Map<String, Object> quizMap = new HashMap<>();
                     quizMap.put("quizId", quiz.getId().toString());
                     quizMap.put("passingScore", quiz.getPassingScore());
+                    quizMap.put("title",quiz.getTitle());
                     quizMap.put("questionCount", quiz.getQuestions().size());
                     quizMap.put("orderQuiz", quiz.getOrder());
+                    quizMap.put("status",quiz.getStatus());
                     return quizMap;
                 }).collect(Collectors.toList());
 
@@ -853,6 +894,7 @@ public class CourseService {
                 lessonMap.put("lessonTitle", lesson.getTitle());
                 lessonMap.put("lessonShortTitle", lesson.getShortTile()); // Fixed typo from "lessonShortTilte"
                 lessonMap.put("orderLesson", lesson.getOrder());
+                lessonMap.put("status", lesson.getStatus());
                 lessonList.add(lessonMap);
             });
 
@@ -864,6 +906,8 @@ public class CourseService {
                 quizMap.put("passingScore", quiz.getPassingScore());
                 quizMap.put("questionCount", quiz.getQuestions() != null ? quiz.getQuestions().size() : 0);
                 quizMap.put("orderQuiz", quiz.getOrder());
+                quizMap.put("title",quiz.getTitle());
+                quizMap.put("status",quiz.getStatus());
                 quizList.add(quizMap);
             });
 
@@ -936,6 +980,8 @@ public class CourseService {
         User user = userService.findByUsername(principal.getName());
         for (Map.Entry<String, String> entry : list.entrySet()) {
             String itemId = entry.getKey();
+            System.out.println("Item ID: " + itemId);
+            System.out.println("New Order: " + entry.getValue());
             String newOrderStr = entry.getValue();
             Integer newOrder = Integer.parseInt(newOrderStr);
             Optional<Lesson> lessonOptional = lessonRepository.findById(new ObjectId(itemId));
@@ -955,11 +1001,16 @@ public class CourseService {
             } else if (quizzesOptional.isPresent()) {
                 Quizzes quizzes = quizzesOptional.get();
                 Course course = courseRepository.findById(quizzes.getCourseId()).orElse(null);
-                if (course != null && !user.getId().equals(course.getTeacherId())) {
-                    return ResponseEntity.status(HttpStatus.FORBIDDEN).body("You are not the owner of this course");
+                if(user.getRole() == ERole.ROLE_ADMIN) {
+                    quizzes.setOrder(newOrder);
+                    quizzesRepository.save(quizzes);
                 }
-                quizzes.setOrder(newOrder);
-                quizzesRepository.save(quizzes);
+                else if (course != null && !user.getId().equals(course.getTeacherId())) {
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN).body("You are not the owner of this course");
+                }else {
+                        quizzes.setOrder(newOrder);
+                        quizzesRepository.save(quizzes);
+                }
             }
         }
         return ResponseEntity.ok("Done !");
@@ -984,8 +1035,11 @@ public class CourseService {
         List<?> categoriesInput = input.getCategories();
         if (categoriesInput != null) {
             for (Object category : categoriesInput) {
-                if (category != null) {
-                    categories.add(category.toString().trim());
+                if (category instanceof String categoryId && ObjectId.isValid(categoryId)) {
+                    Category categoryOptional = popularCategoryRepository.findById(new ObjectId(categoryId)).orElse(null);
+                    if (categoryOptional != null) {
+                        categories.add(categoryOptional.category);
+                    }
                 }
             }
         }
@@ -1050,6 +1104,7 @@ public class CourseService {
         existingQuiz.setDescription(updatedQuiz.getDescription());
         existingQuiz.setOrder(updatedQuiz.getOrder());
         existingQuiz.setPassingScore(updatedQuiz.getPassingScore());
+        existingQuiz.setStatus(updatedQuiz.getStatus());
         existingQuiz.setTimeLimit(updatedQuiz.getTimeLimit());
 
         if (updatedQuiz.getQuestions() != null) {
@@ -1076,6 +1131,7 @@ public class CourseService {
         existingLesson.setShortTile(updatedLesson.getShortTile());
         existingLesson.setContent(updatedLesson.getContent());
         existingLesson.setVideoUrl(updatedLesson.getVideoUrl());
+        existingLesson.setStatus(updatedLesson.getStatus());
         existingLesson.setOrder(updatedLesson.getOrder());
         existingLesson.setTimeLimit(updatedLesson.getTimeLimit());
 
@@ -1186,12 +1242,13 @@ public class CourseService {
 
     public ResponseEntity<?> gradeQuiz(String id, QuizSubmissionRequestDto submission, User user) {
         Optional<Quizzes> quizOptional = quizzesRepository.findById(new ObjectId(id));
-        if (!quizOptional.isPresent()) {
+        if (quizOptional.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Quiz not found");
         }
 
         Quizzes quiz = quizOptional.get();
 
+        // Kiểm tra user đã đăng ký khóa học
         if (!user.getCoursesEnrolled().contains(quiz.getCourseId())) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("User not enrolled in this course");
         }
@@ -1199,34 +1256,99 @@ public class CourseService {
         List<Question> quizQuestions = quiz.getQuestions();
         List<QuizSubmissionRequestDto.UserAnswer> userAnswers = submission.getAnswers();
 
-        if (userAnswers.size() != quizQuestions.size()) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Number of answers does not match number of questions");
+        // Kiểm tra số lượng câu trả lời
+        if (userAnswers == null || userAnswers.size() != quizQuestions.size()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body("Number of answers (" + (userAnswers == null ? 0 : userAnswers.size()) +
+                            ") does not match number of questions (" + quizQuestions.size() + ")");
         }
 
         int correctCount = 0;
+        List<String> incorrectQuestions = new ArrayList<>(); // Lưu câu hỏi sai để báo cáo
+
         for (int i = 0; i < quizQuestions.size(); i++) {
             Question question = quizQuestions.get(i);
             QuizSubmissionRequestDto.UserAnswer userAnswer = userAnswers.get(i);
 
-            if (question.getQuestion().equals(userAnswer.getQuestion()) &&
-                    question.getCorrectAnswer().equals(userAnswer.getSelectedAnswer())) {
+            if (!question.getQuestion().equals(userAnswer.getQuestion())) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body("Question at index " + i + " does not match");
+            }
+
+            boolean isCorrect = false;
+            switch (question.getEQuestion()) {
+                case SINGLE_CHOICE:
+                    isCorrect = checkSingleChoiceAnswer(question, userAnswer);
+                    break;
+                case MULTIPLE_CHOICE:
+                    isCorrect = checkMultipleChoiceAnswer(question, userAnswer);
+                    break;
+                case SHORT_ANSWER:
+                    isCorrect = checkShortAnswer(question, userAnswer);
+                    break;
+                default:
+                    break;
+            }
+
+            if (isCorrect) {
                 correctCount++;
+            } else {
+                incorrectQuestions.add(question.getQuestion());
             }
         }
 
         double totalQuestions = quizQuestions.size();
         double score = (correctCount / totalQuestions) * 100;
-
         double passingScore = quiz.getPassingScore() != null ? quiz.getPassingScore() : 0;
         boolean passed = score >= passingScore;
-
         QuizSubmissionResponseDto response = new QuizSubmissionResponseDto();
         response.setScore(score);
         response.setPassingScore(passingScore);
         response.setPassed(passed);
         response.setMessage(passed ? "Congratulations, you passed the quiz!" : "Sorry, you did not pass the quiz.");
+        response.setIncorrectQuestions(incorrectQuestions); // Thêm thông tin câu hỏi sai
 
         return ResponseEntity.ok(response);
+    }
+
+    private boolean checkSingleChoiceAnswer(Question question, QuizSubmissionRequestDto.UserAnswer userAnswer) {
+        if (userAnswer.getSelectedAnswer() == null || userAnswer.getSelectedAnswer().isEmpty() ||
+                question.getCorrectAnswer() == null || question.getCorrectAnswer().isEmpty()) {
+            return false;
+        }
+        return question.getCorrectAnswer().get(0).equals(userAnswer.getSelectedAnswer().get(0));
+    }
+
+    private boolean checkMultipleChoiceAnswer(Question question, QuizSubmissionRequestDto.UserAnswer userAnswer) {
+        if (userAnswer.getSelectedAnswer() == null || question.getCorrectAnswer() == null) {
+            return false;
+        }
+        List<String> userAnswers = userAnswer.getSelectedAnswer();
+        List<String> correctAnswers = question.getCorrectAnswer();
+        return userAnswers.size() == correctAnswers.size() && userAnswers.containsAll(correctAnswers);
+    }
+
+    private boolean checkShortAnswer(Question question, QuizSubmissionRequestDto.UserAnswer userAnswer) {
+        // Kiểm tra null
+        if (userAnswer.getSelectedAnswer() == null || userAnswer.getSelectedAnswer().isEmpty() ||
+                question.getCorrectAnswer() == null || question.getCorrectAnswer().isEmpty()) {
+            return false;
+        }
+
+        String userAnswerText = userAnswer.getSelectedAnswer().get(0);
+        String correctAnswerText = question.getCorrectAnswer().get(0);
+
+        String normalizedUserAnswer = normalizeShortAnswer(userAnswerText);
+        String normalizedCorrectAnswer = normalizeShortAnswer(correctAnswerText);
+
+        return normalizedUserAnswer.equals(normalizedCorrectAnswer);
+    }
+
+    private String normalizeShortAnswer(String answer) {
+        if (answer == null) {
+            return "";
+        }
+        return answer.replaceAll("\\s+", "").toUpperCase();
     }
 
     public ResponseEntity<?> getAllUserPerCousrseByAdmin(String id) {
@@ -1256,6 +1378,184 @@ public class CourseService {
         } else {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Course not found");
         }
+    }
+
+    public Page<Map<String, Object>> getCoursesByPage(Pageable pageable, String status) {
+        Page<Course> coursePage;
+        if (status != null) {
+            coursePage = courseRepository.findByStatus(EStatus.valueOf(status), pageable);
+        } else {
+            coursePage = courseRepository.findByStatus(EStatus.ACTIVE, pageable); // Mặc định ACTIVE
+        }
+        return coursePage.map(this::mapCourseToOverview);
+    }
+
+    private Map<String, Object> mapCourseToOverview(Course course) {
+        Map<String, Object> overview = new HashMap<>();
+        overview.put("id", course.getId().toString());
+        overview.put("title", course.getTitle());
+
+        Optional<User> userTeacher = userService.findById(course.getTeacherId().toString());
+        if (userTeacher.isEmpty()) {
+            overview.put("teacherFullName", "Unknown Teacher");
+            overview.put("teacherId", null);
+        } else {
+            User teacher = userTeacher.get();
+            overview.put("teacherFullName", teacher.getFirstName() + " " + teacher.getLastName());
+            overview.put("teacherId", course.getTeacherId().toString());
+        }
+
+        overview.put("courseStatus", course.getStatus().name());
+        overview.put("thumbnail", course.getThumbnail());
+        overview.put("categories", course.getCategories());
+        overview.put("price", course.getPrice());
+        overview.put("studentsCount", course.getStudentsEnrolled() != null ? course.getStudentsEnrolled().size() : 0);
+        overview.put("contentCount", course.getLessons() != null ? course.getLessons().size() : 0);
+        overview.put("totalTimeLimit", course.getTotalTimeLimit());
+
+        return overview;
+    }
+    public Page<Map<String, Object>> searchCoursesForAdmin(String query, String status, Pageable pageable) {
+        Page<Course> coursePage;
+        if (query == null || query.trim().isEmpty()) {
+            if (status != null) {
+                coursePage = courseRepository.findByStatus(
+                        EStatus.valueOf(status.toUpperCase()), pageable);
+            } else {
+                coursePage = courseRepository.findAll(pageable);
+            }
+        } else {
+            if (status != null) {
+                coursePage = courseRepository.findByTitleContainingIgnoreCaseAndStatus(
+                        query, EStatus.valueOf(status.toUpperCase()), pageable);
+            } else {
+                coursePage = courseRepository.findByTitleContainingIgnoreCase(query, pageable);
+            }
+        }
+        return coursePage.map(this::mapCourseToOverview);
+    }
+
+    public Page<Map<String, Object>> searchCourses(
+            String query,
+            List<String> categories,
+            List<String> teacherIds,
+            Double ratingMin,
+            Double ratingMax,
+            Pageable pageable
+    ) {
+        // Chuyển teacherIds từ String sang ObjectId
+        List<ObjectId> teacherObjectIds = teacherIds != null
+                ? teacherIds.stream()
+                .map(ObjectId::new)
+                .collect(Collectors.toList())
+                : null;
+
+        Page<Course> coursePage;
+
+        // Xử lý tìm kiếm theo tiêu đề
+        if (query != null && !query.trim().isEmpty()) {
+            // Lọc theo tất cả tiêu chí
+            if (categories != null && !categories.isEmpty() && teacherObjectIds != null && !teacherObjectIds.isEmpty() && ratingMin != null && ratingMax != null) {
+                coursePage = courseRepository.findByCategoriesAndRatingAndTeacherIds(
+                        categories, ratingMin, ratingMax, teacherObjectIds, pageable
+                );
+            }
+            // Lọc theo danh mục và đánh giá
+            else if (categories != null && !categories.isEmpty() && ratingMin != null && ratingMax != null) {
+                coursePage = courseRepository.findByCategoriesAndRating(
+                        categories, ratingMin, ratingMax, pageable
+                );
+            }
+            // Lọc theo danh mục và giảng viên
+            else if (categories != null && !categories.isEmpty() && teacherObjectIds != null && !teacherObjectIds.isEmpty()) {
+                coursePage = courseRepository.findByCategoriesAndTeacherIds(
+                        categories, teacherObjectIds, pageable
+                );
+            }
+            // Lọc theo đánh giá và giảng viên
+            else if (ratingMin != null && ratingMax != null && teacherObjectIds != null && !teacherObjectIds.isEmpty()) {
+                coursePage = courseRepository.findByRatingAndTeacherIds(
+                        ratingMin, ratingMax, teacherObjectIds, pageable
+                );
+            }
+            // Lọc theo danh mục
+            else if (categories != null && !categories.isEmpty()) {
+                coursePage = courseRepository.findByCategories(categories, pageable);
+            }
+            // Lọc theo đánh giá
+            else if (ratingMin != null && ratingMax != null) {
+                coursePage = courseRepository.findByRating(ratingMin, ratingMax, pageable);
+            }
+            // Lọc theo giảng viên
+            else if (teacherObjectIds != null && !teacherObjectIds.isEmpty()) {
+                coursePage = courseRepository.findByTeacherIds(teacherObjectIds, pageable);
+            }
+            // Chỉ tìm kiếm theo tiêu đề
+            else {
+                coursePage = courseRepository.findByTitleContainingIgnoreCaseAndStatus(
+                        query, EStatus.ACTIVE, pageable
+                );
+            }
+        } else {
+            // Không có query, lọc theo các tiêu chí khác
+            if (categories != null && !categories.isEmpty() && teacherObjectIds != null && !teacherObjectIds.isEmpty() && ratingMin != null && ratingMax != null) {
+                coursePage = courseRepository.findByCategoriesAndRatingAndTeacherIds(
+                        categories, ratingMin, ratingMax, teacherObjectIds, pageable
+                );
+            } else if (categories != null && !categories.isEmpty() && ratingMin != null && ratingMax != null) {
+                coursePage = courseRepository.findByCategoriesAndRating(
+                        categories, ratingMin, ratingMax, pageable
+                );
+            } else if (categories != null && !categories.isEmpty() && teacherObjectIds != null && !teacherObjectIds.isEmpty()) {
+                coursePage = courseRepository.findByCategoriesAndTeacherIds(
+                        categories, teacherObjectIds, pageable
+                );
+            } else if (ratingMin != null && ratingMax != null && teacherObjectIds != null && !teacherObjectIds.isEmpty()) {
+                coursePage = courseRepository.findByRatingAndTeacherIds(
+                        ratingMin, ratingMax, teacherObjectIds, pageable
+                );
+            } else if (categories != null && !categories.isEmpty()) {
+                coursePage = courseRepository.findByCategories(categories, pageable);
+            } else if (ratingMin != null && ratingMax != null) {
+                coursePage = courseRepository.findByRating(ratingMin, ratingMax, pageable);
+            } else if (teacherObjectIds != null && !teacherObjectIds.isEmpty()) {
+                coursePage = courseRepository.findByTeacherIds(teacherObjectIds, pageable);
+            } else {
+                coursePage = courseRepository.findByStatus(EStatus.ACTIVE, pageable);
+            }
+        }
+
+        return coursePage.map(this::mapCourseToOverview);
+    }
+
+    public ResponseEntity<?> getTeacherForSlideBar() {
+        List<User> teachers = userRepository.findByRole(ERole.ROLE_TEACHER);
+        List<Map<String, Object>> teacherOverviews = teachers.stream()
+                .map(teacher -> {
+                    if (teacher.getStatus() == EStatus.INACTIVE) {
+                        return null; // Bỏ qua giáo viên không hoạt động
+                    }
+                    Map<String, Object> overview = new HashMap<>();
+                    overview.put("id", String.valueOf(teacher.getId()));
+                    overview.put("fullName", teacher.getFirstName() + " " + teacher.getLastName());
+                    return overview;
+                })
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(teacherOverviews);
+    }
+
+    public ResponseEntity<?> updateCourseInfo(Course course) {
+        Course course1 = courseRepository.findById(course.getId()).orElse(null );
+        assert course1 != null;
+        course1.setTitle(course.getTitle());
+        course1.setDescription(course.getDescription());
+        course1.setTeacherId(course.getTeacherId());
+        course1.setPrice(course.getPrice());
+        course1.setCategories(course.getCategories());
+        course1.setStatus(course.getStatus());
+        course1.setThumbnail(course.getThumbnail());
+        courseRepository.save(course1);
+        return ResponseEntity.ok("Update succesfully");
     }
 //    public ResponseEntity<?> getCoursesByPage(int page) {
 //        int pageSize = 6;

@@ -1,10 +1,12 @@
 package web20242.webcourse.controller;
 
+import org.bson.types.ObjectId;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import web20242.webcourse.model.Image;
 import web20242.webcourse.model.createRequest.Logo;
 import web20242.webcourse.service.FileService;
 
@@ -23,15 +25,49 @@ public class FileController {
         this.fileService = fileService;
     }
 
-    @PreAuthorize("hasRole('ROLE_ADMIN') || hasRole('ROLE_TEACHER')")
-    @PostMapping("/image")
-    public String uploadFile(
-            @RequestParam("image") MultipartFile file,
-            @RequestParam(value = "type", required = false) String type,
-            @RequestParam(value = "altText", required = false) String altText
-    ) throws IOException, NoSuchAlgorithmException {
-        return fileService.uploadFile(file, type, altText);
+//    @PreAuthorize("hasRole('ROLE_ADMIN')")
+//    @PostMapping("/image")
+//    public String uploadFile(
+//            @RequestParam("image") MultipartFile file,
+//            @RequestParam(value = "type", required = false) String type,
+//            @RequestParam(value = "altText", required = false) String altText
+//    ) throws IOException, NoSuchAlgorithmException {
+//        return fileService.uploadFile(file, type, altText);
+//    }
+
+
+    @GetMapping("/all-image")
+    public ResponseEntity<?> getAllImage(){
+        return ResponseEntity.ok(fileService.getAllImageForAdmin());
     }
+    @GetMapping("/get-image/{type}")
+    public ResponseEntity<?> getAllImageHaveType(@PathVariable String type){
+        return ResponseEntity.ok(fileService.getAllImageHaveType(type));
+    }
+
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @PostMapping("/create")
+    public ResponseEntity<?> createImageSystem(@RequestBody Image image){
+        return ResponseEntity.ok(fileService.save(image));
+    }
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @PutMapping("/update/{id}")
+    public ResponseEntity<?> createImageSystem(@RequestBody Image image, @PathVariable String id){
+        image.setId(new ObjectId(id));
+        return ResponseEntity.ok(fileService.save(image));
+    }
+
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @PutMapping("/delete-image/{id}")
+    public void createImageSystem(@PathVariable String id){
+        fileService.deleteImage(id);
+    }
+//    @PreAuthorize("hasRole('ROLE_ADMIN') || hasRole('ROLE_TEACHER')")
+//    @DeleteMapping("/delete-all-image")
+//    public void createImageSystem(){
+//        fileService.deleteAllImage();
+//    }
+
     @PreAuthorize("hasRole('ROLE_ADMIN') || hasRole('ROLE_TEACHER')")
     @PostMapping("/image/r2")
     public String uploadFileR2(

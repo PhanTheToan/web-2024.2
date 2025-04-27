@@ -46,14 +46,23 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/api/auth/**",
+                                "/api/email/**",
                                 "/api/course",
+                                "/api/course/search",
+                                "/api/course/teacher",
+                                "/api/course/search-course-admin",
                                 "/api/course/filter",
                                 "/api/course/info/**",
                                 "/api/course/lesson_quiz/**",
                                 "/api/categories/featured-category",
                                 "/api/categories/featured-courses",
                                 "/api/categories/popular",
-                                "/api/reviews"
+                                "/api/reviews",
+                                "/api/reviews/per",
+                                "/api/update/ping",
+                                "/api/blog",
+                                "/api/upload/all-image",
+                                "/api/upload/get-image/**"
                                 ).permitAll()
                         .anyRequest().authenticated()
                 )

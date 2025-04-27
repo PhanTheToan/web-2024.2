@@ -9,25 +9,44 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
 import org.springframework.data.mongodb.core.mapping.FieldType;
-import web20242.webcourse.model.constant.EImage;
+import software.amazon.awssdk.services.s3.endpoints.internal.Value;
+import web20242.webcourse.model.constant.EStatus;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 
-@Document(collection = "images")
+@Document(collection = "blog")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Image {
+public class Blog {
+
     @Id
-    private ObjectId id; // _id là ObjectId, MongoDB tự sinh
+    private ObjectId id;
 
-    @Field(name = "type")
-    private EImage type;
+    @Field(name="ownerId")
+    private ObjectId ownerId;
 
-    @Field(name = "image_url")
-    private String imageUrl; // URL ảnh
+    @Field(name="title")
+    private String title;
+
+    @Field(name="content")
+    private String content;
+
+    @Field(name="author")
+    private String author;
+
+    @Field(name="refer")
+    private String refer;
+
+    @Field(name="image")
+    private String image;
+
+    @Field(name="status")
+    private EStatus status;
 
     @Field(name = "created_at", targetType = FieldType.TIMESTAMP)
     private LocalDateTime createdAt;
+
 }

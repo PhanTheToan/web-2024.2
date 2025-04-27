@@ -2,12 +2,16 @@ package web20242.webcourse.controller;
 
 import org.bson.types.ObjectId;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.parameters.P;
 import org.springframework.web.bind.annotation.*;
 import web20242.webcourse.model.*;
+import web20242.webcourse.model.constant.ERole;
 import web20242.webcourse.model.createRequest.CourseCreateRequest;
 import web20242.webcourse.model.createRequest.QuizSubmissionRequestDto;
 import web20242.webcourse.repository.*;
@@ -17,6 +21,8 @@ import web20242.webcourse.service.QuizGenerationService;
 import web20242.webcourse.service.UserService;
 
 import java.security.Principal;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -44,9 +50,59 @@ public class CourseController {
         userService.deleteUserLeaveCourse(userId, courseId);
         return ResponseEntity.ok("User removed from course successfully");
     }
+
+    public CourseController(CourseService courseService) {
+        this.courseService = courseService;
+    }
     @GetMapping
-    public ResponseEntity<?> getAllCoursesForLandingPages() {
-        return ResponseEntity.ok(courseService.getAllCoursesForLandingPage());
+    public ResponseEntity<Page<Map<String, Object>>> getCoursesByPage(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "9") int size,
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) String teacherIds,
+            @RequestParam(required = false) Double ratingMin,
+            @RequestParam(required = false) Double ratingMax) {
+        Pageable pageable = PageRequest.of(page, size);
+        List<String> categories = category != null ? Arrays.asList(category.split(",")) : null;
+        List<String> teacherIdList = teacherIds != null ? Arrays.asList(teacherIds.split(",")) : null;
+        Page<Map<String, Object>> coursePage = courseService.searchCourses(
+                null, categories, teacherIdList, ratingMin, ratingMax, pageable
+        );
+        return ResponseEntity.ok(coursePage);
+    }
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @GetMapping("/search-course-admin")
+    public ResponseEntity<Page<Map<String, Object>>> searchCoursesForAdmin(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "9") int size,
+            @RequestParam(required = false) String query,
+            @RequestParam(required = false) String status) {
+        Pageable pageable = PageRequest.of(page, size);
+        Page<Map<String, Object>> coursePage = courseService.searchCoursesForAdmin(
+                query, status, pageable
+        );
+        return ResponseEntity.ok(coursePage);
+    }
+    @GetMapping("/search")
+    public ResponseEntity<Page<Map<String, Object>>> searchCourses(
+            @RequestParam String query,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "9") int size,
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) String teacherIds,
+            @RequestParam(required = false) Double ratingMin,
+            @RequestParam(required = false) Double ratingMax) {
+        Pageable pageable = PageRequest.of(page, size);
+        List<String> categories = category != null ? Arrays.asList(category.split(",")) : null;
+        List<String> teacherIdList = teacherIds != null ? Arrays.asList(teacherIds.split(",")) : null;
+        Page<Map<String, Object>> coursePage = courseService.searchCourses(
+                query, categories, teacherIdList, ratingMin, ratingMax, pageable
+        );
+        return ResponseEntity.ok(coursePage);
+    }
+    @GetMapping("/teacher")
+    public ResponseEntity<?> getTeacherForSlideBar(){
+        return ResponseEntity.ok(courseService.getTeacherForSlideBar());
     }
 
     @PutMapping("/update/timelimit")
@@ -58,6 +114,16 @@ public class CourseController {
     @GetMapping("/complete-course")
     public ResponseEntity<?> getCourseCompleteForUser(Principal principal) {
         return ResponseEntity.ok(courseService.getAllCoursesComplete(principal));
+    }
+    @PreAuthorize("hasRole('ROLE_USER')")
+    @GetMapping("/progress-course")
+    public ResponseEntity<?> getCourseIncompleteForUser(Principal principal) {
+        return ResponseEntity.ok(courseService.getAllCoursesInprocess(principal));
+    }
+    @PreAuthorize("hasRole('ROLE_USER')")
+    @GetMapping("/notstarted-course")
+    public ResponseEntity<?> getCourseIncompleteForUser1(Principal principal) {
+        return ResponseEntity.ok(courseService.getAllCoursesNotStarted(principal));
     }
     @PreAuthorize("hasRole('ROLE_ADMIN')")
     @GetMapping("/lessonandquiz/{id}")
@@ -75,7 +141,7 @@ public class CourseController {
     }
     @PreAuthorize("hasRole('ROLE_TEACHER') || hasRole('ROLE_ADMIN')")
     @PutMapping("/update-order-list")
-    public ResponseEntity<?> updateOrder(@RequestParam Map<String,String> list, Principal principal) {
+    public ResponseEntity<?> updateOrder(@RequestBody Map<String,String> list, Principal principal) {
         return ResponseEntity.ok(courseService.updateOrderForList(list, principal));
     }
     @PreAuthorize("hasRole('ROLE_TEACHER')")
@@ -88,6 +154,10 @@ public class CourseController {
     @PostMapping("/create")
     public ResponseEntity<?> createCourse(@RequestBody CourseCreateRequest course, Principal principal) {
         User user = userService.findByUsername(principal.getName());
+        String teacherId = course.getTeacherId();
+        if (!ObjectId.isValid(teacherId)) {
+            return ResponseEntity.status(400).body("Invalid teacherId format");
+        }
         return ResponseEntity.ok(courseService.createCourse(course, user));
     }
     @PreAuthorize("hasRole('ROLE_ADMIN')")
@@ -95,6 +165,10 @@ public class CourseController {
     public ResponseEntity<?> updateCourse(@RequestBody CourseCreateRequest course) {
         String id = course.getTeacherId();
         User user = userService.findById(id).orElse(null);
+        String teacherId = course.getTeacherId();
+        if (!ObjectId.isValid(teacherId)) {
+            return ResponseEntity.status(400).body("Invalid teacherId format");
+        }
         if(user!=null) {
             return ResponseEntity.ok(courseService.createCourse(course, user));
         }else
@@ -231,6 +305,28 @@ public class CourseController {
         }
 
         return courseService.deleteQuiz(course, quiz);
+    }
+    @PreAuthorize("hasRole('ROLE_TEACHER') || hasRole('ROLE_ADMIN')")
+    @PutMapping("/update/course-info/{id}")
+    public ResponseEntity<?> updateCourseInfo(@RequestBody Course course, @PathVariable String id,Principal principal){
+        Optional<User> userOptional = userRepository.findByUsername(principal.getName());
+        course.setId(new ObjectId(id));
+        if (userOptional.isPresent()){
+            User user = userOptional.get();
+            if(user.getRole() == ERole.ROLE_ADMIN){
+                return ResponseEntity.ok(courseService.updateCourseInfo(course));
+            }else {
+                Course course1 = courseRepository.findById(course.getId()).orElse(null);
+                assert course1 != null;
+                if(course1.getTeacherId() == user.getId()){
+                    return ResponseEntity.ok(courseService.updateCourseInfo(course));
+                }else {
+                    return ResponseEntity.status(401).body("Not Authenticated");
+                }
+            }
+        }else {
+            return ResponseEntity.status(401).body("User not found");
+        }
     }
     @PreAuthorize("hasRole('ROLE_TEACHER') || hasRole('ROLE_ADMIN')")
     @DeleteMapping("/delete-lesson/{lessonId}")
