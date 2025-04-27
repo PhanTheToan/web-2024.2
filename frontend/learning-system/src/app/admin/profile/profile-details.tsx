@@ -127,13 +127,16 @@ export function ProfileDetails() {
       {isEditing ? (
         <>
           <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
+            {/* <div className="space-y-2">
               <Label htmlFor="username">Tên đăng nhập</Label>
               <Input
                 id="username"
-                value={profile.username || ""}
-                onChange={(e) => handleChange("username", e.target.value)}
+                value={profile.username || ""} disabled
               />
+            </div> */}
+            <div className="space-y-2">
+              <Label htmlFor="username">Email</Label>
+              <Input id="username" type="username" value={profile.username || ""} disabled />
             </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>

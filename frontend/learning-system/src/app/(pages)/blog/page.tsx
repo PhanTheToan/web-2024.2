@@ -277,12 +277,12 @@ export default function BlogPage() {
         <div className="w-full">
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-2xl font-bold">All Articles</h1>
-            <Link href="/blog/submit-post">
+            {/* <Link href="/blog/submit-post">
               <Button className="flex items-center gap-2">
                 <PlusCircle size={16} />
                 <span>Submit Post</span>
               </Button>
-            </Link>
+            </Link> */}
           </div>
 
           {/* Search Bar */}

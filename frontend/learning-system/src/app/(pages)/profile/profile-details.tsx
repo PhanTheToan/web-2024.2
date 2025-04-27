@@ -127,8 +127,8 @@ export function ProfileDetails() {
               <Label htmlFor="username">Tên đăng nhập</Label>
               <Input
                 id="username"
-                value={profile.username || ""}
-                onChange={(e) => handleChange("username", e.target.value)}
+                value={profile.username || ""} disabled
+                // onChange={(e) => handleChange("username", e.target.value)} 
               />
             </div>
             <div className="space-y-2">

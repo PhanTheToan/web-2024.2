@@ -141,15 +141,27 @@ export function CompletedCourses() {
                   </div>
                   <div className="mt-4">
 
-                    <Link href="/contact">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="mt-2 self-start w-full border-[#FF782D] text-[#FF782D] hover:bg-[#FF782D] hover:text-white transition"
-                      >
-                        Đăng ký nhận chứng chỉ
-                      </Button>
-                    </Link>
+                    <div className="mt-4 flex gap-2">
+                      <Link href="/contact" className="flex-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full border-[#FF782D] text-[#FF782D] hover:bg-[#FF782D] hover:text-white transition"
+                        >
+                          Đăng ký nhận chứng chỉ
+                        </Button>
+                      </Link>
+                      <Link href={`/courses/${course.id}`} className="flex-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full border-[#4CAF50] text-[#4CAF50] hover:bg-[#4CAF50] hover:text-white transition"
+                        >
+                          Đánh giá
+                        </Button>
+                      </Link>
+                    </div>
+
                   </div>
                 </div>
               </div>

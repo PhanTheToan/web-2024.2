@@ -1,6 +1,8 @@
-"use client";
+'use client';
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+
+const BASE_URL = process.env.BASE_URL || ""
 
 export default function ContactForm() {
   const [formData, setFormData] = useState({
@@ -9,6 +11,23 @@ export default function ContactForm() {
     comment: "",
     saveInfo: false,
   });
+
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  // Lấy thông tin từ localStorage khi load trang
+  useEffect(() => {
+    const savedName = localStorage.getItem('contactName');
+    const savedEmail = localStorage.getItem('contactEmail');
+    if (savedName && savedEmail) {
+      setFormData((prev) => ({
+        ...prev,
+        name: savedName,
+        email: savedEmail,
+        saveInfo: true,
+      }));
+    }
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -19,10 +38,58 @@ export default function ContactForm() {
     setFormData((prev) => ({ ...prev, saveInfo: e.target.checked }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Đã gửi form:", formData);
-    // Ở đây có thể gửi dữ liệu lên backend
+    setLoading(true);
+    setMessage(null);
+
+    try {
+      const response = await fetch(`${BASE_URL}/email/contact`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: formData.comment,
+          fullName: formData.name,
+          email: formData.email,
+        }),
+      });
+
+      if (response.ok) {
+        setMessage('Gửi phản hồi thành công!');
+        
+        // Lưu thông tin nếu checkbox được chọn
+        if (formData.saveInfo) {
+          localStorage.setItem('contactName', formData.name);
+          localStorage.setItem('contactEmail', formData.email);
+        } else {
+          localStorage.removeItem('contactName');
+          localStorage.removeItem('contactEmail');
+        }
+
+        // Reset form sau khi gửi thành công
+        setFormData({
+          name: '',
+          email: '',
+          comment: '',
+          saveInfo: false,
+        });
+      } else {
+        const errorData = await response.json();
+        setMessage(`Lỗi: ${errorData.message || 'Không thể gửi phản hồi.'}`);
+      }
+    } catch (error) {
+      console.error('Gửi lỗi:', error);
+      setMessage('Có lỗi xảy ra khi gửi phản hồi.');
+    } finally {
+      setLoading(false);
+
+      // Thông báo gửi thành công sẽ mất sau 5s
+      setTimeout(() => {
+        setMessage(null);
+      }, 5000);
+    }
   };
 
   return (
@@ -80,9 +147,17 @@ export default function ContactForm() {
           </label>
         </div>
 
-        <button type="submit" className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-2 rounded-md">
-          Gửi phản hồi
+        <button
+          type="submit"
+          className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-2 rounded-md"
+          disabled={loading}
+        >
+          {loading ? 'Đang gửi...' : 'Gửi phản hồi'}
         </button>
+
+        {message && (
+          <p className="mt-4 text-center text-sm text-green-600">{message}</p>
+        )}
       </form>
     </div>
   );

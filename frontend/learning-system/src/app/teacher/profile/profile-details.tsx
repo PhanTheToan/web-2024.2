@@ -14,16 +14,16 @@ export function ProfileDetails() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
 
   const [profile, setProfile] = useState({
-    id: "Truyen Id nguoi dung",
-    username: "hoande",
-    firstName: "John",
-    lastName: "Doe",
-    email: "johndoe@example.com",
-    phone: "123-456-7890",
-    dateOfBirth: "1990-01-01",
-    gender: "Male",
-    profileImage: "http://example.com/profile.jpg",
-  })
+    id: "", // để trống
+    username: "",
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    dateOfBirth: "",
+    gender: "",
+    profileImage: "",
+  })  
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -127,8 +127,8 @@ export function ProfileDetails() {
               <Label htmlFor="username">Tên đăng nhập</Label>
               <Input
                 id="username"
-                value={profile.username || ""}
-                onChange={(e) => handleChange("username", e.target.value)}
+                value={profile.username || ""} disabled
+                // onChange={(e) => handleChange("username", e.target.value)}
               />
             </div>
             <div className="space-y-2">
