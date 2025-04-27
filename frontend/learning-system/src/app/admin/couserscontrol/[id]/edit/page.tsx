@@ -284,6 +284,7 @@ export default function EditCoursePage() {
       
       // Prepare the updated course data
       const updatedCourse = {
+        id: courseId,
         title: courseData.title,
         description: courseData.description,
         price: courseData.price,
@@ -291,7 +292,7 @@ export default function EditCoursePage() {
         categories: allCategories,
         teacherId: courseData.teacherId,
         isPopular: courseData.isPopular,
-        courseStatus: courseData.isPublished ? 'ACTIVE' : 'INACTIVE',
+        status: courseData.isPublished ? 'ACTIVE' : 'INACTIVE'
       };
       
       // Handle file upload if there's a new thumbnail
@@ -327,7 +328,7 @@ export default function EditCoursePage() {
       }
       console.log("updatedCourse", updatedCourse);
       // Update the course using API
-      const updateResponse = await fetch(`${API_BASE_URL}/course/update/${courseId}`, {
+      const updateResponse = await fetch(`${API_BASE_URL}/course/update/course-info`, {
         method: 'PUT',
         credentials: 'include',
         headers: {

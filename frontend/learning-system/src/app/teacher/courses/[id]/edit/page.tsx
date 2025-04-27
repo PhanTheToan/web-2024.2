@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Upload, X, Save, Loader2 } from 'lucide-react';
-import { CategoryItem } from '@/app/types';
 import { toast } from 'react-hot-toast';
 import dotenv from 'dotenv';
 dotenv.config();
@@ -18,10 +17,33 @@ interface CourseData {
   isPublished: boolean;
 }
 
+// Define interface for user data
+interface UserData {
+  _id: string;
+  role: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  [key: string]: string | number | boolean | null | undefined;
+}
+
 // Improve type safety for category objects
 interface CategoryData {
   name: string;
+  id?: string;
+  categoryId?: string;
   [key: string]: string | number | boolean | null | undefined;
+}
+
+interface CategoryItem {
+  name: string;
+  displayName?: string;
+  id: string;
+  categoryName?: string;
+  categoryId?: string;
+  count: number;
+  isActive: boolean;
+  isSpecial?: boolean; // Flag for PRIVATE/PUBLIC categories
 }
 
 export default function EditCoursePage() {
@@ -39,13 +61,15 @@ export default function EditCoursePage() {
     isPublished: false,
   });
   
+  const [userData, setUserData] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [thumbnailPreview, setThumbnailPreview] = useState<string>('');
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]); // Now stores IDs
+  const [specialCategory, setSpecialCategory] = useState<string>(''); // Now stores ID
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
 
   // Fetch course data and categories
@@ -55,6 +79,32 @@ export default function EditCoursePage() {
       try {
         // Fetch course details via API
         const API_BASE_URL = process.env.BASE_URL || 'http://localhost:8082/api';
+        
+        // Check authentication first
+        const authResponse = await fetch(`${API_BASE_URL}/auth/check`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (!authResponse.ok) {
+          throw new Error('Bạn cần đăng nhập để tiếp tục');
+        }
+        
+        const authData = await authResponse.json();
+        const userData = authData.data;
+        
+        if (userData.role !== 'ROLE_TEACHER') {
+          toast.error('Bạn không có quyền truy cập trang này');
+          router.push('/login?redirect=/teacher/courses');
+          return;
+        }
+        
+        console.log("Authenticated user:", userData);
+        console.log("Teacher ID from auth response:", userData._id);
+        setUserData(userData);
         
         // Fetch course details
         const courseResponse = await fetch(`${API_BASE_URL}/course/info/${courseId}`, {
@@ -109,7 +159,7 @@ export default function EditCoursePage() {
         const categoriesData = await categoriesResponse.json();
         const categories = categoriesData.body || [];
         
-        // Format categories based on the API response
+        // Format categories based on the API response and mark special categories (PRIVATE/PUBLIC)
         setCategories(categories.map((cat: {
           categoryId?: string; 
           categoryName?: string;
@@ -119,19 +169,43 @@ export default function EditCoursePage() {
           displayName: cat.categoryDisplayName || cat.categoryName || '',
           id: cat.categoryId || '',
           count: 0,
-          isActive: false
+          isActive: false,
+          isSpecial: cat.categoryName === 'PRIVATE' || cat.categoryName === 'PUBLIC'
         })));
         
-        // Set selected categories to match course categories
-        setSelectedCategories(Array.isArray(course.categories) 
-          ? course.categories.map((cat: CategoryData | string) => {
-              // Safely handle the category which could be a string or an object
-              if (typeof cat === 'object' && cat !== null && 'name' in cat) {
-                return cat.name;
-              }
-              return String(cat);
-            }) 
-          : []);
+        // Process course categories - split into special and regular categories
+        if (Array.isArray(course.categories)) {
+          // Look for special category (PUBLIC or PRIVATE)
+          const foundSpecialCategory = course.categories.find((cat: CategoryData | string) => {
+            const catName = typeof cat === 'object' && cat !== null ? (cat.name || cat.categoryName || '') : String(cat);
+            return catName === 'PRIVATE' || catName === 'PUBLIC';
+          });
+          
+          if (foundSpecialCategory) {
+            // Get the ID from the categories array for the special category
+            const specialCatName = typeof foundSpecialCategory === 'object' && foundSpecialCategory !== null
+              ? (foundSpecialCategory.name || foundSpecialCategory.categoryName || '')
+              : String(foundSpecialCategory);
+              
+            const specialCategoryObj = categories.find((cat: CategoryItem) => cat.categoryName === specialCatName || cat.name === specialCatName);
+            setSpecialCategory(specialCategoryObj?.categoryId || specialCategoryObj?.id || '');
+          }
+          
+          // Filter out special categories to get regular categories and map to IDs
+          const regularCategories = course.categories
+            .filter((cat: CategoryData | string) => {
+              const catName = typeof cat === 'object' && cat !== null ? (cat.name || cat.categoryName || '') : String(cat);
+              return catName !== 'PRIVATE' && catName !== 'PUBLIC';
+            })
+            .map((cat: CategoryData | string) => {
+              const catName = typeof cat === 'object' && cat !== null ? (cat.name || cat.categoryName || '') : String(cat);
+              // Find the category in the categories array to get its ID
+              const categoryObj = categories.find((c: CategoryItem) => c.categoryName === catName || c.name === catName);
+              return categoryObj?.categoryId || categoryObj?.id || '';
+            });
+            
+            setSelectedCategories(regularCategories.filter((id: string) => id !== '')); // Only set valid IDs
+        }
       } catch (error) {
         console.error('Failed to fetch data:', error);
         setError('Không thể tải dữ liệu khóa học. Vui lòng thử lại sau.');
@@ -148,7 +222,7 @@ export default function EditCoursePage() {
   useEffect(() => {
     setCourseData(prev => ({
       ...prev,
-      categories: selectedCategories
+      categories: selectedCategories // Now contains category IDs
     }));
   }, [selectedCategories]);
   
@@ -225,16 +299,64 @@ export default function EditCoursePage() {
         throw new Error('Mô tả khóa học không được để trống');
       }
       
-      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8082/api';
+      if (selectedCategories.length === 0) {
+        throw new Error('Vui lòng chọn ít nhất một danh mục bình thường');
+      }
+      
+      if (!specialCategory) {
+        throw new Error('Vui lòng chọn PRIVATE hoặc PUBLIC cho khóa học');
+      }
+
+      // Check if teacher ID is available, if not, try to fetch it again
+      if (!userData || !userData._id) {
+        console.log("Teacher ID missing, trying to fetch again");
+        const API_BASE_URL = process.env.BASE_URL || 'http://localhost:8082/api';
+        
+        const authResponse = await fetch(`${API_BASE_URL}/auth/check`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (authResponse.ok) {
+          const authData = await authResponse.json();
+          const newUserData = authData.data;
+          
+          console.log("Re-fetched teacher data:", newUserData);
+          setUserData(newUserData);
+        } else {
+          throw new Error('Không thể xác thực thông tin giáo viên');
+        }
+      }
+      
+      const API_BASE_URL = process.env.BASE_URL || 'http://localhost:8082/api';
+      
+      // Combine regular categories with special category
+      const allCategories = [...selectedCategories];
+      if (specialCategory) {
+        allCategories.push(specialCategory);
+      }
+      
+      // Get the current teacher ID from state
+      const teacherId = userData?.id;
+      
+      if (!teacherId) {
+        console.error("Teacher ID is still not available");
+        throw new Error("Không thể xác định ID giáo viên. Vui lòng thử lại.");
+      }
       
       // Prepare the updated course data
       const updatedCourse = {
+        id: courseId,
         title: courseData.title,
         description: courseData.description,
         price: courseData.price,
         thumbnail: courseData.thumbnail,
-        categories: courseData.categories,
-        courseStatus: courseData.isPublished ? 'ACTIVE' : 'INACTIVE',
+        categories: allCategories, // Now uses category IDs
+        status: courseData.isPublished ? 'ACTIVE' : 'INACTIVE',
+        teacherId: teacherId
       };
       
       // Handle file upload if there's a new thumbnail
@@ -268,9 +390,18 @@ export default function EditCoursePage() {
           throw new Error('Lỗi khi tải lên ảnh thumbnail');
         }
       }
+      console.log(updatedCourse);
+      console.log("Teacher ID included:", teacherId);
+      console.log("Teacher data:", userData);
+      console.log("Category IDs being sent:", allCategories);
+      
+      // Final validation check
+      if (!updatedCourse.teacherId) {
+        throw new Error("Thiếu thông tin giáo viên, không thể cập nhật khóa học");
+      }
       
       // Update the course via API
-      const updateResponse = await fetch(`${API_BASE_URL}/course/update/${courseId}`, {
+      const updateResponse = await fetch(`${API_BASE_URL}/course/update/course-info`, {
         method: 'PUT',
         credentials: 'include',
         headers: {
@@ -404,7 +535,9 @@ export default function EditCoursePage() {
                 <div className="p-4 bg-gray-50 border-b">
                   <div className="flex items-center justify-between">
                     <h4 className="font-medium text-gray-700">Chọn danh mục cho khóa học</h4>
-                    <span className="text-sm text-gray-500">Đã chọn: {selectedCategories.length}</span>
+                    <span className="text-sm text-gray-500">
+                      Đã chọn: {selectedCategories.length + (specialCategory ? 1 : 0)}
+                    </span>
                   </div>
                 </div>
                 
@@ -412,69 +545,142 @@ export default function EditCoursePage() {
                   {categories.length === 0 ? (
                     <p className="text-gray-500 text-sm italic">Không có danh mục nào</p>
                   ) : (
-                    <div className="space-y-3">
-                      {categories.map(cat => {
-                        const isSelected = selectedCategories.includes(cat.name);
-                        return (
-                          <div 
-                            key={cat.name} 
-                            className={`flex items-center p-3 rounded-lg border cursor-pointer transition-all
-                              ${isSelected ? 'border-indigo-200 bg-indigo-50' : 'border-gray-200 hover:border-indigo-200 hover:bg-gray-50'}`}
-                            onClick={() => {
-                              if (isSelected) {
-                                setSelectedCategories(prev => prev.filter(id => id !== cat.name));
-                              } else {
-                                setSelectedCategories(prev => [...prev, cat.name]);
-                              }
-                            }}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={() => {}} // Controlled by the div onClick
-                              className="h-5 w-5 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
-                            />
-                            <div className="ml-3 flex-1">
-                              <span className="text-gray-800 font-medium">{cat.name}</span>
-                            </div>
-                          </div>
-                        );
-                      })}
+                    <div>
+                      {/* Special categories section (PUBLIC/PRIVATE) */}
+                      <div className="mb-4">
+                        <h5 className="font-medium text-gray-700 mb-2 border-b pb-2">
+                          Vui lòng chọn một trong hai
+                        </h5>
+                        
+                        <div className="space-y-3">
+                          {categories
+                            .filter(cat => cat.isSpecial)
+                            .map(cat => (
+                              <div 
+                                key={cat.id || cat.name} 
+                                className={`flex items-center p-3 rounded-lg border cursor-pointer transition-all
+                                  ${specialCategory === cat.id ? 'border-indigo-200 bg-indigo-50' : 'border-gray-200 hover:border-indigo-200 hover:bg-gray-50'}`}
+                                onClick={() => setSpecialCategory(specialCategory === cat.id ? '' : cat.id)}
+                              >
+                                <input
+                                  type="radio"
+                                  name="specialCategory"
+                                  checked={specialCategory === cat.id}
+                                  onChange={() => {}}
+                                  className="h-5 w-5 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
+                                />
+                                <div className="ml-3 flex-1">
+                                  <span className="text-gray-800 font-medium">{cat.name}</span>
+                                </div>
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                      
+                      {/* Regular categories section */}
+                      <div>
+                        <h5 className="font-medium text-gray-700 mb-2 border-b pb-2">
+                          Chọn ít nhất một danh mục bình thường
+                        </h5>
+                        <div className="space-y-3">
+                          {categories
+                            .filter(cat => !cat.isSpecial)
+                            .map(cat => {
+                              const isSelected = selectedCategories.includes(cat.id);
+                              return (
+                                <div 
+                                  key={cat.id || cat.name} 
+                                  className={`flex items-center p-3 rounded-lg border cursor-pointer transition-all
+                                    ${isSelected ? 'border-indigo-200 bg-indigo-50' : 'border-gray-200 hover:border-indigo-200 hover:bg-gray-50'}`}
+                                  onClick={() => {
+                                    if (isSelected) {
+                                      setSelectedCategories(prev => prev.filter(id => id !== cat.id));
+                                    } else {
+                                      setSelectedCategories(prev => [...prev, cat.id]);
+                                    }
+                                  }}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={() => {}} // Controlled by the div onClick
+                                    className="h-5 w-5 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
+                                  />
+                                  <div className="ml-3 flex-1">
+                                    <span className="text-gray-800 font-medium">{cat.name}</span>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
                 
-                {selectedCategories.length > 0 && (
-                  <div className="p-4 border-t bg-white">
-                    <div className="text-sm font-medium text-gray-700 mb-2">Danh mục đã chọn:</div>
-                    <div className="flex flex-wrap gap-2">
-                      {selectedCategories.map(categoryName => (
-                        <div 
-                          key={categoryName}
-                          className="flex items-center bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded-full text-sm"
-                        >
-                          {categoryName}
-                          <button
-                            type="button"
-                            className="ml-1.5 text-indigo-500 hover:text-indigo-700"
-                            onClick={() => setSelectedCategories(prev => prev.filter(name => name !== categoryName))}
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                            </svg>
-                          </button>
-                        </div>
-                      ))}
+                <div className="p-4 border-t bg-white">
+                  {/* Display validation messages */}
+                  {!specialCategory && (
+                    <div className="text-yellow-600 text-sm mb-2">
+                      Vui lòng chọn PRIVATE hoặc PUBLIC cho khóa học
                     </div>
-                  </div>
-                )}
-              </div>
-              
-              {selectedCategories.length === 0 && (
-                <div className="mt-1 text-sm text-red-500">
-                  Vui lòng chọn ít nhất một danh mục cho khóa học
+                  )}
+                  
+                  {selectedCategories.length === 0 && (
+                    <div className="text-yellow-600 text-sm mb-2">
+                      Vui lòng chọn ít nhất một danh mục bình thường
+                    </div>
+                  )}
+                  
+                  {/* Display selected special category */}
+                  {specialCategory && (
+                    <div>
+                      <div className="text-sm font-medium text-gray-700 mb-2">Loại khóa học:</div>
+                      <div className="flex items-center bg-purple-50 text-purple-700 px-3 py-1.5 rounded-full text-sm inline-block mb-2">
+                        {categories.find(cat => cat.id === specialCategory)?.name || specialCategory}
+                        <button
+                          type="button"
+                          className="ml-1.5 text-purple-500 hover:text-purple-700"
+                          onClick={() => setSpecialCategory('')}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Display selected regular categories */}
+                  {selectedCategories.length > 0 && (
+                    <div>
+                      <div className="text-sm font-medium text-gray-700 mb-2">Danh mục đã chọn:</div>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedCategories.map(categoryId => {
+                          const category = categories.find(cat => cat.id === categoryId);
+                          return (
+                            <div 
+                              key={categoryId}
+                              className="flex items-center bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded-full text-sm"
+                            >
+                              {category?.name || categoryId}
+                              <button
+                                type="button"
+                                className="ml-1.5 text-indigo-500 hover:text-indigo-700"
+                                onClick={() => setSelectedCategories(prev => prev.filter(id => id !== categoryId))}
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                                </svg>
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
             </div>
           </div>
           

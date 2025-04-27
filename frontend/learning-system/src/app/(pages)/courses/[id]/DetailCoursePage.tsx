@@ -1,11 +1,11 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { Course } from "@/app/types";
 import { toast } from "react-hot-toast";
 import BreadcrumbContainer from "@/app/components/breadcrumb/BreadcrumbContainer";
 import CourseItem from '@/app/components/courseitem/courseItem';
-import { BookOpen, Clock, Users, Star, CheckCircle, ClipboardCheck, PlayCircle, Lock, MessageSquare } from 'lucide-react';
+import { BookOpen, Clock, Users, Star, CheckCircle, ClipboardCheck, PlayCircle, Lock, MessageSquare, Trash } from 'lucide-react';
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import * as dotenv from "dotenv";
@@ -67,13 +67,16 @@ interface LastAccessedContent {
 
 // Add this near the top of the file with the other interfaces
 interface Review {
-  _id: string;
-  userId: string;
+  _id?: string;
+  id?: string;
+  userId?: string;
   userFullName?: string;
-  courseId: string;
-  rating: number;
+  fullName?: string;
+  courseId?: string;
+  rate?: number;
+  rating?: number;
   comment: string;
-  createdAt: string | Date;
+  createdAt?: string | Date;
 }
 
 const DetailCoursePage: React.FC = () => {
@@ -93,12 +96,19 @@ const DetailCoursePage: React.FC = () => {
   const [lastAccessedContent, setLastAccessedContent] = useState<LastAccessedContent | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [reviews, setReviews] = useState<Review[]>([]);
-  const [userReview, setUserReview] = useState<{ rating: number; comment: string } | null>(null);
+  const [userReview, setUserReview] = useState<{ rate: number; rating: number; comment: string } | null>(null);
   const [userHasReviewed, setUserHasReviewed] = useState(false);
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState('');
   const [submittingReview, setSubmittingReview] = useState(false);
   const [reviewError, setReviewError] = useState<string | null>(null);
+  const [isPendingApproval, setIsPendingApproval] = useState(false);
+  const [isAdmin, setIsAdmin] = useState<boolean>(false);
+  
+  // Add state for confirmation modal
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
+  const [reviewToDelete, setReviewToDelete] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Fetch course details
   const fetchCourse = async () => {
@@ -122,6 +132,9 @@ const DetailCoursePage: React.FC = () => {
       console.log('Course data:', courseData);
       
       const parsedCourse = courseData.body || courseData;
+      
+      // Log the categories for debugging
+      console.log('Course categories:', parsedCourse.categories);
       
       setCourse({
         ...parsedCourse,
@@ -167,25 +180,88 @@ const DetailCoursePage: React.FC = () => {
         console.log('User is not authenticated');
         setIsAuthenticated(false);
         setIsEnrolled(false);
+        setIsAdmin(false);
         return false;
       }
 
       const authData = await authResponse.json();
-      console.log('Auth data:', authData);
+      console.log('Full Auth data response:', JSON.stringify(authData, null, 2));
       
       let userIsEnrolled = false;
       
       if (authData.status === 200 && authData.data) {
         setIsAuthenticated(true);
         
+        // More robust admin role check
+        const userData = authData.data;
+        const userRole = userData.role;
+        const userRoles = userData.roles || [];
+        
+        console.log('User role(s):', { 
+          directRole: userRole, 
+          rolesArray: userRoles,
+          isAdmin: userRole === 'ROLE_ADMIN' || userRoles.includes('ROLE_ADMIN') || userRoles.includes('ADMIN')
+        });
+        
+        // Check multiple possible admin role formats
+        if (
+          userRole === 'ROLE_ADMIN' || 
+          userRole === 'ADMIN' || 
+          (Array.isArray(userRoles) && (
+            userRoles.includes('ROLE_ADMIN') || 
+            userRoles.includes('ADMIN')
+          ))
+        ) {
+          setIsAdmin(true);
+          console.log('✅ User is admin - enabled special features');
+          
+          // Store admin status in localStorage for persistence
+          localStorage.setItem('isAdmin', 'true');
+        } else {
+          console.log('User is not admin, detected role(s):', userRole, userRoles);
+          setIsAdmin(false);
+          localStorage.removeItem('isAdmin');
+        }
+        
+        // Save user information to localStorage for reviews
+        if (userData._id) {
+          localStorage.setItem('userId', userData._id);
+        }
+        
+        // Construct and save full name
+        const firstName = userData.firstName || '';
+        const lastName = userData.lastName || '';
+        const fullName = [firstName, lastName].filter(Boolean).join(' ');
+        if (fullName) {
+          localStorage.setItem('userFullName', fullName);
+        }
+        
         // Check if user is enrolled in this course
-        if (Array.isArray(authData.data.coursesEnrolled) && 
-            authData.data.coursesEnrolled.includes(courseId)) {
-          console.log('authData.data.coursesEnrolled:', authData.data.coursesEnrolled, courseId);
+        if (Array.isArray(userData.coursesEnrolled) && 
+            userData.coursesEnrolled.includes(courseId)) {
+          console.log('authData.data.coursesEnrolled:', userData.coursesEnrolled, courseId);
           userIsEnrolled = true;
           setIsEnrolled(true);
           setEnrollmentStatus('ENROLLED');
           setEnrollmentProgress(50); // Will be updated from content
+          setIsPendingApproval(false);
+        } else {
+          // Check if the course is in the requestCourse array (pending approval)
+          if (Array.isArray(userData.requestCourse) && 
+              userData.requestCourse.includes(courseId)) {
+            console.log('Course found in requestCourse array, setting pending approval');
+            setIsPendingApproval(true);
+            setIsEnrolled(false);
+          } else {
+            setIsPendingApproval(false);
+            
+            // Check if there is a pending approval record in localStorage
+            const pendingApprovals = JSON.parse(localStorage.getItem('pendingCourseApprovals') || '[]');
+            if (Array.isArray(pendingApprovals) && pendingApprovals.includes(courseId)) {
+              setIsPendingApproval(true);
+              console.log('Found pending approval for course in localStorage:', courseId);
+            }
+          }
         }
       }
       
@@ -193,6 +269,7 @@ const DetailCoursePage: React.FC = () => {
     } catch (error) {
       console.error('Error checking authentication:', error);
       setIsAuthenticated(false);
+      setIsAdmin(false);
       throw error; // Re-throw to be caught by caller
     }
   };
@@ -391,9 +468,126 @@ const DetailCoursePage: React.FC = () => {
     }
   };
 
+  // Add a dedicated function to check enrollment status
+  const checkEnrollmentStatus = async () => {
+    if (!isAuthenticated) return false;
+    
+    const safeCourseId = ensureCourseId();
+    
+    try {
+      const authResponse = await fetch(`${API_BASE_URL}/auth/check`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!authResponse.ok) {
+        setIsAuthenticated(false);
+        setIsEnrolled(false);
+        setIsPendingApproval(false);
+        return false;
+      }
+
+      const authData = await authResponse.json();
+      
+      if (authData.status === 200 && authData.data) {
+        setIsAuthenticated(true);
+        
+        // Check if user is enrolled in this course
+        if (Array.isArray(authData.data.coursesEnrolled) && 
+            authData.data.coursesEnrolled.includes(safeCourseId)) {
+          console.log('User is enrolled in course:', safeCourseId);
+          setIsEnrolled(true);
+          setIsPendingApproval(false);
+          setEnrollmentStatus('ENROLLED');
+          
+          // Remove from pending approvals in localStorage if it exists
+          try {
+            const pendingApprovals = JSON.parse(localStorage.getItem('pendingCourseApprovals') || '[]');
+            if (pendingApprovals.includes(safeCourseId)) {
+              const updatedApprovals = pendingApprovals.filter((id: string) => id !== safeCourseId);
+              localStorage.setItem('pendingCourseApprovals', JSON.stringify(updatedApprovals));
+              console.log('Removed course from pending approvals:', safeCourseId);
+            }
+          } catch (e) {
+            console.error('Error updating localStorage:', e);
+          }
+          
+          // Fetch course content to get progress
+          await fetchCourseContent(true);
+          return true;
+        } else {
+          console.log('User is not enrolled in course:', safeCourseId);
+          setIsEnrolled(false);
+          
+          // Check if course is in requestCourse array
+          if (Array.isArray(authData.data.requestCourse) && 
+              authData.data.requestCourse.includes(safeCourseId)) {
+            console.log('Course is in requestCourse array (pending approval):', safeCourseId);
+            setIsPendingApproval(true);
+          } else {
+            // Course not in requestCourse array, check localStorage
+            try {
+              const pendingApprovals = JSON.parse(localStorage.getItem('pendingCourseApprovals') || '[]');
+              if (pendingApprovals.includes(safeCourseId)) {
+                console.log('Course found in localStorage pending approvals:', safeCourseId);
+                setIsPendingApproval(true);
+              } else {
+                setIsPendingApproval(false);
+              }
+            } catch (e) {
+              console.error('Error checking localStorage for pending approvals:', e);
+              setIsPendingApproval(false);
+            }
+          }
+          
+          return false;
+        }
+      }
+      
+      return false;
+    } catch (error) {
+      console.error('Error checking enrollment status:', error);
+      return false;
+    }
+  };
+
   useEffect(() => {
     fetchCourse();
-  }, [courseId]);
+    
+    // Check for admin status in localStorage
+    const storedAdminStatus = localStorage.getItem('isAdmin');
+    if (storedAdminStatus === 'true') {
+      console.log('Found admin status in localStorage');
+      setIsAdmin(true);
+    }
+    
+    // Set up a periodic check for enrollment status if pending approval
+    let statusCheckInterval: NodeJS.Timeout | null = null;
+    
+    if (isPendingApproval) {
+      statusCheckInterval = setInterval(() => {
+        checkEnrollmentStatus().then(isEnrolled => {
+          if (isEnrolled) {
+            // User is now enrolled, clear the interval
+            if (statusCheckInterval) {
+              clearInterval(statusCheckInterval);
+            }
+            toast.success('Yêu cầu đăng ký của bạn đã được phê duyệt!');
+          }
+        });
+      }, 30000); // Check every 30 seconds
+    }
+    
+    // Clean up interval on component unmount
+    return () => {
+      if (statusCheckInterval) {
+        clearInterval(statusCheckInterval);
+      }
+    };
+  }, [courseId, isPendingApproval]);
 
   // Add safety check for courseId
   const ensureCourseId = (): string => {
@@ -434,6 +628,9 @@ const DetailCoursePage: React.FC = () => {
       return;
     }
     
+    // Reset pending approval status
+    setIsPendingApproval(false);
+    
     // Check if user is already enrolled via auth/check
     try {
       // Get fresh authentication data
@@ -472,31 +669,111 @@ const DetailCoursePage: React.FC = () => {
     // Not enrolled, proceed with enrollment
     setIsEnrolling(true);
     try {
-      // Call the enrollment API
-      const enrollResponse = await fetch(`${API_BASE_URL}/course/enroll`, {
-        method: 'POST',
+      // Check course categories to determine the HTTP method
+      // Use PUT for PRIVATE courses, POST for PUBLIC or undefined category
+      const isPrivateCourse = course.categories && 
+                            Array.isArray(course.categories) && 
+                            course.categories.includes("PRIVATE");
+      
+      const method = isPrivateCourse ? 'PUT' : 'POST';
+      console.log(`Enrolling in course: ${safeCourseId} using ${method} method (isPrivate: ${isPrivateCourse})`);
+      
+      const enrollResponse = await fetch(`${API_BASE_URL}/enrollments/${safeCourseId}`, {
+        method: method,
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          courseId: course._id || course.id || safeCourseId
-        })
+        }
       });
       
       if (!enrollResponse.ok) {
         throw new Error('Failed to enroll in course');
       }
       
-      // Update local state
-      setIsEnrolled(true);
-      setEnrollmentStatus('ENROLLED');
-      setEnrollmentProgress(0);
-      toast.success('Đăng ký khóa học thành công!');
+      // Simple text response as shown in the screenshot
+      const responseText = await enrollResponse.text();
+      console.log('Enrollment response:', responseText);
       
-      // Refresh data to get updated enrollment info
-      await checkUserAuth();
-      await fetchCourseContent();
+      // For private courses, check if the enrollment has been approved immediately
+      if (isPrivateCourse) {
+        // Do another auth check to see if the course is actually in enrolledCourses
+        try {
+          const postEnrollAuthCheck = await fetch(`${API_BASE_URL}/auth/check`, {
+            method: 'GET',
+            credentials: 'include',
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (postEnrollAuthCheck.ok) {
+            const authData = await postEnrollAuthCheck.json();
+            
+            if (authData.status === 200 && authData.data) {
+              if (Array.isArray(authData.data.coursesEnrolled) && 
+                  authData.data.coursesEnrolled.includes(safeCourseId)) {
+                // Enrollment approved immediately
+                setIsEnrolled(true);
+                setEnrollmentStatus('ENROLLED');
+                setEnrollmentProgress(0);
+                setIsPendingApproval(false);
+                toast.success('Đăng ký khóa học thành công!');
+                await fetchCourseContent(true);
+              } else if (Array.isArray(authData.data.requestCourse) && 
+                         authData.data.requestCourse.includes(safeCourseId)) {
+                // Course is in the requestCourse array - pending approval
+                setIsPendingApproval(true);
+                setIsEnrolled(false);
+                
+                // No need to save to localStorage since we can check the requestCourse array
+                toast.success('Yêu cầu đăng ký khóa học đã được gửi và đang chờ phê duyệt!');
+              } else {
+                // Course is not in either array, save pending approval to localStorage
+                setIsPendingApproval(true);
+                
+                // Save pending approval status to localStorage
+                const pendingApprovals = JSON.parse(localStorage.getItem('pendingCourseApprovals') || '[]');
+                if (!pendingApprovals.includes(safeCourseId)) {
+                  pendingApprovals.push(safeCourseId);
+                  localStorage.setItem('pendingCourseApprovals', JSON.stringify(pendingApprovals));
+                }
+                
+                toast.success('Yêu cầu đăng ký khóa học đã được gửi và đang chờ phê duyệt!');
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error checking enrollment status after enrollment:', error);
+          // Still show pending approval message if check fails
+          setIsPendingApproval(true);
+          
+          // Save pending approval status to localStorage
+          const pendingApprovals = JSON.parse(localStorage.getItem('pendingCourseApprovals') || '[]');
+          if (!pendingApprovals.includes(safeCourseId)) {
+            pendingApprovals.push(safeCourseId);
+            localStorage.setItem('pendingCourseApprovals', JSON.stringify(pendingApprovals));
+          }
+          
+          toast.success('Yêu cầu đăng ký khóa học đã được gửi và đang chờ phê duyệt!');
+        }
+      } else {
+        // For public courses, consider it immediate enrollment
+        if (responseText.includes('success')) {
+          // Update local state for immediate access
+          setIsEnrolled(true);
+          setEnrollmentStatus('ENROLLED');
+          setEnrollmentProgress(0);
+          toast.success('Đăng ký khóa học thành công!');
+          
+          // Refresh data to get updated enrollment info
+          await checkUserAuth();
+          await fetchCourseContent(true);
+          await fetchReviews(); // Also fetch reviews to check if user has reviewed
+        } else {
+          // If unexpected response, still consider it a success but inform user
+          toast.success('Yêu cầu đăng ký khóa học đã được gửi!');
+        }
+      }
     } catch (err) {
       console.error('Enrollment error:', err);
       toast.error('Không thể đăng ký khóa học. Vui lòng thử lại sau.');
@@ -562,48 +839,80 @@ const DetailCoursePage: React.FC = () => {
     return allPreviousItemsCompleted;
   };
 
-  // Add new effect to fetch course reviews
-  useEffect(() => {
-    const fetchReviews = async () => {
-      if (!courseId) return;
+  // Add fetchReviews as a memoized callback
+  const fetchReviews = useCallback(async () => {
+    if (!courseId) return;
+    
+    try {
+      // Update to use the correct API endpoint from the screenshot
+      const response = await fetch(`${API_BASE_URL}/reviews/per/${courseId}`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
       
-      try {
-        const response = await fetch(`${API_BASE_URL}/course/review/${courseId}`, {
-          method: 'GET',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        });
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Reviews data:', data);
         
-        if (response.ok) {
-          const data = await response.json();
-          if (data.body && Array.isArray(data.body)) {
-            setReviews(data.body);
-            
-            // Check if the authenticated user has already reviewed the course
-            if (isAuthenticated) {
-              const userId = localStorage.getItem('userId');
-              if (userId) {
-                const userReviewData = data.body.find((review: Review) => review.userId === userId);
-                if (userReviewData) {
-                  setUserHasReviewed(true);
-                  setUserReview({
-                    rating: userReviewData.rating,
-                    comment: userReviewData.comment
-                  });
-                }
+        // Process reviews from the response format shown in the screenshot
+        if (data.body && Array.isArray(data.body)) {
+          // Map the response to our Review interface
+          const processedReviews = data.body.map((review: {
+            id?: string;
+            fullName?: string;
+            rating?: number;
+            comment?: string;
+          }) => ({
+            id: review.id || '',
+            _id: review.id || '', // Keep _id for compatibility
+            fullName: review.fullName || 'Unknown Users',
+            userFullName: review.fullName || 'Unknown Users',
+            rating: review.rating || 0,
+            rate: review.rating || 0, // Keep rate for compatibility
+            comment: review.comment || '',
+            createdAt: new Date().toISOString() // Default to current date if not provided
+          }));
+          
+          setReviews(processedReviews);
+          
+          // Since there's no userId in the reviews, try to find our review by matching fullName
+          if (isAuthenticated) {
+            const userFullName = localStorage.getItem('userFullName');
+            // Only for display purposes, not for validation
+            if (userFullName) {
+              const maybeMyReview = processedReviews.find(
+                (review: Review) => review.fullName === userFullName
+              );
+              
+              if (maybeMyReview) {
+                console.log('Potential user review found (by name match):', maybeMyReview);
+                // This is just to display the review, not to validate if user can submit
+                setUserReview({
+                  rate: maybeMyReview.rate || 0,
+                  rating: maybeMyReview.rating || 0,
+                  comment: maybeMyReview.comment
+                });
               }
             }
           }
+        } else {
+          console.log('No reviews found or invalid response format');
+          setReviews([]);
         }
-      } catch (error) {
-        console.error('Error fetching reviews:', error);
+      } else {
+        console.error('Failed to fetch reviews:', await response.text());
       }
-    };
-    
-    fetchReviews();
+    } catch (error) {
+      console.error('Error fetching reviews:', error);
+    }
   }, [courseId, isAuthenticated]);
+  
+  useEffect(() => {
+    fetchReviews();
+  }, [fetchReviews]);
 
   // Add function to submit a review
   const handleSubmitReview = async (e: React.FormEvent) => {
@@ -624,8 +933,24 @@ const DetailCoursePage: React.FC = () => {
       return;
     }
     
-    if (userHasReviewed) {
-      toast.error('Bạn đã đánh giá khóa học này');
+    // Validate the review content based on screenshot format fields
+    if (!reviewComment.trim()) {
+      setReviewError('Vui lòng nhập nhận xét của bạn');
+      toast.error('Vui lòng nhập nhận xét của bạn');
+      return;
+    }
+    
+    // Validate that rate is between 1-5
+    if (reviewRating < 1 || reviewRating > 5) {
+      setReviewError('Đánh giá phải từ 1 đến 5 sao');
+      toast.error('Đánh giá phải từ 1 đến 5 sao');
+      return;
+    }
+    
+    // Validate courseId
+    if (!courseId) {
+      setReviewError('Không thể xác định ID khóa học');
+      toast.error('Không thể xác định ID khóa học');
       return;
     }
     
@@ -633,45 +958,79 @@ const DetailCoursePage: React.FC = () => {
     setReviewError(null);
     
     try {
-      const response = await fetch(`${API_BASE_URL}/course/review`, {
+      // Update to use the exact format shown in the screenshot
+      const reviewData = {
+        courseId: courseId,
+        comment: reviewComment,
+        rate: reviewRating
+      };
+      
+      console.log('Submitting review with exact format from screenshot:', reviewData);
+      
+      const response = await fetch(`${API_BASE_URL}/reviews`, {
         method: 'POST',
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          courseId,
-          rating: reviewRating,
-          comment: reviewComment
-        })
+        body: JSON.stringify(reviewData)
       });
+      
+      console.log('Review submission response status:', response.status);
       
       if (response.ok) {
         const data = await response.json();
-        setUserHasReviewed(true);
-        setUserReview({
-          rating: reviewRating,
-          comment: reviewComment
-        });
+        console.log('Review submission response:', data);
         
-        // Add the new review to the list
-        setReviews([
-          {
-            _id: data.body._id || Date.now().toString(),
-            userId: localStorage.getItem('userId') || 'anonymous',
-            courseId: courseId,
+        // Check if the response contains the "already reviewed" message
+        const responseText = JSON.stringify(data);
+        if (responseText.includes('Bạn chỉ được đánh giá một lần!')) {
+          // User has already reviewed this course
+          console.log('User already reviewed this course');
+          setUserHasReviewed(true);
+          setReviewError('Bạn chỉ được đánh giá một lần!');
+          toast.error('Bạn chỉ được đánh giá một lần!');
+          
+          // Fetch updated reviews
+          fetchReviews();
+        } else {
+          // Successfully submitted review
+          setUserHasReviewed(true);
+          setUserReview({
+            rate: reviewRating,
             rating: reviewRating,
-            comment: reviewComment,
-            createdAt: new Date().toISOString()
-          },
-          ...reviews
-        ]);
-        
-        toast.success('Đánh giá khóa học thành công!');
-        setReviewComment('');
+            comment: reviewComment
+          });
+          
+          // Fetch the updated reviews to get the proper format from the server
+          fetchReviews();
+          
+          toast.success('Đánh giá khóa học thành công!');
+          setReviewComment('');
+        }
       } else {
-        const errorData = await response.json();
-        setReviewError(errorData.message || 'Không thể đánh giá khóa học');
+        const errorText = await response.text();
+        console.error('Review submission failed:', errorText, 'Status:', response.status);
+        
+        // Try to parse error message for other errors
+        try {
+          const errorData = JSON.parse(errorText);
+          
+          // Check for specific field errors based on screenshot format
+          if (errorData.message && errorData.message.includes('courseId')) {
+            setReviewError('ID khóa học không hợp lệ.');
+          } else if (errorData.message && errorData.message.includes('comment')) {
+            setReviewError('Vui lòng nhập nhận xét.');
+          } else if (errorData.message && errorData.message.includes('rate')) {
+            setReviewError('Đánh giá không hợp lệ. Vui lòng chọn từ 1-5 sao.');
+          } else {
+            setReviewError(errorData.message || 'Không thể đánh giá khóa học');
+          }
+        } catch (e) {
+          console.error('Error parsing error response:', e);
+          setReviewError('Không thể đánh giá khóa học: ' + errorText);
+        }
+        
         toast.error('Không thể đánh giá khóa học');
       }
     } catch (error) {
@@ -680,6 +1039,72 @@ const DetailCoursePage: React.FC = () => {
       toast.error('Đã xảy ra lỗi khi gửi đánh giá');
     } finally {
       setSubmittingReview(false);
+    }
+  };
+
+  // Handle initiating review deletion (shows confirmation modal)
+  const handleInitiateDeleteReview = (reviewId: string) => {
+    console.log('Initiating delete for review:', reviewId);
+    
+    if (!isAdmin) {
+      toast.error('Chỉ quản trị viên mới có thể xóa đánh giá');
+      return;
+    }
+    
+    // Set the review ID to delete and show confirmation modal
+    setReviewToDelete(reviewId);
+    setShowDeleteConfirmation(true);
+  };
+  
+  // Handle actual review deletion after confirmation
+  const handleDeleteReview = async () => {
+    if (!reviewToDelete) return;
+    
+    setIsDeleting(true);
+    try {
+      // Updated to use query parameter format ?id=reviewId as shown in the API screenshot
+      const deleteUrl = `${API_BASE_URL}/reviews?id=${reviewToDelete}`;
+      console.log('Sending delete request to:', deleteUrl);
+      
+      const response = await fetch(deleteUrl, {
+        method: 'DELETE',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      console.log('Delete response status:', response.status);
+      
+      if (response.ok) {
+        // Show success toast with longer duration and more prominent style
+        toast.success('Đã xóa đánh giá thành công!', {
+          duration: 5000,
+          style: {
+            background: '#10B981',
+            color: '#FFFFFF',
+            fontWeight: 'bold',
+            padding: '16px',
+            borderRadius: '8px',
+          },
+          icon: '🗑️'
+        });
+        
+        // Refresh the reviews list
+        fetchReviews();
+      } else {
+        const errorText = await response.text();
+        console.error('Failed to delete review:', errorText);
+        toast.error('Không thể xóa đánh giá');
+      }
+    } catch (error) {
+      console.error('Error deleting review:', error);
+      toast.error('Đã xảy ra lỗi khi xóa đánh giá');
+    } finally {
+      // Reset modal state
+      setIsDeleting(false);
+      setShowDeleteConfirmation(false);
+      setReviewToDelete(null);
     }
   };
 
@@ -725,6 +1150,39 @@ const DetailCoursePage: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50">
         <BreadcrumbContainer />
+        
+        {/* Admin mode indicator */}
+        {isAdmin && (
+          <div className="bg-red-600 text-white py-1 px-4 text-center font-medium">
+            <div className="max-w-7xl mx-auto flex items-center justify-center">
+              <Trash className="mr-2" size={16} />
+              Bạn đang ở chế độ quản trị viên - Có thể xóa đánh giá
+            </div>
+          </div>
+        )}
+        
+        {/* Debug admin mode toggle (only in development) */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="bg-gray-100 py-1 px-4 text-center">
+            <button 
+              onClick={() => {
+                const newAdminState = !isAdmin;
+                setIsAdmin(newAdminState);
+                if (newAdminState) {
+                  localStorage.setItem('isAdmin', 'true');
+                  toast.success('Bật chế độ admin cho mục đích kiểm thử');
+                } else {
+                  localStorage.removeItem('isAdmin');
+                  toast.success('Tắt chế độ admin');
+                }
+              }}
+              className="text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded"
+            >
+              {isAdmin ? 'Tắt chế độ admin' : 'Bật chế độ admin (debug)'}
+            </button>
+          </div>
+        )}
+        
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <CourseItem course={course as Course} />
         
@@ -734,20 +1192,24 @@ const DetailCoursePage: React.FC = () => {
             <h3 className="text-2xl font-bold mb-2">
               {isEnrolled 
                 ? 'Tiếp tục hành trình học tập của bạn!' 
-                : 'Bắt đầu hành trình học tập của bạn ngay hôm nay!'}
+                : isPendingApproval
+                  ? 'Yêu cầu đăng ký của bạn đang được xử lý'
+                  : 'Bắt đầu hành trình học tập của bạn ngay hôm nay!'}
             </h3>
             <p className="text-gray-600">
               {isEnrolled 
                 ? lastAccessedContent 
                   ? `Tiếp tục học: ${lastAccessedContent.title}` 
                   : 'Tiếp tục khóa học của bạn từ đúng nơi bạn đã dừng lại.'
-                : isAuthenticated
-                  ? 'Đăng ký khóa học này để truy cập vào toàn bộ nội dung.'
-                  : 'Đăng nhập và đăng ký khóa học để truy cập vào toàn bộ nội dung.'}
+                : isPendingApproval
+                  ? 'Vui lòng đợi giảng viên phê duyệt yêu cầu đăng ký của bạn.'
+                  : isAuthenticated
+                    ? 'Đăng ký khóa học này để truy cập vào toàn bộ nội dung.'
+                    : 'Đăng nhập và đăng ký khóa học để truy cập vào toàn bộ nội dung.'}
             </p>
           </div>
           
-          {!isEnrolled ? (
+          {!isEnrolled && !isPendingApproval ? (
             <button 
               onClick={handleEnroll}
               disabled={isEnrolling}
@@ -759,6 +1221,19 @@ const DetailCoursePage: React.FC = () => {
                   ? 'Đăng ký khóa học' 
                   : 'Đăng nhập để đăng ký'}
             </button>
+          ) : isPendingApproval ? (
+            <div className="mt-4 md:mt-0">
+              <div className="px-6 py-3 bg-yellow-100 text-yellow-800 font-semibold rounded-lg flex items-center">
+                <span className="animate-pulse mr-2">●</span>
+                Đang chờ phê duyệt
+              </div>
+              <button 
+                onClick={() => window.location.reload()}
+                className="mt-2 px-4 py-2 bg-gray-200 text-gray-800 text-sm font-medium rounded-lg hover:bg-gray-300 transition w-full"
+              >
+                Kiểm tra trạng thái
+              </button>
+            </div>
           ) : (
             <div className="mt-4 md:mt-0 flex flex-col items-center">
               {enrollmentStatus === 'DONE' ? (
@@ -995,20 +1470,22 @@ const DetailCoursePage: React.FC = () => {
                     Bạn đã đánh giá khóa học này
                   </h3>
                   
-                  {userReview && (
+                  {userReview ? (
                     <div className="mt-2">
                       <div className="flex items-center mb-2">
                         {[1, 2, 3, 4, 5].map((star) => (
                           <Star
                             key={star}
                             size={20}
-                            className={star <= userReview.rating ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}
+                            className={star <= (userReview.rating || userReview.rate) ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}
                           />
                         ))}
-                        <span className="ml-2 text-gray-700">{userReview.rating}/5</span>
+                        <span className="ml-2 text-gray-700">{userReview.rating || userReview.rate}/5</span>
                       </div>
                       <p className="text-gray-700">{userReview.comment}</p>
                     </div>
+                  ) : (
+                    <p className="text-gray-700">Mỗi người chỉ được đánh giá một lần. Cảm ơn bạn đã đóng góp ý kiến!</p>
                   )}
                 </div>
               )}
@@ -1035,27 +1512,47 @@ const DetailCoursePage: React.FC = () => {
                 ) : (
                   <div className="space-y-4 mt-4">
                     {reviews.map((review) => (
-                      <div key={review._id} className="border-b pb-4">
-                        <div className="flex items-center mb-2">
-                          <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center text-gray-700 font-semibold mr-3">
-                            {review.userFullName ? review.userFullName.charAt(0).toUpperCase() : 'U'}
-                          </div>
-                          <div>
-                            <div className="font-semibold">{review.userFullName || 'Người dùng'}</div>
-                            <div className="flex items-center">
-                              <div className="flex mr-2">
-                                {[1, 2, 3, 4, 5].map((star) => (
-                                  <Star
-                                    key={star}
-                                    size={16}
-                                    className={star <= review.rating ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}
-                                  />
-                                ))}
-                              </div>
-                              <span className="text-sm text-gray-500">
-                                {new Date(review.createdAt).toLocaleDateString()}
-                              </span>
+                      <div key={review.id || review._id} className="border-b pb-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center">
+                            <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center text-gray-700 font-semibold mr-3">
+                              {review.fullName ? review.fullName.charAt(0).toUpperCase() : 'U'}
                             </div>
+                            <div>
+                              <div className="font-semibold">{review.fullName || review.userFullName || 'Người dùng'}</div>
+                              <div className="flex items-center">
+                                <div className="flex mr-2">
+                                  {[1, 2, 3, 4, 5].map((star) => (
+                                    <Star
+                                      key={star}
+                                      size={16}
+                                      className={star <= (review.rating || review.rate || 0) ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}
+                                    />
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          {/* Admin delete button with debug info */}
+                          <div>
+                            {isAdmin ? (
+                              <button
+                                onClick={() => handleInitiateDeleteReview(review.id || review._id || '')}
+                                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 flex items-center transition-colors text-base font-medium"
+                                aria-label="Delete review"
+                                title="Xóa đánh giá này"
+                              >
+                                <Trash size={18} className="mr-2" />
+                                <span>Xóa đánh giá</span>
+                              </button>
+                            ) : (
+                              process.env.NODE_ENV === 'development' && (
+                                <div className="text-xs text-gray-400 italic">
+                                  Admin role needed to delete
+                                </div>
+                              )
+                            )}
                           </div>
                         </div>
                         <p className="text-gray-700 ml-13">{review.comment}</p>
@@ -1121,8 +1618,48 @@ const DetailCoursePage: React.FC = () => {
           </div>
         </div>
       </div>
-      </div>
-    );
+      
+      {/* Delete Review Confirmation Modal */}
+      {showDeleteConfirmation && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full">
+            <h3 className="text-xl font-bold mb-4 text-gray-800">Xác nhận xóa đánh giá</h3>
+            <p className="mb-6 text-gray-600">Bạn có chắc chắn muốn xóa đánh giá này không? Hành động này không thể hoàn tác.</p>
+            
+            <div className="flex justify-end space-x-4">
+              <button
+                onClick={() => {
+                  setShowDeleteConfirmation(false);
+                  setReviewToDelete(null);
+                }}
+                className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition"
+                disabled={isDeleting}
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleDeleteReview}
+                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition flex items-center"
+                disabled={isDeleting}
+              >
+                {isDeleting ? (
+                  <>
+                    <span className="animate-pulse mr-2">●</span>
+                    Đang xóa...
+                  </>
+                ) : (
+                  <>
+                    <Trash size={16} className="mr-2" />
+                    Xác nhận xóa
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 };
 
 export default DetailCoursePage;
