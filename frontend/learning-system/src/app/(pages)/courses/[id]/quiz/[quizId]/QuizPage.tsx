@@ -38,11 +38,12 @@ interface LessonApiItem {
 
 interface QuizApiItem {
   quizId: string;
-  title?: string;
+  title: string;
   questionCount?: number;
   orderQuiz: number;
   timeLimit?: number;
   passingScore?: number;
+  status?: string | null;
 }
 
 interface Quiz {

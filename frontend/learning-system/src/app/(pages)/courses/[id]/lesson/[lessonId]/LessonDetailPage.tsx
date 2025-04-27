@@ -99,7 +99,8 @@ interface LessonQuizResponseData {
     notLearned?: {
       quizzes: Array<{
         quizId: string;
-        title: string;
+        title?: string;  // Make this optional as it might be missing
+        name?: string;   // Add alternative field
         questionCount: number;
         orderQuiz: number;
         passingScore: number;
@@ -114,7 +115,8 @@ interface LessonQuizResponseData {
     learned?: {
       quizzes: Array<{
         quizId: string;
-        title: string;
+        title?: string;  // Make this optional as it might be missing
+        name?: string;   // Add alternative field
         questionCount: number;
         orderQuiz: number;
         passingScore: number;
@@ -126,9 +128,42 @@ interface LessonQuizResponseData {
         orderLesson: number;
       }>;
     };
+    // Add these for the basic format
+    lessons?: Array<{
+      lessonId: string;
+      lessonTitle: string;
+      lessonShortTitle?: string;
+      orderLesson: number;
+    }>;
+    quizzes?: Array<{
+      quizId: string;
+      title?: string;
+      name?: string;
+      questionCount: number;
+      orderQuiz: number;
+      passingScore: number;
+    }>;
   };
   statusCodeValue?: number;
   statusCode?: string;
+}
+
+// Define a type for quiz data to replace usage of 'any'
+interface QuizData {
+  quizId: string;
+  title?: string;
+  name?: string;
+  questionCount?: number;
+  orderQuiz?: number;
+  passingScore?: number;
+}
+
+// Define a type for lesson data to replace usage of 'any'
+interface LessonData {
+  lessonId: string;
+  lessonTitle: string;
+  lessonShortTitle?: string;
+  orderLesson: number;
 }
 
 // Interface for user authentication response
@@ -262,6 +297,36 @@ const LessonDetailPage: React.FC = () => {
   // Fetch course content from the API - fixed error handling
   const fetchCourseContent = async () => {
     try {
+      // First, get quiz data from lesson_quiz (with underscore) to ensure we have quiz titles
+      const quizTitlesMap = new Map<string, string>();
+      
+      try {
+        const quizDataResponse = await fetch(`${API_BASE_URL}/course/lesson_quiz/${courseId}`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (quizDataResponse.ok) {
+          const quizData = await quizDataResponse.json();
+          console.log('Quiz data for titles:', quizData);
+          
+          // Extract quiz titles and store them by ID
+          if (quizData.body && quizData.body.quizzes && Array.isArray(quizData.body.quizzes)) {
+            quizData.body.quizzes.forEach((quiz: QuizData) => {
+              if (quiz.quizId && (quiz.title || quiz.name)) {
+                quizTitlesMap.set(quiz.quizId, quiz.title || quiz.name || '');
+                console.log(`Stored quiz title: ${quiz.quizId} -> ${quiz.title || quiz.name}`);
+              }
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching quiz titles:', error);
+      }
+      
       // Use lesson-quiz (with hyphen) for enrolled users to get learned/not learned content
       // This endpoint returns which lessons and quizzes the user has completed
       const contentResponse = await fetch(`${API_BASE_URL}/course/lesson-quiz/${courseId}`, {
@@ -302,9 +367,12 @@ const LessonDetailPage: React.FC = () => {
         // Process not learned quizzes - these are quizzes the user still needs to complete
         if (contentData.body.notLearned && contentData.body.notLearned.quizzes) {
           contentData.body.notLearned.quizzes.forEach(quiz => {
+            // Use the title from our map, or from the response, or a default
+            const quizTitle = quizTitlesMap.get(quiz.quizId) || quiz.title || quiz.name || `Quiz ${quiz.orderQuiz || ''}`;
+            
             combinedItems.push({
               _id: quiz.quizId,
-              title: quiz.title,
+              title: quizTitle,
               order: quiz.orderQuiz,
               orderQuiz: quiz.orderQuiz,
               type: 'quiz',
@@ -333,14 +401,52 @@ const LessonDetailPage: React.FC = () => {
         // Process learned quizzes - these are quizzes the user has already completed
         if (contentData.body.learned && contentData.body.learned.quizzes) {
           contentData.body.learned.quizzes.forEach(quiz => {
+            // Use the title from our map, or from the response, or a default
+            const quizTitle = quizTitlesMap.get(quiz.quizId) || quiz.title || quiz.name || `Quiz ${quiz.orderQuiz || ''}`;
+            
             combinedItems.push({
               _id: quiz.quizId,
-              title: quiz.title,
+              title: quizTitle,
               order: quiz.orderQuiz,
               orderQuiz: quiz.orderQuiz,
               type: 'quiz',
               complete: true, // Mark as completed
               quizId: quiz.quizId
+            });
+          });
+        }
+      }
+      
+      // If no items were found in the notLearned/learned sections, try the basic format
+      if (combinedItems.length === 0 && contentData.body) {
+        // Process lessons
+        if (contentData.body.lessons && Array.isArray(contentData.body.lessons)) {
+          contentData.body.lessons.forEach((lesson: LessonData) => {
+            combinedItems.push({
+              _id: lesson.lessonId,
+              title: lesson.lessonTitle || 'Untitled Lesson',
+              description: lesson.lessonShortTitle || '',
+              order: lesson.orderLesson || 0,
+              orderLesson: lesson.orderLesson || 0,
+              type: 'lesson',
+              complete: false
+            });
+          });
+        }
+        
+        // Process quizzes
+        if (contentData.body.quizzes && Array.isArray(contentData.body.quizzes)) {
+          contentData.body.quizzes.forEach((quiz: QuizData) => {
+            // Use the title from our map, or from the response, or a default
+            const quizTitle = quizTitlesMap.get(quiz.quizId) || quiz.title || quiz.name || `Quiz ${quiz.orderQuiz || ''}`;
+            
+            combinedItems.push({
+              _id: quiz.quizId,
+              title: quizTitle,
+              order: quiz.orderQuiz || 0,
+              orderQuiz: quiz.orderQuiz || 0,
+              type: 'quiz',
+              complete: false
             });
           });
         }
