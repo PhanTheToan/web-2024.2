@@ -88,10 +88,11 @@ export const Header = () => {
   const getMenuItems = () => {
     if (pathusername.startsWith("/admin")) {
       return [
-        { href: "/admin/courses", label: "Khóa học" },
-        { href: "/admin/users", label: "Học viên" },
+        { href: "/admin/couserscontrol", label: "Khóa học" },
+        { href: "/admin/usercontrol", label: "Học viên" },
         { href: "/admin/blogs", label: "Quản lý Blog" },
-        { href: "/admin/settings", label: "Cài đặt" },
+        { href: "/admin/registercontrol", label: "Cài đặt" },
+        { href: "/admin/imagecontrol", label: "Hình ảnh" },
       ]
     } else if (pathusername.startsWith("/teacher")) {
       return [
@@ -147,9 +148,8 @@ export const Header = () => {
                 <li key={item.href}>
                   <Link
                     href={item.href}
-                    className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-                      isActive(item.href) ? "bg-orange-50 text-orange-500" : "text-gray-700 hover:bg-gray-100"
-                    }`}
+                    className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${isActive(item.href) ? "bg-orange-50 text-orange-500" : "text-gray-700 hover:bg-gray-100"
+                      }`}
                   >
                     {item.label}
                   </Link>
@@ -202,13 +202,19 @@ export const Header = () => {
                       <p className="text-xs text-gray-500 capitalize">{user?.role || "student"}</p>
                     </div>
                     <Link
-                      href="/profile"
+                      href={
+                        user?.role === "ROLE_ADMIN"
+                          ? "/admin/profile"
+                          : user?.role === "ROLE_TEACHER"
+                            ? "/teacher/profile"
+                            : "/profile"
+                      }
                       className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                       onClick={() => setDropdownOpen(false)}
                     >
                       Trang cá nhân
                     </Link>
-                  {/*  <Link
+                    {/*  <Link
                       href="/dashboard"
                       className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                       onClick={() => setDropdownOpen(false)}
@@ -233,15 +239,13 @@ export const Header = () => {
 
       {/* Mobile menu */}
       <div
-        className={`fixed inset-0 bg-black bg-opacity-50 z-50 transition-opacity duration-300 ${
-          isOpen ? "opacity-100 visible" : "opacity-0 invisible"
-        }`}
+        className={`fixed inset-0 bg-black bg-opacity-50 z-50 transition-opacity duration-300 ${isOpen ? "opacity-100 visible" : "opacity-0 invisible"
+          }`}
         onClick={toggleMenu}
       ></div>
       <div
-        className={`fixed top-0 left-0 h-full w-64 bg-white shadow-lg z-50 transform transition-transform duration-300 ease-in-out ${
-          isOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
+        className={`fixed top-0 left-0 h-full w-64 bg-white shadow-lg z-50 transform transition-transform duration-300 ease-in-out ${isOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
       >
         <div className="flex items-center justify-between p-4 border-b border-gray-200">
           <Link href="/" className="flex items-center" onClick={toggleMenu}>
@@ -287,9 +291,8 @@ export const Header = () => {
               <li key={item.href}>
                 <Link
                   href={item.href}
-                  className={`block px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-                    isActive(item.href) ? "bg-orange-50 text-orange-500" : "text-gray-700 hover:bg-gray-100"
-                  }`}
+                  className={`block px-4 py-2 text-sm font-medium rounded-md transition-colors ${isActive(item.href) ? "bg-orange-50 text-orange-500" : "text-gray-700 hover:bg-gray-100"
+                    }`}
                   onClick={toggleMenu}
                 >
                   {item.label}
