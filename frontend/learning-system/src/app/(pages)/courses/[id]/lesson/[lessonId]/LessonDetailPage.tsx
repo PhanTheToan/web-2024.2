@@ -16,21 +16,67 @@ dotenv.config();
 // API Base URL
 const API_BASE_URL = process.env.BASE_URL || 'http://localhost:8082/api';
 
-// Helper function to get and set cookies
-const getCookie = (name: string) => {
-  if (typeof document === 'undefined') return null;
-  const value = `; ${document.cookie}`;
-  const parts = value.split(`; ${name}=`);
-  if (parts.length === 2) return parts.pop()?.split(';').shift() || null;
-  return null;
+// Helper function to get and set JWT tokens
+const getJwtToken = () => {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem('jwt_token');
 };
 
-const setCookie = (name: string, value: string, days: number) => {
-  if (typeof document === 'undefined') return;
-  const date = new Date();
-  date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
-  const expires = `; expires=${date.toUTCString()}`;
-  document.cookie = `${name}=${value}${expires}; path=/`;
+const setJwtToken = (token: string) => {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem('jwt_token', token);
+};
+
+// Function to decode JWT token
+const decodeJwtToken = (token: string) => {
+  try {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => {
+      return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+    }).join(''));
+    return JSON.parse(jsonPayload);
+  } catch (error) {
+    console.error('Error decoding JWT token:', error);
+    return null;
+  }
+};
+
+// Interface for timer data
+interface TimerData {
+  elapsed: number;
+  timestamp: number;
+}
+
+// Interface for JWT payload
+interface JwtPayload {
+  timerStates: {
+    [key: string]: TimerData;
+  };
+}
+
+// Function to encode JWT token
+const encodeJwtToken = (payload: JwtPayload) => {
+  try {
+    // JWT header
+    const header = {
+      alg: 'HS256',
+      typ: 'JWT'
+    };
+
+    // Encode header and payload
+    const encodedHeader = btoa(JSON.stringify(header));
+    const encodedPayload = btoa(JSON.stringify(payload));
+
+    // Create signature (in a real app, this would be signed with a secret key)
+    const signature = btoa(JSON.stringify({ sig: 'demo' }));
+
+    // Combine all parts
+    return `${encodedHeader}.${encodedPayload}.${signature}`;
+  } catch (error) {
+    console.error('Error encoding JWT token:', error);
+    return null;
+  }
 };
 
 // Add mock data import for breadcrumb
@@ -210,6 +256,41 @@ const LessonDetailPage: React.FC = () => {
   // Function to check if file is a PDF
   const isPdf = (path: string) => {
     return path.toLowerCase().endsWith('.pdf');
+  };
+
+  // Function to convert YouTube URL to embed URL
+  const getYoutubeEmbedUrl = (url: string): string => {
+    if (!url) return '';
+    
+    // Handle different YouTube URL formats
+    let videoId = '';
+    
+    try {
+      // Handle youtu.be format
+      if (url.includes('youtu.be')) {
+        videoId = url.split('youtu.be/')[1]?.split('?')[0];
+      }
+      // Handle youtube.com format
+      else if (url.includes('youtube.com')) {
+        // Handle watch URL
+        if (url.includes('watch')) {
+          const urlParams = new URLSearchParams(new URL(url).search);
+          videoId = urlParams.get('v') || '';
+        }
+        // Handle embed URL
+        else if (url.includes('embed')) {
+          videoId = url.split('embed/')[1]?.split('?')[0];
+        }
+      }
+      
+      if (!videoId) return url; // Return original URL if not a valid YouTube URL
+      
+      // Return embed URL with additional parameters
+      return `https://www.youtube.com/embed/${videoId}?autoplay=0&rel=0&modestbranding=1&showinfo=0`;
+    } catch (error) {
+      console.error('Error parsing YouTube URL:', error);
+      return url; // Return original URL if parsing fails
+    }
   };
 
   // Check user authentication
@@ -574,44 +655,53 @@ const LessonDetailPage: React.FC = () => {
     }
   };
 
-  // Load saved timer state from cookies
+  // Load saved timer state from JWT token
   const loadTimerState = () => {
     try {
-      const timerCookie = getCookie(`lesson_timer_${lessonId}`);
-      if (!timerCookie) return 0;
-      
-      // Parse the cookie value
-      const timerData = JSON.parse(atob(timerCookie));
-      
-      // Verify it's for the current lesson and course
-      if (timerData.lessonId === lessonId && timerData.courseId === courseId) {
-        console.log('Loaded saved timer state:', timerData.elapsed);
-        return timerData.elapsed;
-      }
-      return 0;
+      const token = getJwtToken();
+      if (!token) return 0;
+
+      const decodedToken = decodeJwtToken(token);
+      if (!decodedToken) return 0;
+
+      // Find timer data for current lesson
+      const timerData = decodedToken.timerStates?.[`${courseId}_${lessonId}`];
+      if (!timerData) return 0;
+
+      // Check if timer data is still valid (within 24 hours)
+      const now = Date.now();
+      if (now - timerData.timestamp > 24 * 60 * 60 * 1000) return 0;
+
+      console.log('Loaded saved timer state:', timerData.elapsed);
+      return timerData.elapsed;
     } catch (error) {
       console.error('Error loading timer state:', error);
       return 0;
     }
   };
 
-  // Save the timer state to cookies
+  // Save timer state to JWT token
   const saveTimerState = (elapsedSeconds: number) => {
     try {
-      // Create a simple data object with the timer info
-      const timerData = {
-        lessonId,
-        courseId,
-        elapsed: elapsedSeconds,
-        timestamp: Date.now()
+      const token = getJwtToken();
+      let decodedToken = token ? decodeJwtToken(token) : { timerStates: {} };
+      if (!decodedToken) decodedToken = { timerStates: {} };
+
+      // Update timer data for current lesson
+      decodedToken.timerStates = {
+        ...decodedToken.timerStates,
+        [`${courseId}_${lessonId}`]: {
+          elapsed: elapsedSeconds,
+          timestamp: Date.now()
+        }
       };
-      
-      // Convert to base64 for storage
-      const timerString = btoa(JSON.stringify(timerData));
-      
-      // Save to cookie with 7-day expiration
-      setCookie(`lesson_timer_${lessonId}`, timerString, 7);
-      console.log('Saved timer state:', elapsedSeconds);
+
+      // Create new token
+      const newToken = encodeJwtToken(decodedToken);
+      if (newToken) {
+        setJwtToken(newToken);
+        console.log('Saved timer state:', elapsedSeconds);
+      }
     } catch (error) {
       console.error('Error saving timer state:', error);
     }
@@ -653,10 +743,7 @@ const LessonDetailPage: React.FC = () => {
   useEffect(() => {
     if (!lesson || isLoading) return;
 
-    // If no time limit, don't need to store in a variable
-    // const lessonTimeLimit = lesson.timeLimit || 5;
-
-    // Load the initial state from cookies when component mounts
+    // Load the initial state from JWT token when component mounts
     if (elapsedTime === 0) {
       const savedTime = loadTimerState();
       if (savedTime > 0) {
@@ -676,21 +763,19 @@ const LessonDetailPage: React.FC = () => {
       const now = Date.now();
       const delta = Math.floor((now - lastTickRef.current) / 1000);
       
-      if (delta > 0) { // Avoid negative delta (can happen with date/time changes)
+      if (delta > 0) {
         setElapsedTime(prevTime => {
           const newTime = prevTime + delta;
           
           // Check if time threshold is met (75% of time limit)
-          const timeLimit = lesson.timeLimit || 5; // Default 5 minutes
+          const timeLimit = lesson.timeLimit || 5;
           const requiredTime = timeLimit * 60 * 0.75;
           
-          // If time threshold is met and lesson is not already completed, mark as complete automatically
           if (newTime >= requiredTime && !completedLessons.has(lessonId) && !isUpdatingProgress) {
-            // Call the API to update progress
             updateLessonProgress();
           }
           
-          // Save to cookie every 15 seconds to avoid too frequent writes
+          // Save to JWT token every 15 seconds
           if (delta >= 15 || Math.floor(newTime / 15) > Math.floor(prevTime / 15)) {
             saveTimerState(newTime);
           }
@@ -706,20 +791,17 @@ const LessonDetailPage: React.FC = () => {
         if (timerRef.current) {
           clearInterval(timerRef.current);
           timerRef.current = null;
-          // Update elapsed time one last time before pausing
           tick();
-          // Save state when user leaves the page
           saveTimerState(elapsedTime);
         }
       } else {
         if (!timerRef.current) {
-          lastTickRef.current = Date.now(); // Reset last tick time on resume
+          lastTickRef.current = Date.now();
           timerRef.current = setInterval(tick, 1000);
         }
       }
     };
 
-    // Start timer immediately if visible
     if (document.visibilityState === 'visible') {
       lastTickRef.current = Date.now();
       timerRef.current = setInterval(tick, 1000);
@@ -727,16 +809,14 @@ const LessonDetailPage: React.FC = () => {
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
-    // Cleanup
     return () => {
       if (timerRef.current) {
         clearInterval(timerRef.current);
       }
-      // Save timer state when component unmounts
       saveTimerState(elapsedTime);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [lesson, isLoading, completedLessons, lessonId]); // Added completedLessons and lessonId as dependencies
+  }, [lesson, isLoading, completedLessons, lessonId, elapsedTime]);
 
   // Add function to update lesson progress automatically using the API from the screenshot
   const updateLessonProgress = async () => {
@@ -777,7 +857,7 @@ const LessonDetailPage: React.FC = () => {
         setOrderedContent(updatedContent);
         
         // Clear the timer cookie as this lesson is now complete
-        setCookie(`lesson_timer_${lessonId}`, '', -1);
+        setJwtToken('');
         
         toast.success('Bài học đã được đánh dấu hoàn thành tự động');
         
@@ -957,7 +1037,7 @@ const LessonDetailPage: React.FC = () => {
       setOrderedContent(updatedContent);
       
       // Clear the timer cookie as this lesson is now complete
-      setCookie(`lesson_timer_${lessonId}`, '', -1);
+      setJwtToken('');
       
       toast.success('Đã đánh dấu hoàn thành bài học');
       
@@ -1222,26 +1302,60 @@ const LessonDetailPage: React.FC = () => {
 
           {/* Main content area */}
           <div className="md:col-span-2 order-1 md:order-2">
-            {/* Video player with improved styling */}
+            {/* Video player with YouTube-like styling */}
             {lesson.videoUrl && (
-              <div className="bg-white rounded-lg shadow-md overflow-hidden mb-6">
-                <div className="bg-gray-800 relative" style={{ paddingTop: '56.25%' }}>
-                  <iframe
-                    src={lesson.videoUrl}
-                    className="absolute top-0 left-0 w-full h-full"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                    title={lesson.title}
-                  />
-                </div>
-                <div className="p-4 bg-gradient-to-r from-gray-900 to-gray-800 text-white">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <PlayCircle className="w-5 h-5 mr-2 text-primary-400" />
-                      <h2 className="font-semibold">{lesson.title}</h2>
+              <div className="bg-black rounded-lg shadow-md overflow-hidden mb-6">
+                <div className="relative">
+                  {/* Video Container with 16:9 aspect ratio */}
+                  <div className="relative pt-[56.25%] bg-black">
+                    <iframe
+                      src={getYoutubeEmbedUrl(lesson.videoUrl)}
+                      className="absolute top-0 left-0 w-full h-full"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                      allowFullScreen
+                      title={lesson.title}
+                    />
+                  </div>
+                  
+                  {/* Video Info Section - YouTube-like */}
+                  <div className="p-4">
+                    {/* Title and Info Section */}
+                    <div className="border-b border-gray-700 pb-4 mb-4">
+                      <h1 className="text-lg md:text-xl font-semibold text-white mb-2">
+                        {lesson.title}
+                      </h1>
+                      <div className="flex flex-wrap items-center gap-4 text-gray-400 text-sm">
+                        <div className="flex items-center">
+                          <BookOpen className="w-4 h-4 mr-1" />
+                          <span>Bài {currentLessonOrder}/{totalLessons}</span>
+                        </div>
+                        {completedLessons.has(lessonId) && (
+                          <div className="flex items-center text-green-400">
+                            <Check className="w-4 h-4 mr-1" />
+                            <span>Đã hoàn thành</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <div className="text-xs bg-white/20 rounded-full px-3 py-1">
-                      Bài {currentLessonOrder}/{totalLessons}
+
+                    {/* Action Buttons */}
+                    <div className="flex flex-wrap gap-3">
+                      {/* Open in YouTube button */}
+                      <a
+                        href={lesson.videoUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center px-4 py-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors text-white text-sm"
+                      >
+                        <ExternalLink className="w-4 h-4 mr-2" />
+                        Mở trên YouTube
+                      </a>
+
+                      {/* Course Title */}
+                      <div className="inline-flex items-center px-4 py-2 bg-white/5 rounded-full text-white text-sm">
+                        <BookOpen className="w-4 h-4 mr-2" />
+                        {course.title}
+                      </div>
                     </div>
                   </div>
                 </div>
