@@ -17,6 +17,8 @@ public class QuizResponseDto {
     private String id;
     private String courseId;
     private String title;
+    private String material;
+    private EQuestion eQuiz;
     private String description;
     private Integer order;
     private Double passingScore;

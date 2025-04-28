@@ -1164,6 +1164,8 @@ public class CourseService {
         existingQuiz.setDescription(updatedQuiz.getDescription());
         existingQuiz.setOrder(updatedQuiz.getOrder());
         existingQuiz.setPassingScore(updatedQuiz.getPassingScore());
+        existingQuiz.setMaterial(updatedQuiz.getMaterial());
+        existingQuiz.setEquiz(updatedQuiz.getEquiz());
         existingQuiz.setStatus(updatedQuiz.getStatus());
         existingQuiz.setTimeLimit(updatedQuiz.getTimeLimit());
 
@@ -1283,6 +1285,8 @@ public class CourseService {
         quizDto.setDescription(quizzes.getDescription());
         quizDto.setOrder(quizzes.getOrder());
         quizDto.setPassingScore(quizzes.getPassingScore());
+        quizDto.setEQuiz(quizzes.getEquiz());
+        quizDto.setMaterial(quizDto.getMaterial());
         quizDto.setTimeLimit(quizzes.getTimeLimit());
         quizDto.setCreatedAt(quizzes.getCreatedAt());
         quizDto.setUpdateAt(quizzes.getUpdateAt());

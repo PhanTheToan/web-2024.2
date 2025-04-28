@@ -4,4 +4,6 @@ public enum EQuestion {
     SINGLE_CHOICE,
     MULTIPLE_CHOICE,
     SHORT_ANSWER,
+    QUIZ_FORM_FULL,
+    QUIZ_FILL,
 }
