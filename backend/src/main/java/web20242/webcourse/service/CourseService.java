@@ -1291,6 +1291,7 @@ public class CourseService {
         for (Question question : quizzes.getQuestions()) {
             QuizResponseDto.QuestionResponseDto questionDto = new QuizResponseDto.QuestionResponseDto();
             questionDto.setQuestion(question.getQuestion());
+            questionDto.setEQuestion(question.getEQuestion());
             questionDto.setMaterial(question.getMaterial());
             questionDto.setOptions(question.getOptions());
             questionDtos.add(questionDto);

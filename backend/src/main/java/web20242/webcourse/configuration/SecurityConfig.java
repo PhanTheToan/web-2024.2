@@ -62,7 +62,8 @@ public class SecurityConfig {
                                 "/api/update/ping",
                                 "/api/blog",
                                 "/api/upload/all-image",
-                                "/api/upload/get-image/**"
+                                "/api/upload/get-image/**",
+                                "/api/blog/search/**"
                                 ).permitAll()
                         .anyRequest().authenticated()
                 )
