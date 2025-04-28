@@ -81,7 +81,7 @@ export default function ProfilePage() {
 
       {/* Tabs */}
       <Tabs defaultValue="profile" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 md:w-auto">
+        <TabsList className="grid w-full grid-cols-2 md:w-auto">
           <TabsTrigger value="profile" className="flex items-center gap-2">
             <User className="h-4 w-4" />
             <span className="hidden md:inline">Hồ sơ</span>
@@ -90,10 +90,10 @@ export default function ProfilePage() {
             <Settings className="h-4 w-4" />
             <span className="hidden md:inline">Cài đặt</span>
           </TabsTrigger>
-          <TabsTrigger value="management" className="flex items-center gap-2">
+          {/* <TabsTrigger value="management" className="flex items-center gap-2">
             <BookOpen className="h-4 w-4" />
             <span className="hidden md:inline">Quản lý Website</span>
-          </TabsTrigger>
+          </TabsTrigger> */}
         </TabsList>
 
         {/* Tab: Hồ sơ */}
@@ -123,9 +123,8 @@ export default function ProfilePage() {
         </TabsContent>
 
         {/* Tab: Quản lý */}
-        <TabsContent value="management">
+        {/* <TabsContent value="management">
           <div className="grid gap-6 md:grid-cols-3">
-            {/* Quản lý User */}
             <Card className="overflow-hidden">
               <div className="h-48 bg-gradient-to-br from-orange-100 to-orange-300">
                 <img
@@ -150,7 +149,6 @@ export default function ProfilePage() {
               </CardContent>
             </Card>
 
-            {/* Quản lý mật khẩu */}
             <Card className="overflow-hidden">
               <div className="h-48 bg-gradient-to-br from-orange-100 to-orange-300">
                 <img
@@ -175,7 +173,6 @@ export default function ProfilePage() {
               </CardContent>
             </Card>
 
-            {/* Quản lý khóa học */}
             <Card className="overflow-hidden">
               <div className="h-48 bg-gradient-to-br from-orange-100 to-orange-300">
                 <img
@@ -200,7 +197,7 @@ export default function ProfilePage() {
               </CardContent>
             </Card>
           </div>
-        </TabsContent>
+        </TabsContent> */}
       </Tabs>
     </div>
   )

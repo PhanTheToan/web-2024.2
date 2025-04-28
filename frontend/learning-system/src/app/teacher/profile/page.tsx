@@ -123,7 +123,7 @@ export default function ProfilePage() {
         </TabsContent>
 
         {/* Tab: Quản lý */}
-        <TabsContent value="management">
+        {/* <TabsContent value="management">
           <div className="grid gap-6 md:grid-cols-3">
             <Card className="overflow-hidden">
               <div className="h-48 bg-gradient-to-br from-green-100 to-green-300">
@@ -197,7 +197,7 @@ export default function ProfilePage() {
               </CardContent>
             </Card>
           </div>
-        </TabsContent>
+        </TabsContent> */}
       </Tabs>
     </div>
   )
