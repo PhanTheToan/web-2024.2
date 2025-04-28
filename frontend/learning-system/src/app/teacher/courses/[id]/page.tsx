@@ -4,7 +4,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { 
   Edit, Eye, Plus, ArrowLeft, BookOpen, Users, 
-  Calendar, Clock, Trash2, AlertTriangle, UserMinus, 
+  Clock, Trash2, AlertTriangle, UserMinus, 
   UserPlus, DollarSign, Star, FileText, BarChart2, ArrowUpDown, MoveUp, MoveDown,
   Loader2, CheckCircle2
 } from 'lucide-react';
@@ -65,6 +65,7 @@ interface Course {
   studentsEnrolled?: User[];
   createdAt?: string;
   updatedAt?: string;
+  averageRating?: number;
 }
 
 // Add a new interface for combined course content items
@@ -241,7 +242,7 @@ export default function TeacherCourseDetailPage() {
     try {
       // Fetch course information
       console.log(`Fetching course details for ID: ${courseId}`);
-      const response = await fetch(`${API_BASE_URL}/course/info/${courseId}`, {
+      const response = await fetch(`${API_BASE_URL}/course/info-course/${courseId}`, {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -262,6 +263,7 @@ export default function TeacherCourseDetailPage() {
       if (courseData.body) {
         // Handle nested response structure
         parsedCourse = {
+          
           id: courseData.body.id || courseId,
           teacherId: courseData.body.teacherId || '',
           teacherFullName: courseData.body.teacherFullName || courseData.body.teacherName || '',
@@ -276,7 +278,8 @@ export default function TeacherCourseDetailPage() {
           studentsCount: courseData.body.studentsCount || 0,
           categories: courseData.body.categories || [],
           createdAt: courseData.body.createdAt || new Date().toISOString(),
-          updatedAt: courseData.body.updatedAt || new Date().toISOString()
+          updatedAt: courseData.body.updatedAt || new Date().toISOString(),
+          averageRating: courseData.body.averageRating
         };
       } else {
         // Handle direct response structure
@@ -295,7 +298,8 @@ export default function TeacherCourseDetailPage() {
           studentsCount: courseData.studentsCount || 0,
           categories: courseData.categories || [],
           createdAt: courseData.createdAt || new Date().toISOString(),
-          updatedAt: courseData.updatedAt || new Date().toISOString()
+          updatedAt: courseData.updatedAt || new Date().toISOString(),
+          averageRating: courseData.averageRating
         };
       }
       
@@ -994,9 +998,9 @@ export default function TeacherCourseDetailPage() {
                     <Star className="w-5 h-5 mr-2 text-gray-400" />
                     Đánh giá
                   </div>
-                  <div className="font-medium">4.7 / 5</div>
+                  <div className="font-medium">{course.averageRating}</div>
                 </div>
-                <div className="flex justify-between items-center pb-2 border-b">
+                {/* <div className="flex justify-between items-center pb-2 border-b">
                   <div className="flex items-center text-gray-600">
                     <Calendar className="w-5 h-5 mr-2 text-gray-400" />
                     Ngày tạo
@@ -1004,7 +1008,7 @@ export default function TeacherCourseDetailPage() {
                   <div className="font-medium">
                     {course.createdAt ? new Date(course.createdAt).toLocaleDateString() : 'N/A'}
                   </div>
-                </div>
+                </div> */}
                 <div className="flex items-center text-gray-600">
                   <div className="flex-1">Danh mục</div>
                   <div className="flex flex-wrap justify-end">

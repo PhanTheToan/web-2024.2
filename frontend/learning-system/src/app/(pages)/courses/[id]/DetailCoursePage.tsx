@@ -1018,60 +1018,38 @@ const DetailCoursePage: React.FC = () => {
       
       console.log('Review submission response status:', response.status);
       
-      if (response.ok) {
-        const data = await response.json();
-        console.log('Review submission response:', data);
+      const data = await response.json();
+      console.log('Review submission response:', data.statusCodeValue);
+
+      // Check for 401 status code indicating user already reviewed
+      if (data.statusCodeValue === 401) {
+        console.log('User already reviewed this course (401 status)');
+        setUserHasReviewed(false);
+        setReviewError('Bạn chỉ được đánh giá một lần!');
+        toast.error('Bạn chỉ được đánh giá một lần!');
         
-        // Check if the response contains the "already reviewed" message
-        const responseText = JSON.stringify(data);
-        if (responseText.includes('Bạn chỉ được đánh giá một lần!')) {
-          // User has already reviewed this course
-          console.log('User already reviewed this course');
-          setUserHasReviewed(true);
-          setReviewError('Bạn chỉ được đánh giá một lần!');
-          toast.error('Bạn chỉ được đánh giá một lần!');
-          
-          // Fetch updated reviews
-          fetchReviews();
-        } else {
-          // Successfully submitted review
-          setUserHasReviewed(true);
-          setUserReview({
-            rate: reviewRating,
-            rating: reviewRating,
-            comment: reviewComment
-          });
-          
-          // Fetch the updated reviews to get the proper format from the server
-          fetchReviews();
-          
-          toast.success('Đánh giá khóa học thành công!');
-          setReviewComment('');
-        }
+        // Fetch updated reviews to show the user's existing review
+        fetchReviews();
+        return;
+      } else if (response.ok) {
+        // Successfully submitted review
+        setUserHasReviewed(true);
+        setUserReview({
+          rate: reviewRating,
+          rating: reviewRating,
+          comment: reviewComment
+        });
+        
+        // Fetch the updated reviews to get the proper format from the server
+        fetchReviews();
+        
+        toast.success('Đánh giá khóa học thành công!');
+        setReviewComment('');
       } else {
-        const errorText = await response.text();
-        console.error('Review submission failed:', errorText, 'Status:', response.status);
-        
-        // Try to parse error message for other errors
-        try {
-          const errorData = JSON.parse(errorText);
-          
-          // Check for specific field errors based on screenshot format
-          if (errorData.message && errorData.message.includes('courseId')) {
-            setReviewError('ID khóa học không hợp lệ.');
-          } else if (errorData.message && errorData.message.includes('comment')) {
-            setReviewError('Vui lòng nhập nhận xét.');
-          } else if (errorData.message && errorData.message.includes('rate')) {
-            setReviewError('Đánh giá không hợp lệ. Vui lòng chọn từ 1-5 sao.');
-          } else {
-            setReviewError(errorData.message || 'Không thể đánh giá khóa học');
-          }
-        } catch (e) {
-          console.error('Error parsing error response:', e);
-          setReviewError('Không thể đánh giá khóa học: ' + errorText);
-        }
-        
-        toast.error('Không thể đánh giá khóa học');
+        // Handle other error cases
+        const errorMessage = data.message || 'Không thể đánh giá khóa học';
+        setReviewError(errorMessage);
+        toast.error(errorMessage);
       }
     } catch (error) {
       console.error('Error submitting review:', error);

@@ -46,7 +46,7 @@ export default function EditLessonPage() {
         
         // Fetch course data directly using API
         console.log("Fetching course:", courseId);
-        const courseResponse = await fetch(`${API_BASE_URL}/course/info/${courseId}`, {
+        const courseResponse = await fetch(`${API_BASE_URL}/course/info-course/${courseId}`, {
           method: 'GET',
           credentials: 'include',
           headers: {
