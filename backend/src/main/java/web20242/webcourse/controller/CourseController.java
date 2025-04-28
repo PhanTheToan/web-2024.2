@@ -318,7 +318,7 @@ public class CourseController {
             }else {
                 Course course1 = courseRepository.findById(course.getId()).orElse(null);
                 assert course1 != null;
-                if(course1.getTeacherId() == user.getId()){
+                if(course1.getTeacherId().equals(user.getId())){
                     return ResponseEntity.ok(courseService.updateCourseInfo(course));
                 }else {
                     return ResponseEntity.status(401).body("Not Authenticated");
@@ -449,6 +449,11 @@ public class CourseController {
     @GetMapping("/info/{id}")
     public ResponseEntity<?> getInformationCourse(@PathVariable String id) {
         return ResponseEntity.ok(courseService.getInformationCourse(id));
+    }
+    @PreAuthorize("hasRole('ROLE_ADMIN') || hasRole('ROLE_TEACHER')")
+    @GetMapping("/info-course/{id}")
+    public ResponseEntity<?> getInformationCourseForAdminTeacher(@PathVariable String id, Principal principal) {
+        return ResponseEntity.ok(courseService.getInformationCourseForAdminTeacher(id,principal));
     }
     @GetMapping("/info/check/{id}")
     public ResponseEntity<?> checkInfo(@PathVariable String id,Principal principal){
