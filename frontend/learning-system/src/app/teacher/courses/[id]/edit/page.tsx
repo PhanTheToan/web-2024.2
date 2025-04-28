@@ -50,6 +50,7 @@ export default function EditCoursePage() {
   const params = useParams();
   const router = useRouter();
   const courseId = params.id as string;
+  const API_BASE_URL = process.env.BASE_URL || 'https://api.alphaeducation.io.vn/api';
 
   const [courseData, setCourseData] = useState<CourseData>({
     title: '',
@@ -78,7 +79,6 @@ export default function EditCoursePage() {
       setLoading(true);
       try {
         // Fetch course details via API
-        const API_BASE_URL = process.env.BASE_URL || 'http://localhost:8082/api';
         
         // Check authentication first
         const authResponse = await fetch(`${API_BASE_URL}/auth/check`, {
@@ -107,7 +107,7 @@ export default function EditCoursePage() {
         setUserData(userData);
         
         // Fetch course details
-        const courseResponse = await fetch(`${API_BASE_URL}/course/info/${courseId}`, {
+        const courseResponse = await fetch(`${API_BASE_URL}/course/info-course/${courseId}`, {
           method: 'GET',
           credentials: 'include',
           headers: {
@@ -310,7 +310,6 @@ export default function EditCoursePage() {
       // Check if teacher ID is available, if not, try to fetch it again
       if (!userData || !userData._id) {
         console.log("Teacher ID missing, trying to fetch again");
-        const API_BASE_URL = process.env.BASE_URL || 'http://localhost:8082/api';
         
         const authResponse = await fetch(`${API_BASE_URL}/auth/check`, {
           method: 'GET',
@@ -319,7 +318,7 @@ export default function EditCoursePage() {
             'Content-Type': 'application/json'
           }
         });
-        
+        console.log("Re-fetching teacher data");
         if (authResponse.ok) {
           const authData = await authResponse.json();
           const newUserData = authData.data;
@@ -330,8 +329,6 @@ export default function EditCoursePage() {
           throw new Error('Không thể xác thực thông tin giáo viên');
         }
       }
-      
-      const API_BASE_URL = process.env.BASE_URL || 'http://localhost:8082/api';
       
       // Combine regular categories with special category
       const allCategories = [...selectedCategories];
@@ -399,19 +396,36 @@ export default function EditCoursePage() {
       if (!updatedCourse.teacherId) {
         throw new Error("Thiếu thông tin giáo viên, không thể cập nhật khóa học");
       }
-      
-      // Update the course via API
-      const updateResponse = await fetch(`${API_BASE_URL}/course/update/course-info`, {
+      console.log("updatedCourse: ", updatedCourse);
+      // Update the course via API - using the new endpoint format
+      const updateResponse = await fetch(`${API_BASE_URL}/course/update/course-info/${courseId}`, {
         method: 'PUT',
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(updatedCourse),
+        body: JSON.stringify({
+          title: updatedCourse.title,
+          description: updatedCourse.description,
+          price: updatedCourse.price,
+          thumbnail: updatedCourse.thumbnail,
+          categories: updatedCourse.categories,
+          status: updatedCourse.status,
+          teacherId: updatedCourse.teacherId
+        }),
       });
       
       if (!updateResponse.ok) {
         throw new Error('Không thể cập nhật khóa học');
+      }
+      
+      // Parse response
+      const responseData = await updateResponse.json();
+      console.log("Update response:", responseData);
+      
+      // Check for success response based on the API response format
+      if (responseData.statusCode !== "OK" && responseData.body !== "Update succesfully") {
+        throw new Error(responseData.body || 'Không thể cập nhật khóa học');
       }
       
       // Show success message

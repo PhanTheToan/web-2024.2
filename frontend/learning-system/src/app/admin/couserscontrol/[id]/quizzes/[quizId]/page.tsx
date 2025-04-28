@@ -96,7 +96,7 @@ export default function QuizDetailPage() {
       
       // Fetch course data from API
       console.log("Fetching course:", courseId);
-      const courseResponse = await fetch(`${API_BASE_URL}/course/info/${courseId}`, {
+      const courseResponse = await fetch(`${API_BASE_URL}/course/info-course/${courseId}`, {
         method: 'GET',
         credentials: 'include',
         headers: {

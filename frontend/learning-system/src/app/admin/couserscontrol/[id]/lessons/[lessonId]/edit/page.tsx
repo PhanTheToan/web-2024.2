@@ -73,7 +73,7 @@ export default function EditLessonPage() {
       setLoading(true);
       try {
         // Fetch course info
-        const courseRes = await fetch(`${API_BASE_URL}/course/info/${courseId}`, {
+        const courseRes = await fetch(`${API_BASE_URL}/course/info-course/${courseId}`, {
           credentials: 'include'
         });
         

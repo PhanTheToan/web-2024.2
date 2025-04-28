@@ -76,8 +76,8 @@ export default function EditCoursePage() {
       try {
         console.log("fetching course data...", {courseId});
         
-        // Fetch course info using the /api/course/info/:id endpoint
-        const courseResponse = await fetch(`${API_BASE_URL}/course/info/${courseId}`, {
+        // Fetch course info using the new API endpoint from the first image
+        const courseResponse = await fetch(`${API_BASE_URL}/course/info-course/${courseId}`, {
           method: 'GET',
           credentials: 'include',
           headers: {
@@ -124,34 +124,39 @@ export default function EditCoursePage() {
         })));
         
         // Process teacher ID and name
-        const teacherId = typeof course.teacherId === 'object' 
-          ? course.teacherId._id 
-          : course.teacherId;
-          
-        const teacherName = course.teacherFullName || course.teacherName || '';
+        const teacherId = course.teacherId || '';
+        const teacherName = course.teacherName || '';
         
         // Process categories with proper typing
         const processedCategories = Array.isArray(course.categories) 
-          ? course.categories.filter((cat: CategoryOrString | string) => {
-              const catName = typeof cat === 'object' && cat !== null ? (cat.name || cat.categoryName || '') : String(cat);
-              return catName !== 'PRIVATE' && catName !== 'PUBLIC';
-            }).map((cat: CategoryOrString | string) => {
-              return typeof cat === 'object' && cat !== null ? (cat.name || cat.categoryName || '') : String(cat);
+          ? course.categories.filter((cat: string | CategoryOrString) => {
+              if (typeof cat === 'string') {
+                return cat !== 'PRIVATE' && cat !== 'PUBLIC';
+              } else {
+                const catName = cat?.name || cat?.categoryName || '';
+                return catName !== 'PRIVATE' && catName !== 'PUBLIC';
+              }
+            }).map((cat: string | CategoryOrString) => {
+              return typeof cat === 'string' ? cat : (cat?.name || cat?.categoryName || '');
             })
           : [];
           
         // Find the special category (PRIVATE or PUBLIC)
         let specialCategory = '';
         if (Array.isArray(course.categories)) {
-          const foundSpecialCategory = course.categories.find((cat: CategoryOrString | string) => {
-            const catName = typeof cat === 'object' && cat !== null ? (cat.name || cat.categoryName || '') : String(cat);
-            return catName === 'PRIVATE' || catName === 'PUBLIC';
+          const foundSpecialCategory = course.categories.find((cat: string | CategoryOrString) => {
+            if (typeof cat === 'string') {
+              return cat === 'PRIVATE' || cat === 'PUBLIC';
+            } else {
+              const catName = cat?.name || cat?.categoryName || '';
+              return catName === 'PRIVATE' || catName === 'PUBLIC';
+            }
           });
           
           if (foundSpecialCategory) {
-            specialCategory = typeof foundSpecialCategory === 'object' && foundSpecialCategory !== null
-              ? (foundSpecialCategory.name || foundSpecialCategory.categoryName || '')
-              : String(foundSpecialCategory);
+            specialCategory = typeof foundSpecialCategory === 'string' 
+              ? foundSpecialCategory 
+              : (foundSpecialCategory?.name || foundSpecialCategory?.categoryName || '');
           }
         }
         
@@ -161,14 +166,14 @@ export default function EditCoursePage() {
           description: course.description || '',
           price: course.price || 0,
           thumbnail: course.thumbnail || '',
-          totalDuration: course.totalDuration || 0,
+          totalDuration: 0, // This will be set based on totalTimeLimit
           totalTimeLimit: course.totalTimeLimit || 0,
           categories: processedCategories,
           specialCategory: specialCategory,
-          teacherId: teacherId || '',
+          teacherId: teacherId,
           teacherName: teacherName,
-          isPopular: !!course.isPopular,
-          isPublished: !!course.isPublished,
+          isPopular: processedCategories.includes('POPULAR'),
+          isPublished: course.status === 'ACTIVE',
         });
         
         // Set selected categories to match course categories
@@ -191,6 +196,14 @@ export default function EditCoursePage() {
       fetchData();
     }
   }, [courseId]);
+  
+  // Update totalDuration whenever totalTimeLimit changes
+  useEffect(() => {
+    setCourseData(prev => ({
+      ...prev,
+      totalDuration: prev.totalTimeLimit
+    }));
+  }, [courseData.totalTimeLimit]);
   
   // Keep courseData.categories in sync with selectedCategories
   useEffect(() => {
@@ -278,21 +291,26 @@ export default function EditCoursePage() {
       
       // Combine regular categories with special category
       const allCategories = [...courseData.categories];
+      
+      // Add special category if selected
       if (courseData.specialCategory) {
         allCategories.push(courseData.specialCategory);
       }
       
+      // Add POPULAR if isPopular is checked
+      if (courseData.isPopular && !allCategories.includes('POPULAR')) {
+        allCategories.push('POPULAR');
+      }
+      
       // Prepare the updated course data
       const updatedCourse = {
-        id: courseId,
         title: courseData.title,
         description: courseData.description,
         price: courseData.price,
-        thumbnail: courseData.thumbnail,
-        categories: allCategories,
+        status: courseData.isPublished ? 'ACTIVE' : 'INACTIVE',
         teacherId: courseData.teacherId,
-        isPopular: courseData.isPopular,
-        status: courseData.isPublished ? 'ACTIVE' : 'INACTIVE'
+        thumbnail: courseData.thumbnail,
+        categories: allCategories
       };
       
       // Handle file upload if there's a new thumbnail
@@ -327,8 +345,8 @@ export default function EditCoursePage() {
         }
       }
       console.log("updatedCourse", updatedCourse);
-      // Update the course using API
-      const updateResponse = await fetch(`${API_BASE_URL}/course/update/course-info`, {
+      // Update the course using the new API endpoint from the second image
+      const updateResponse = await fetch(`${API_BASE_URL}/course/update/course-info/${courseId}`, {
         method: 'PUT',
         credentials: 'include',
         headers: {
