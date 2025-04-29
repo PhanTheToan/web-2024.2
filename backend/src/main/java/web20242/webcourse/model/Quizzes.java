@@ -32,7 +32,7 @@ public class Quizzes {
     private String material;
 
     @Field(name= "type")
-    private EQuestion equiz; // QUIZ_FORM_FULL, QUIZ_FILL
+    private EQuestion eQuiz; // QUIZ_FORM_FULL, QUIZ_FILL
 
     @Field(name = "title")
     private String title;

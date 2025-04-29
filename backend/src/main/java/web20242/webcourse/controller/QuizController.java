@@ -58,7 +58,7 @@ public class QuizController {
             quiz.setCourseId(courseObjectId); // Gán courseId cho quiz
 
             // Lưu quiz vào MongoDB
-            quiz.setEquiz(type);
+            quiz.setEQuiz(type);
             quizRepository.save(quiz);
 
             // Cập nhật course với quiz mới
@@ -69,16 +69,16 @@ public class QuizController {
 
         return ResponseEntity.ok(quizzes);
     }
-    @PreAuthorize("hasRole('ROLE_ADMIN') || hasRole('ROLE_TEACHER')")
-    @PutMapping("/fill-full")
-    public void updateType(){
-        List<Quizzes> quizzes = quizRepository.findAll();
-        quizzes.forEach(quizzes1 -> {
-            quizzes1.setEquiz(EQuestion.QUIZ_FORM_FULL);
-            quizzes1.setMaterial("nothing");
-            quizRepository.save(quizzes1);
-        });
-    }
+//    @PreAuthorize("hasRole('ROLE_ADMIN') || hasRole('ROLE_TEACHER')")
+//    @PutMapping("/fill-full")
+//    public void updateType(){
+//        List<Quizzes> quizzes = quizRepository.findAll();
+//        quizzes.forEach(quizzes1 -> {
+//            quizzes1.setEQuiz(EQuestion.QUIZ_FORM_FULL);
+//            quizzes1.setMaterial("nothing");
+//            quizRepository.save(quizzes1);
+//        });
+//    }
     @PreAuthorize("hasRole('ROLE_ADMIN') || hasRole('ROLE_TEACHER')")
     @PostMapping("/generate-from-pdf-thpt")
     public ResponseEntity<List<Quizzes>> generateQuizFromPdfThpt(
