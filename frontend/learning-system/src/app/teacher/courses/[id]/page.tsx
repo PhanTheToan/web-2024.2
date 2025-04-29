@@ -1179,6 +1179,13 @@ export default function TeacherCourseDetailPage() {
                 <h3 className="text-lg font-medium">Danh sách bài kiểm tra</h3>
                 <div className="flex space-x-2">
                   <Link 
+                    href={`/teacher/courses/${course?.id || courseId}/quizzes/create-ai`}
+                    className="bg-purple-600 text-white px-3 py-1.5 rounded-md text-sm flex items-center"
+                  >
+                    <span className="w-4 h-4 mr-1">✨</span>
+                    Tạo bằng AI
+                  </Link>
+                  <Link 
                     href={`/teacher/courses/${course?.id || courseId}/quizzes/create`}
                     className="bg-indigo-600 text-white px-3 py-1.5 rounded-md text-sm flex items-center"
                   >
@@ -1193,13 +1200,22 @@ export default function TeacherCourseDetailPage() {
                   <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg">
                     <FileText className="w-12 h-12 mx-auto text-gray-400 mb-2" />
                     <p>Khóa học chưa có bài kiểm tra nào</p>
+                    <div className="flex justify-center mt-4 space-x-4">
+                      <Link 
+                        href={`/teacher/courses/${course?.id || courseId}/quizzes/create-ai`}
+                        className="inline-flex items-center text-indigo-600 hover:text-indigo-800"
+                      >
+                        <span className="w-4 h-4 mr-1">✨</span>
+                        Tạo bằng AI
+                      </Link>
                     <Link 
                       href={`/teacher/courses/${course?.id || courseId}/quizzes/create`}
-                      className="mt-4 inline-flex items-center text-indigo-600 hover:text-indigo-800"
+                        className="inline-flex items-center text-indigo-600 hover:text-indigo-800"
                     >
                       <Plus className="w-4 h-4 mr-1" />
                       Thêm bài kiểm tra đầu tiên
                     </Link>
+                    </div>
                   </div>
                 ) : (
                   course.quizzes.map((quiz, index) => {
