@@ -7,7 +7,7 @@ import {
   BarChart2, Star,  Users, Clock, FileText, 
   Eye, MoveUp, MoveDown, AlertTriangle, CheckCircle2,
   ArrowUpDown, Plus, UserMinus, UserPlus,
-  Loader2, Trash2
+  Loader2, Trash2, Sparkles
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { courseService } from '@/services/courseService';
@@ -1640,6 +1640,13 @@ export default function CourseDetailPage() {
                     <Plus className="w-4 h-4 mr-1" />
                     Thêm bài kiểm tra
                   </Link>
+                  <Link 
+                    href={`/admin/couserscontrol/${course?.id || courseId}/quizzes/create-ai`}
+                    className="bg-purple-600 text-white px-3 py-1.5 rounded-md text-sm flex items-center"
+                  >
+                    <Sparkles className="w-4 h-4 mr-1" />
+                    Tạo bằng AI
+                  </Link>
                 </div>
               </div>
               
@@ -1648,13 +1655,22 @@ export default function CourseDetailPage() {
                   <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg">
                     <FileText className="w-12 h-12 mx-auto text-gray-400 mb-2" />
                     <p>Khóa học chưa có bài kiểm tra nào</p>
-                    <Link 
-                      href={`/admin/couserscontrol/${course?.id || courseId}/quizzes/create`}
-                      className="mt-4 inline-flex items-center text-indigo-600 hover:text-indigo-800"
-                    >
-                      <Plus className="w-4 h-4 mr-1" />
-                      Thêm bài kiểm tra đầu tiên
-                    </Link>
+                    <div className="flex justify-center mt-4 space-x-4">
+                      <Link 
+                        href={`/admin/couserscontrol/${course?.id || courseId}/quizzes/create`}
+                        className="inline-flex items-center text-indigo-600 hover:text-indigo-800"
+                      >
+                        <Plus className="w-4 h-4 mr-1" />
+                        Thêm bài kiểm tra
+                      </Link>
+                      <Link 
+                        href={`/admin/couserscontrol/${course?.id || courseId}/quizzes/create-ai`}
+                        className="inline-flex items-center text-purple-600 hover:text-purple-800"
+                      >
+                        <Sparkles className="w-4 h-4 mr-1" />
+                        Tạo bài kiểm tra bằng AI
+                      </Link>
+                    </div>
                   </div>
                 ) : (
                   course.quizzes.map((quiz, index) => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, PlusCircle, MinusCircle, Save, X, Loader2, AlertCircle, CheckCircle } from "lucide-react";
@@ -10,6 +10,12 @@ import dotenv from 'dotenv';
 dotenv.config();
 // API Base URL
 const API_BASE_URL = process.env.BASE_URL || 'http://localhost:8082/api';
+
+// Add quiz type enum
+enum QuizType {
+  QUIZ_FORM_FULL = "QUIZ_FORM_FULL",
+  QUIZ_FILL = "QUIZ_FILL",
+}
 
 interface QuizQuestion {
   question: string;
@@ -23,22 +29,21 @@ export default function CreateQuizPage() {
   const params = useParams();
   const router = useRouter();
   const courseId = params.id as string;
-
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [course, setCourse] = useState<Course | null>(null);
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [timeLimit, setTimeLimit] = useState<number>(30);
-  const [passingScore, setPassingScore] = useState<number>(70);
-  const [status, setStatus] = useState<QuizStatus>(QuizStatus.INACTIVE);
-  const [questions, setQuestions] = useState<QuizQuestion[]>([
-    { question: "", options: ["", "", "", ""], correctAnswer: ["0"], material: null, equestion: EQuestion.SINGLE_CHOICE }
-  ]);
-  const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
+  const [questions, setQuestions] = useState<QuizQuestion[]>([{
+    question: "",
+    options: [""],
+    correctAnswer: [],
+    material: null,
+    equestion: EQuestion.SINGLE_CHOICE
+  }]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [questionErrors, setQuestionErrors] = useState<Record<number, string>>({});
-  const [order, setOrder] = useState<number>(1);
+  
   const [orderInfo, setOrderInfo] = useState<{
     maxOrder: number;
     maxLessonOrder: number;
@@ -46,6 +51,17 @@ export default function CreateQuizPage() {
     nextOrder: number;
   }>({ maxOrder: 0, maxLessonOrder: 0, maxQuizOrder: 0, nextOrder: 1 });
   const [uploadingImage, setUploadingImage] = useState<Record<number, boolean>>({});
+
+  // Quiz information state
+  const [quizInfo, setQuizInfo] = useState({
+    title: '',
+    description: '',
+    timeLimit: 30, // in minutes
+    passingScore: 70, // percentage
+    order: 1,
+    status: QuizStatus.INACTIVE, // Default to inactive
+    equiz: QuizType.QUIZ_FORM_FULL, // Default quiz type
+  });
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -88,7 +104,7 @@ export default function CreateQuizPage() {
 
   const fetchCourse = async () => {
     try {
-      setLoading(true);
+      setIsLoading(true);
       console.log("Fetching course:", courseId);
       const response = await fetch(`${API_BASE_URL}/course/info-course/${courseId}`, {
         method: 'GET',
@@ -120,7 +136,7 @@ export default function CreateQuizPage() {
       console.error("Error fetching course:", err);
       setError("Không thể tải thông tin khóa học. Vui lòng thử lại sau.");
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
   
@@ -152,6 +168,9 @@ export default function CreateQuizPage() {
         lessons.forEach(lesson => {
           if (lesson.orderLesson && lesson.orderLesson > maxLessonOrder) {
             maxLessonOrder = lesson.orderLesson;
+          }
+          // Update the overall max order
+          if (lesson.orderLesson) {
             maxOrder = Math.max(maxOrder, lesson.orderLesson);
           }
         });
@@ -163,6 +182,9 @@ export default function CreateQuizPage() {
         quizzes.forEach(quiz => {
           if (quiz.orderQuiz && quiz.orderQuiz > maxQuizOrder) {
             maxQuizOrder = quiz.orderQuiz;
+          }
+          // Update the overall max order
+          if (quiz.orderQuiz) {
             maxOrder = Math.max(maxOrder, quiz.orderQuiz);
           }
         });
@@ -170,19 +192,27 @@ export default function CreateQuizPage() {
       
       // Đặt order quiz mới là maxOrder + 1
       const nextOrder = maxOrder + 1;
-      setOrder(nextOrder);
-      console.log("Max order values:", { maxOrder, maxLessonOrder, maxQuizOrder, nextOrder });
-      
-      // Lưu thông tin để hiển thị UI
       setOrderInfo({
         maxOrder,
         maxLessonOrder,
         maxQuizOrder,
         nextOrder
       });
+
+      // Update quizInfo with the next order value
+      setQuizInfo(prev => ({
+        ...prev,
+        order: nextOrder
+      }));
+
+      console.log("Quiz order set to next available value:", nextOrder);
     } catch (err) {
       console.error("Error fetching lessons and quizzes:", err);
-      // Không cần thiết lập lỗi, giữ giá trị mặc định là 1
+      // Set order to 1 if we can't get course content
+      setQuizInfo(prev => ({
+        ...prev,
+        order: 1
+      }));
     }
   };
 
@@ -284,7 +314,36 @@ export default function CreateQuizPage() {
     
     // Type assertion for updating the specific field
     if (field === 'equestion') {
-      newQuestions[index].equestion = value as EQuestion;
+      const oldType = newQuestions[index].equestion;
+      const newType = value as EQuestion;
+      
+      newQuestions[index].equestion = newType;
+      
+      // Reset correct answers when changing question types
+      if (oldType !== newType) {
+        // For SHORT_ANSWER, initialize with an empty array
+        if (newType === EQuestion.SHORT_ANSWER) {
+          newQuestions[index].correctAnswer = [];
+          // We'll maintain the options even though they won't be displayed
+          newQuestions[index].options = [];
+        } 
+        // For SINGLE_CHOICE, initialize with the first option
+        else if (newType === EQuestion.SINGLE_CHOICE) {
+          newQuestions[index].correctAnswer = newQuestions[index].options.length > 0 ? ['0'] : [];
+          // Ensure we have at least one option
+          if (newQuestions[index].options.length === 0) {
+            newQuestions[index].options = [''];
+          }
+        }
+        // For MULTIPLE_CHOICE, initialize with an empty array
+        else if (newType === EQuestion.MULTIPLE_CHOICE) {
+          newQuestions[index].correctAnswer = [];
+          // Ensure we have at least one option
+          if (newQuestions[index].options.length === 0) {
+            newQuestions[index].options = [''];
+          }
+        }
+      }
     } else if (field === 'question') {
       newQuestions[index].question = value as string;
     } else if (field === 'material') {
@@ -308,8 +367,8 @@ export default function CreateQuizPage() {
   const addQuestion = () => {
     setQuestions([...questions, { 
       question: "", 
-      options: ["", "", "", ""], 
-      correctAnswer: ["0"], 
+      options: [""], // Start with one empty option for choice questions
+      correctAnswer: [], 
       material: null, 
       equestion: EQuestion.SINGLE_CHOICE 
     }]);
@@ -347,37 +406,43 @@ export default function CreateQuizPage() {
       }
 
       // Kiểm tra đáp án đúng
-      if (question.correctAnswer.length === 0) {
-        errors[index] = "Phải có ít nhất một đáp án đúng";
-        isValid = false;
-        return;
-      }
-
-      // Nếu là câu hỏi trắc nghiệm (không phải SHORT_ANSWER), kiểm tra lựa chọn
-      if (question.equestion !== EQuestion.SHORT_ANSWER) {
+      if (question.equestion === EQuestion.SHORT_ANSWER) {
+        // Đối với câu trả lời ngắn, cần có ít nhất một đáp án
+        if (!question.correctAnswer || question.correctAnswer.length === 0 || 
+            question.correctAnswer.every(ans => !ans.trim())) {
+          errors[index] = "Phải có ít nhất một đáp án được chấp nhận cho câu hỏi trả lời ngắn";
+          isValid = false;
+        }
+      } else {
+        // Nếu là câu hỏi trắc nghiệm (SINGLE_CHOICE hoặc MULTIPLE_CHOICE)
         // Đếm số lựa chọn có nội dung
         const validOptions = question.options.filter(option => option.trim());
 
-        if (validOptions.length < 2) {
-          errors[index] = "Câu hỏi trắc nghiệm phải có ít nhất 2 lựa chọn";
-        isValid = false;
+        if (validOptions.length < 1) {
+          errors[index] = "Câu hỏi trắc nghiệm phải có ít nhất 1 lựa chọn";
+          isValid = false;
           return;
         }
 
         // Kiểm tra xem đáp án đúng có tồn tại trong các lựa chọn không
-        if (question.equestion === EQuestion.SINGLE_CHOICE || 
-            question.equestion === EQuestion.MULTIPLE_CHOICE) {
-          // Đối với trắc nghiệm, đáp án đúng là index của lựa chọn
-          const selectedIndices = question.correctAnswer.map(answer => parseInt(answer));
-          const invalidIndices = selectedIndices.filter(index => 
-            isNaN(index) || index < 0 || index >= question.options.length || !question.options[index].trim()
-          );
-          
-          if (invalidIndices.length > 0) {
-            errors[index] = "Đáp án đúng không hợp lệ";
-            isValid = false;
-            return;
-          }
+        if (question.correctAnswer.length === 0) {
+          errors[index] = `Vui lòng chọn ít nhất một đáp án đúng cho câu hỏi ${
+            question.equestion === EQuestion.SINGLE_CHOICE ? 'một lựa chọn' : 'nhiều lựa chọn'
+          }`;
+          isValid = false;
+          return;
+        }
+
+        // Đối với trắc nghiệm, đáp án đúng là index của lựa chọn
+        const selectedIndices = question.correctAnswer.map(answer => parseInt(answer));
+        const invalidIndices = selectedIndices.filter(index => 
+          isNaN(index) || index < 0 || index >= question.options.length || !question.options[index].trim()
+        );
+        
+        if (invalidIndices.length > 0) {
+          errors[index] = "Đáp án đúng không hợp lệ";
+          isValid = false;
+          return;
         }
       }
     });
@@ -389,47 +454,59 @@ export default function CreateQuizPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!title) {
-      setError("Vui lòng điền tiêu đề bài kiểm tra");
+    // Validate form data
+    if (!quizInfo.title.trim()) {
+      toast.error('Vui lòng nhập tiêu đề bài kiểm tra');
       return;
     }
-
+    
+    if (questions.length === 0) {
+      toast.error('Vui lòng thêm ít nhất một câu hỏi');
+      return;
+    }
+    
+    // Validate all questions before submitting
     if (!validateQuestions()) {
-      setError("Vui lòng kiểm tra lại thông tin các câu hỏi");
+      toast.error('Vui lòng kiểm tra lại thông tin các câu hỏi');
       return;
     }
-
+    
+    // Show loading
+    setIsSaving(true);
+    
     try {
-      setError(null);
-      setSubmitting(true);
-
-      // Chuẩn bị dữ liệu gửi đi theo cấu trúc trong hình
-      const requestData = {
-        title: title,
-        description: description,
-        order: order,
-        passingScore: passingScore,
-        timeLimit: timeLimit,
-        status: status,
+      // Create request body
+      const requestBody = {
+        title: quizInfo.title,
+        description: quizInfo.description || 'null',
+        timeLimit: quizInfo.timeLimit,
+        passingScore: quizInfo.passingScore,
+        order: quizInfo.order,
+        status: quizInfo.status,
+        equiz: quizInfo.equiz,
         questions: questions.map(q => {
           // Chuẩn bị câu hỏi dựa trên loại
           const formattedQuestion: {
             question: string;
             material: string | null;
-            equestion: EQuestion;
+            eQuestion?: EQuestion;
             options: string[];
             correctAnswer: string[];
           } = {
-          question: q.question,
-          material: q.material || null,
-            equestion: q.equestion,
+            question: q.question,
+            material: q.material || null,
             options: [],
             correctAnswer: []
           };
 
+          // Add equestion field only when needed
+          if (q.equestion) {
+            formattedQuestion.eQuestion = q.equestion;
+          }
+
           if (q.equestion === EQuestion.SHORT_ANSWER) {
             // Đối với câu trả lời ngắn, giữ nguyên correctAnswer là mảng các câu trả lời được chấp nhận
-            formattedQuestion.correctAnswer = q.correctAnswer;
+            formattedQuestion.correctAnswer = q.correctAnswer.filter(answer => answer.trim());
             // Không cần options cho câu trả lời ngắn
             formattedQuestion.options = [];
           } else {
@@ -452,16 +529,16 @@ export default function CreateQuizPage() {
         })
       };
       
-      console.log("Sending quiz data:", requestData);
+      console.log("Sending quiz data:", requestBody);
 
       // Gửi yêu cầu tạo bài kiểm tra trực tiếp qua API
-      const response = await fetch(`${API_BASE_URL}/course/create-quiz?courseId=${courseId}`, {
+      const response = await fetch(`${API_BASE_URL}/course/create-quiz?courseId=${courseId}&type=QUIZ_FORM_FULL`, {
         method: 'POST',
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(requestData)
+        body: JSON.stringify(requestBody)
       });
 
       if (!response.ok) {
@@ -484,11 +561,11 @@ export default function CreateQuizPage() {
       console.error("Error creating quiz:", err);
       setError("Không thể tạo bài kiểm tra. Vui lòng thử lại sau.");
     } finally {
-      setSubmitting(false);
+      setIsSaving(false);
     }
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="p-6 max-w-4xl mx-auto">
         <div className="flex items-center justify-center min-h-[50vh]">
@@ -583,8 +660,8 @@ export default function CreateQuizPage() {
                 type="text"
                 id="title"
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
+                value={quizInfo.title}
+                onChange={(e) => setQuizInfo({ ...quizInfo, title: e.target.value })}
                 required
               />
             </div>
@@ -597,39 +674,28 @@ export default function CreateQuizPage() {
                 id="description"
                 rows={3}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                value={quizInfo.description}
+                onChange={(e) => setQuizInfo({ ...quizInfo, description: e.target.value })}
               ></textarea>
             </div>
 
-            <div className="mb-4">
-              <label htmlFor="order" className="block text-sm font-medium text-gray-700 mb-1">
-                Thứ tự bài kiểm tra <span className="text-red-500">*</span>
-              </label>
-              <div className="flex items-center">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label htmlFor="passingScore" className="block text-sm font-medium text-gray-700 mb-1">
+                  Điểm đạt (%) <span className="text-red-500">*</span>
+                </label>
                 <input
                   type="number"
-                  id="order"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                  value={order}
-                  onChange={(e) => setOrder(Math.max(1, parseInt(e.target.value) || 1))}
-                  min="1"
-                  required
+                  id="passingScore"
+                  name="passingScore"
+                  value={quizInfo.passingScore}
+                  onChange={(e) => setQuizInfo({ ...quizInfo, passingScore: parseInt(e.target.value) || 0 })}
+                  min="0"
+                  max="100"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500"
                 />
-                <div className="ml-3 text-sm text-gray-500">
-                  (Tự động đặt là phần cuối khóa học)
-                </div>
               </div>
-              <div className="mt-2 text-xs text-gray-500 space-y-1">
-                <div>Thông tin hiện tại của khóa học:</div>
-                <div>- Thứ tự cao nhất của bài học: {orderInfo.maxLessonOrder || 'Chưa có'}</div>
-                <div>- Thứ tự cao nhất của bài kiểm tra: {orderInfo.maxQuizOrder || 'Chưa có'}</div>
-                <div>- Thứ tự cao nhất trong khóa học: {orderInfo.maxOrder || 'Chưa có'}</div>
-                <div className="text-indigo-600 font-medium">→ Thứ tự tiếp theo: {orderInfo.nextOrder}</div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              
               <div>
                 <label htmlFor="timeLimit" className="block text-sm font-medium text-gray-700 mb-1">
                   Thời gian làm bài (phút)
@@ -637,41 +703,75 @@ export default function CreateQuizPage() {
                 <input
                   type="number"
                   id="timeLimit"
-                  value={timeLimit}
-                  onChange={(e) => setTimeLimit(parseInt(e.target.value) || 0)}
+                  name="timeLimit"
+                  value={quizInfo.timeLimit}
+                  onChange={(e) => setQuizInfo({ ...quizInfo, timeLimit: parseInt(e.target.value) || 0 })}
                   min="1"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500"
                 />
               </div>
-
+              
               <div>
-                <label htmlFor="passingScore" className="block text-sm font-medium text-gray-700 mb-1">
-                  Điểm đạt yêu cầu (%)
+                <label htmlFor="order" className="block text-sm font-medium text-gray-700 mb-1">
+                  Thứ tự <span className="text-indigo-600">(Tự động)</span>
                 </label>
-                <input
-                  type="number"
-                  id="passingScore"
-                  value={passingScore}
-                  onChange={(e) => setPassingScore(parseInt(e.target.value) || 0)}
-                  min="0"
-                  max="100"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                />
+                <div className="relative">
+                  <input
+                    type="number"
+                    id="order"
+                    name="order"
+                    value={quizInfo.order}
+                    onChange={(e) => setQuizInfo({ ...quizInfo, order: parseInt(e.target.value) || 1 })}
+                    min="1"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                  />
+                  <div className="text-xs text-gray-500 mt-1">
+                    <div>Thông tin hiện tại của khóa học:</div>
+                    <div>- Thứ tự cao nhất của bài học: {orderInfo.maxLessonOrder || 'Chưa có'}</div>
+                    <div>- Thứ tự cao nhất của bài kiểm tra: {orderInfo.maxQuizOrder || 'Chưa có'}</div>
+                    <div>- Thứ tự cao nhất trong khóa học: {orderInfo.maxOrder || 'Chưa có'}</div>
+                    <div className="text-indigo-600 font-medium">→ Tự động đặt thứ tự tiếp theo: {orderInfo.nextOrder}</div>
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div className="mb-4">
-              <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">
-                Trạng thái bài kiểm tra
-              </label>
-              <select
-                value={status}
-                onChange={(e) => setStatus(e.target.value as QuizStatus)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-              >
-                <option value={QuizStatus.INACTIVE}>Không kích hoạt</option>
-                <option value={QuizStatus.ACTIVE}>Kích hoạt</option>
-              </select>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+              <div>
+                <label htmlFor="equiz" className="block text-sm font-medium text-gray-700 mb-1">
+                  Loại bài kiểm tra
+                </label>
+                <select
+                  id="equiz"
+                  name="equiz"
+                  value={quizInfo.equiz}
+                  onChange={(e) => setQuizInfo({ ...quizInfo, equiz: e.target.value as QuizType })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                >
+                  <option value={QuizType.QUIZ_FORM_FULL}>Bài kiểm tra đầy đủ</option>
+                  <option value={QuizType.QUIZ_FILL}>Phiếu trả lời</option>
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  {quizInfo.equiz === QuizType.QUIZ_FORM_FULL 
+                    ? "Hiển thị đầy đủ nội dung câu hỏi và các phương án trả lời." 
+                    : "Hiển thị đề bài dưới dạng tài liệu PDF và phiếu trắc nghiệm để điền đáp án."}
+                </p>
+              </div>
+
+              <div>
+                <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">
+                  Trạng thái
+                  <span className="ml-1 text-gray-400 font-normal">(Ảnh hưởng đến khả năng truy cập của học viên)</span>
+                </label>
+                <select
+                  value={quizInfo.status}
+                  onChange={(e) => setQuizInfo({ ...quizInfo, status: e.target.value as QuizStatus })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                >
+                  <option value={QuizStatus.INACTIVE}>Không kích hoạt</option>
+                  <option value={QuizStatus.ACTIVE}>Kích hoạt</option>
+                </select>
+              </div>
             </div>
           </div>
 
@@ -685,7 +785,9 @@ export default function CreateQuizPage() {
               </div>
             </div>
             <div className="mt-1 text-sm text-gray-500">
-              Thêm câu hỏi cho bài kiểm tra. Mỗi câu hỏi có 4 lựa chọn và 1 đáp án đúng.
+              Thêm câu hỏi cho bài kiểm tra. Bạn có thể tạo câu hỏi nhiều lựa chọn, câu hỏi một lựa chọn, hoặc câu hỏi trả lời ngắn.
+              Với câu hỏi trắc nghiệm (một hoặc nhiều lựa chọn), bạn chỉ cần tạo ít nhất 1 lựa chọn và có thể thêm nhiều lựa chọn tùy ý.
+              Với câu hỏi trả lời ngắn, bạn có thể thêm nhiều đáp án đúng được chấp nhận.
             </div>
           </div>
 
@@ -787,8 +889,8 @@ export default function CreateQuizPage() {
                             }}
                             className="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
                           />
-                    <input
-                      type="text"
+                          <input
+                            type="text"
                             placeholder={`Lựa chọn ${optionIndex + 1}`}
                             value={option}
                             onChange={(e) => {
@@ -796,8 +898,40 @@ export default function CreateQuizPage() {
                               newOptions[optionIndex] = e.target.value;
                               handleQuestionChange(index, 'options', newOptions);
                             }}
-                            className="ml-2 w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                            className="ml-2 flex-grow px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                           />
+                          {question.options.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                // Chỉ cho phép xóa khi còn nhiều hơn 1 lựa chọn
+                                const newOptions = [...question.options];
+                                newOptions.splice(optionIndex, 1);
+                                
+                                // Cập nhật correctAnswer
+                                let newCorrectAnswers = [...question.correctAnswer];
+                                
+                                // Loại bỏ optionIndex khỏi correctAnswer
+                                newCorrectAnswers = newCorrectAnswers
+                                  .filter(a => parseInt(a) !== optionIndex)
+                                  .map(a => {
+                                    const aIndex = parseInt(a);
+                                    // Giảm index cho các đáp án có index lớn hơn index bị xóa
+                                    if (aIndex > optionIndex) {
+                                      return (aIndex - 1).toString();
+                                    }
+                                    return a;
+                                  });
+                                
+                                handleQuestionChange(index, 'options', newOptions);
+                                handleQuestionChange(index, 'correctAnswer', newCorrectAnswers);
+                              }}
+                              className="ml-2 text-red-500 hover:text-red-700"
+                              title="Xóa lựa chọn này"
+                            >
+                              <MinusCircle className="h-5 w-5" />
+                            </button>
+                          )}
                         </div>
                       ))}
                       {question.options.length < 10 && (
@@ -825,12 +959,12 @@ export default function CreateQuizPage() {
                         value={question.correctAnswer.join('\n')}
                         onChange={(e) => {
                           const answers = e.target.value.split('\n').filter(answer => answer.trim() !== '');
-                          handleQuestionChange(index, 'correctAnswer', answers);
+                          handleQuestionChange(index, 'correctAnswer', answers.length ? answers : []);
                         }}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                         rows={3}
-                    />
-                  </div>
+                      />
+                    </div>
                   )}
                   
                   <div className="mb-4">
@@ -864,6 +998,7 @@ export default function CreateQuizPage() {
                           accept="image/*"
                           className="sr-only"
                           onChange={(e) => e.target.files && e.target.files[0] && handleImageUpload(index, e.target.files[0])}
+                          ref={index === 0 ? fileInputRef : undefined}
                         />
                         <label
                           htmlFor={`material-${index}`}
@@ -907,10 +1042,10 @@ export default function CreateQuizPage() {
             </Link>
             <button
               type="submit"
-              disabled={submitting}
+              disabled={isSaving}
               className="inline-flex justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 flex items-center disabled:opacity-50"
             >
-              {submitting ? (
+              {isSaving ? (
                 <>
                   <div className="animate-spin w-4 h-4 mr-2 border-2 border-white border-t-transparent rounded-full"></div>
                   Đang xử lý...
