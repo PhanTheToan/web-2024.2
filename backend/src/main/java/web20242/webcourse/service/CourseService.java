@@ -1160,14 +1160,16 @@ public class CourseService {
         int courseTimeLimit = course.getTotalTimeLimit() != null ? course.getTotalTimeLimit() : 0;
         courseTimeLimit = courseTimeLimit - oldTimeLimit + newTimeLimit;
         course.setTotalTimeLimit(courseTimeLimit);
-
+        existingQuiz.setTitle(updatedQuiz.getTitle());
         existingQuiz.setDescription(updatedQuiz.getDescription());
+        existingQuiz.setQuestions(updatedQuiz.getQuestions());
         existingQuiz.setOrder(updatedQuiz.getOrder());
         existingQuiz.setPassingScore(updatedQuiz.getPassingScore());
         existingQuiz.setMaterial(updatedQuiz.getMaterial());
-        existingQuiz.setEQuiz(updatedQuiz.getEQuiz());
+        existingQuiz.setType(updatedQuiz.getType());
         existingQuiz.setStatus(updatedQuiz.getStatus());
         existingQuiz.setTimeLimit(updatedQuiz.getTimeLimit());
+        existingQuiz.setUpdateAt(LocalDateTime.now());
 
         if (updatedQuiz.getQuestions() != null) {
             existingQuiz.setQuestions(updatedQuiz.getQuestions());
@@ -1285,8 +1287,8 @@ public class CourseService {
         quizDto.setDescription(quizzes.getDescription());
         quizDto.setOrder(quizzes.getOrder());
         quizDto.setPassingScore(quizzes.getPassingScore());
-        quizDto.setEQuiz(quizzes.getEQuiz());
-        quizDto.setMaterial(quizDto.getMaterial());
+        quizDto.setType(quizzes.getType());
+        quizDto.setMaterial(quizzes.getMaterial());
         quizDto.setTimeLimit(quizzes.getTimeLimit());
         quizDto.setCreatedAt(quizzes.getCreatedAt());
         quizDto.setUpdateAt(quizzes.getUpdateAt());

@@ -11,6 +11,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.parameters.P;
 import org.springframework.web.bind.annotation.*;
 import web20242.webcourse.model.*;
+import web20242.webcourse.model.constant.EQuestion;
 import web20242.webcourse.model.constant.ERole;
 import web20242.webcourse.model.createRequest.CourseCreateRequest;
 import web20242.webcourse.model.createRequest.QuizSubmissionRequestDto;
@@ -185,8 +186,9 @@ public class CourseController {
     }
     @PreAuthorize("hasRole('ROLE_TEACHER') || hasRole('ROLE_ADMIN')")
     @PostMapping("/create-quiz")
-    public ResponseEntity<?> createLesson(@RequestBody Quizzes quizzes, @RequestParam String courseId) {
+    public ResponseEntity<?> createLesson(@RequestBody Quizzes quizzes, @RequestParam String courseId, @RequestParam EQuestion type) {
         Optional<Course> courseOptional = courseRepository.findById(new ObjectId(courseId));
+        quizzes.setType(type);
         if (courseOptional.isEmpty()) {
             return ResponseEntity.status(404).body("Course not found");
         }
