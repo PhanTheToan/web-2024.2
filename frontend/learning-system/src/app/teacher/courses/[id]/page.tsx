@@ -90,7 +90,7 @@ interface EnrollmentRequest {
 }
 
 // CourseAnalytics component to display completion rate and average progress
-const CourseAnalytics = ({ students }: { students: User[] }) => {
+const CourseAnalytics = ({ students, course }: { students: User[], course: Course | null }) => {
   // Calculate completion rate and average progress
   const calculateAnalytics = () => {
     if (!students || students.length === 0) {
@@ -98,6 +98,8 @@ const CourseAnalytics = ({ students }: { students: User[] }) => {
         registrations: 0,
         completionRate: 0,
         averageProgress: 0,
+        completedLessons: 0,
+        totalLessons: 0,
         revenue: 0
       };
     }
@@ -106,7 +108,7 @@ const CourseAnalytics = ({ students }: { students: User[] }) => {
     
     // Count completed students (progress = 100%)
     const completedCount = students.filter(student => 
-      student.progress && student.progress >= 100
+      typeof student.progress === 'number' && student.progress >= 100
     ).length;
     
     // Calculate completion rate
@@ -114,18 +116,29 @@ const CourseAnalytics = ({ students }: { students: User[] }) => {
       ? Math.round((completedCount / registrations) * 100) 
       : 0;
     
-    // Calculate average progress
-    const totalProgress = students.reduce((sum, student) => 
-      sum + (student.progress || 0), 0);
+    // Calculate average progress, ensuring each progress value is valid
+    const totalProgress = students.reduce((sum, student) => {
+      const progress = typeof student.progress === 'number' ? student.progress : 0;
+      return sum + Math.min(Math.max(progress, 0), 100);
+    }, 0);
+    
     const averageProgress = registrations > 0 
       ? Math.round(totalProgress / registrations) 
       : 0;
+    
+    // Calculate total number of lessons and quizzes
+    const totalLessons = (course?.lessons?.length || 0) + (course?.quizzes?.length || 0);
+    
+    // Estimate completed lessons based on average progress
+    const completedLessons = Math.round((averageProgress / 100) * totalLessons);
     
     return {
       registrations,
       completionRate,
       averageProgress,
-      revenue: 0 // This will be calculated in the render function below
+      completedLessons,
+      totalLessons,
+      revenue: course?.price || 0 // Will be multiplied by registrations in the render function
     };
   };
 
@@ -145,14 +158,23 @@ const CourseAnalytics = ({ students }: { students: User[] }) => {
         <div className="p-4 bg-gray-50 rounded-lg">
           <div className="text-sm text-gray-500">Tỷ lệ hoàn thành</div>
           <div className="text-2xl font-bold mt-1">{analytics.completionRate}%</div>
+          {/* <div className="text-xs text-gray-500 mt-1">
+            {analytics.completedLessons}/{analytics.totalLessons} mục hoàn thành
+          </div> */}
         </div>
         <div className="p-4 bg-gray-50 rounded-lg">
           <div className="text-sm text-gray-500">Tiến độ trung bình</div>
           <div className="text-2xl font-bold mt-1">{analytics.averageProgress}%</div>
+          <div className="w-full bg-gray-200 rounded-full h-1.5 mt-2">
+            <div 
+              className="bg-green-500 h-1.5 rounded-full" 
+              style={{ width: `${analytics.averageProgress}%` }}
+            ></div>
+          </div>
         </div>
         <div className="p-4 bg-gray-50 rounded-lg">
           <div className="text-sm text-gray-500">Doanh thu</div>
-          <div className="text-2xl font-bold mt-1">{(analytics.registrations * 699000).toLocaleString()} VNĐ</div>
+          <div className="text-2xl font-bold mt-1">{(analytics.registrations * analytics.revenue).toLocaleString()} VNĐ</div>
         </div>
       </div>
     </div>
@@ -714,7 +736,9 @@ export default function TeacherCourseDetailPage() {
   };
 
   const getProgress = (student: User) => {
-    return student.progress || 0;
+    // Make sure we have a valid progress value between 0-100
+    const rawProgress = typeof student.progress === 'number' ? student.progress : 0;
+    return Math.min(Math.max(Math.round(rawProgress), 0), 100);
   };
 
   const getDate = (student: User) => {
@@ -977,7 +1001,7 @@ export default function TeacherCourseDetailPage() {
             
             {/* Analytics Section */}
             {course && course.studentsEnrolled && (
-              <CourseAnalytics students={course.studentsEnrolled} />
+              <CourseAnalytics students={course.studentsEnrolled} course={course} />
             )}
           </div>
 
@@ -1498,6 +1522,12 @@ export default function TeacherCourseDetailPage() {
                         // const lastActive = getDate(student);
                         // const enrolledAt = getDate(student);
 
+                        // Calculate completion stats
+                        const totalLessons = (course?.lessons?.length || 0);
+                        const totalQuizzes = (course?.quizzes?.length || 0);
+                        // const totalContent = totalLessons + totalQuizzes;
+                        // const completedItems = Math.round((progress / 100) * totalContent);
+
                         return (
                           <div key={studentId} className="bg-white p-4 rounded-lg shadow">
                             <div className="flex items-start justify-between">
@@ -1540,7 +1570,7 @@ export default function TeacherCourseDetailPage() {
                                   style={{ width: `${progress}%` }}
                                 ></div>
                               </div>
-                              <div className="mt-2">
+                              <div className="mt-2 flex justify-between">
                                 <span className={`text-xs px-2 py-1 rounded-full ${
                                   progress === 100 
                                     ? 'bg-green-100 text-green-800' 
@@ -1555,6 +1585,17 @@ export default function TeacherCourseDetailPage() {
                                       : 'Chưa bắt đầu'
                                   }
                                 </span>
+                               
+                              </div>
+                              <div className="grid grid-cols-2 gap-2 mt-3">
+                                <div className="p-2 bg-gray-50 rounded border border-gray-100">
+                                  <div className="text-xs text-gray-500">Bài học</div>
+                                  <div className="text-sm font-medium">{Math.round((progress / 100) * totalLessons)}/{totalLessons}</div>
+                                </div>
+                                <div className="p-2 bg-gray-50 rounded border border-gray-100">
+                                  <div className="text-xs text-gray-500">Bài kiểm tra</div>
+                                  <div className="text-sm font-medium">{Math.round((progress / 100) * totalQuizzes)}/{totalQuizzes}</div>
+                                </div>
                               </div>
                             </div>
                           </div>

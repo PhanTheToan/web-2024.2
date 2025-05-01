@@ -65,7 +65,7 @@ interface Quiz {
   order?: number;
   orderQuiz?: number;
   createdAt: Date;
-  equiz?: EQuiz; // Added field from API
+  type?: EQuiz; // Field matching API response
   material?: string;
 }
 
@@ -220,7 +220,7 @@ const QuizQuestion: React.FC<QuizQuestionProps> = ({
   };
   
   // Get the quiz display mode from the props
-  const quizDisplayMode = quizData?.equiz || EQuiz.QUIZ_FORM_FULL;
+  const quizDisplayMode = quizData?.type || EQuiz.QUIZ_FORM_FULL;
   const isQuizFillMode = quizDisplayMode === EQuiz.QUIZ_FILL;
   
   // Check if this question has feedback and if it's correct
@@ -340,7 +340,7 @@ const QuizQuestion: React.FC<QuizQuestionProps> = ({
   );
 };
 
-// Define an interface for API question data
+// Interface for API question data
 interface ApiQuizQuestion {
   question: string;
   options?: string[];
@@ -604,7 +604,8 @@ const QuizPage: React.FC = () => {
         timeLimit: quizData.body.timeLimit || 30,
         order: quizData.body.order || quizData.body.orderQuiz,
         createdAt: new Date(quizData.body.createdAt),
-        equiz: quizData.body.equiz ||quizData.body.eQuiz,
+        // Use type from the API response
+        type: quizData.body.type || EQuiz.QUIZ_FORM_FULL,
         material: quizData.body.material || ''
       };
       
@@ -734,7 +735,7 @@ const QuizPage: React.FC = () => {
 
   const handleSelectAnswer = (questionIndex: number, answer: string | string[]) => {
     // For QUIZ_FILL mode, we need to handle single selections differently
-    if (quiz?.equiz === EQuiz.QUIZ_FILL) {
+    if (quiz?.type === EQuiz.QUIZ_FILL) {
       // For QUIZ_FILL, always use single selection mode
       setSelectedAnswers(prev => {
         // Start with previous answers
@@ -812,24 +813,24 @@ const QuizPage: React.FC = () => {
     
     // Check if all questions are answered
     const stats = getQuestionStats();
-    if (stats.unanswered > 0 && remainingTime > 10) {
+    if (stats.unanswered > 0) {
       const confirm = window.confirm(`Bạn còn ${stats.unanswered} câu hỏi chưa trả lời. Bạn có chắc chắn muốn nộp bài?`);
       if (!confirm) return;
     }
     
     setIsSubmitting(true);
     try {
-      // Format answers for the API according to the screenshot format
-      const answers = Object.entries(selectedAnswers).map(([questionIndex, selectedAnswer]) => {
-        const index = parseInt(questionIndex);
-        const question = quiz.questions[index];
+      // Format answers for all questions, including those not answered
+      const answers = quiz.questions.map((question, index) => {
+        // Get the selected answer if it exists, otherwise use empty array/string
+        const selectedAnswer = selectedAnswers[index];
         
         // Ensure selectedAnswer is always an array as shown in the screenshot
         const formattedAnswer = Array.isArray(selectedAnswer) 
           ? selectedAnswer 
           : selectedAnswer !== null && selectedAnswer !== undefined 
             ? [selectedAnswer.toString()] 
-            : [];
+            : ['']; // Default empty string for unanswered questions
         
         return {
           question: question.question,
@@ -840,7 +841,6 @@ const QuizPage: React.FC = () => {
       // Format request body according to the screenshot
       const requestBody = {
         answers: answers
-        // Format exactly matches the screenshot
       };
       
       console.log("Submitting quiz with answers:", requestBody);
@@ -1325,7 +1325,7 @@ const QuizPage: React.FC = () => {
               {/* Quiz questions */}
               {!quizResult && (
                 <div className="space-y-6">
-                  {quiz.equiz === EQuiz.QUIZ_FILL ? (
+                  {quiz.type === EQuiz.QUIZ_FILL ? (
                     // Render special answer sheet format for QUIZ_FILL type
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                       {/* PDF Material Display - Left column (2/3 width) */}
@@ -1354,7 +1354,7 @@ const QuizPage: React.FC = () => {
                         <h3 className="text-lg font-bold mb-4">Phiếu trả lời</h3>
                         
                         {/* Answer section with single question per row layout */}
-                        <div className="space-y-2 mb-6 max-h-[calc(100vh-350px)] overflow-y-auto pr-1">
+                        <div className="space-y-2 mb-6 max-h-[calc(100vh-100px)] overflow-y-auto pr-1">
                           {quiz.questions.map((question, index) => {
                             const optionLetters = ['A', 'B', 'C', 'D'];
                             const selectedOption = selectedAnswers[index];
@@ -1486,7 +1486,7 @@ const QuizPage: React.FC = () => {
                 <div className="bg-white rounded-lg shadow-md p-6 mt-6">
                   <h2 className="text-xl font-bold mb-4">Chi tiết kết quả</h2>
                   
-                  {quiz.equiz === EQuiz.QUIZ_FILL ? (
+                  {quiz.type === EQuiz.QUIZ_FILL ? (
                     // Special display for QUIZ_FILL mode results
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                       {/* Display quiz material - Left column (2/3 width) */}

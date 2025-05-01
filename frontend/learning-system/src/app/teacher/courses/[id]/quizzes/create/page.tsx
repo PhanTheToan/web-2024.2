@@ -41,13 +41,14 @@ export default function CreateQuizPage() {
   
   // Replace individual state variables with an object for all quiz info
   const [quizInfo, setQuizInfo] = useState({
+    material: null as string | null,
     title: '',
     description: '',
     timeLimit: 30, // in minutes
     passingScore: 70, // percentage
     order: 1,
     status: QuizStatus.INACTIVE, // Default to inactive
-    equiz: QuizType.QUIZ_FORM_FULL, // Default quiz type
+    type: QuizType.QUIZ_FORM_FULL, // Default quiz type
   });
   
   const [orderInfo, setOrderInfo] = useState<{
@@ -353,60 +354,37 @@ export default function CreateQuizPage() {
       setError(null);
       setSubmitting(true);
 
-      // Chuẩn bị dữ liệu gửi đi
+      // Chuẩn bị dữ liệu gửi đi theo format mới
       const requestData = {
         title: quizInfo.title,
-        description: quizInfo.description || 'null',
+        description: quizInfo.description || '',
         order: quizInfo.order,
         passingScore: quizInfo.passingScore,
         timeLimit: quizInfo.timeLimit,
         status: quizInfo.status,
-        equiz: quizInfo.equiz,
+        material: quizInfo.material,
+        type: quizInfo.type,
         questions: questions.map(q => {
           // Format the question based on its type
-          const formattedQuestion: {
-            question: string;
-            material: string | null;
-            eQuestion?: EQuestion;
-            options: string[];
-            correctAnswer: string[];
-          } = {
+          return {
             question: q.question,
             material: q.material || null,
             eQuestion: q.equestion,
-            options: [],
-            correctAnswer: []
-          };
-
-          if (q.equestion === EQuestion.SHORT_ANSWER) {
-            // For short answer type, filter out empty answers
-            formattedQuestion.correctAnswer = q.correctAnswer.filter(answer => answer.trim());
-            // No options for short answer questions
-            formattedQuestion.options = [];
-          } else {
-            // For multiple choice and single choice, include valid options
-            formattedQuestion.options = q.options.filter(option => option.trim());
-            
-            // For choice questions, convert indices to actual option values
-            if (q.equestion === EQuestion.SINGLE_CHOICE || q.equestion === EQuestion.MULTIPLE_CHOICE) {
-              formattedQuestion.correctAnswer = q.correctAnswer
-                .map(answerIndex => {
+            options: q.equestion === EQuestion.SHORT_ANSWER ? [] : q.options.filter(option => option.trim()),
+            correctAnswer: q.equestion === EQuestion.SHORT_ANSWER 
+              ? q.correctAnswer.filter(answer => answer.trim())
+              : q.correctAnswer.map(answerIndex => {
                   const index = parseInt(answerIndex);
                   return isNaN(index) ? answerIndex : q.options[index];
-                })
-                .filter(answer => answer && answer.trim());
-            }
-          }
-
-          console.log("Formatted question:", formattedQuestion);
-          return formattedQuestion;
+                }).filter(answer => answer && answer.trim())
+          };
         })
       };
       
       console.log("Sending quiz data:", JSON.stringify(requestData, null, 2));
 
       // Call the API
-      const response = await fetch(`${API_BASE_URL}/course/create-quiz?courseId=${courseId}`, {
+      const response = await fetch(`${API_BASE_URL}/course/create-quiz?courseId=${courseId}&type=${requestData.type}`, {
         method: 'POST',
         credentials: 'include',
         headers: {
@@ -661,6 +639,48 @@ export default function CreateQuizPage() {
           </div>
 
           <div className="mb-4">
+            <label htmlFor="material" className="block text-sm font-medium text-gray-700 mb-1">
+              Tài liệu bài kiểm tra (PDF, tùy chọn)
+            </label>
+            <div className="mt-1 flex items-center">
+              {quizInfo.material ? (
+                <div className="flex items-center">
+                  <a 
+                    href={quizInfo.material as string} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:text-blue-800 underline mr-2"
+                  >
+                    Xem tài liệu
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => setQuizInfo({...quizInfo, material: null})}
+                    className="text-red-500 hover:text-red-700"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center">
+                  <input
+                    type="text"
+                    id="material"
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-teal-500 focus:border-teal-500"
+                    placeholder="Nhập URL tài liệu PDF (https://example.com/quiz.pdf)"
+                    onChange={(e) => setQuizInfo({...quizInfo, material: e.target.value})}
+                  />
+                </div>
+              )}
+            </div>
+            <p className="mt-1 text-xs text-gray-500">
+              Nhập URL của tài liệu PDF nếu bạn muốn sử dụng cho bài kiểm tra dạng phiếu trả lời.
+            </p>
+          </div>
+
+          <div className="mb-4">
             <label htmlFor="order" className="block text-sm font-medium text-gray-700 mb-1">
               Thứ tự bài kiểm tra <span className="text-teal-600">(Tự động)</span>
             </label>
@@ -721,20 +741,20 @@ export default function CreateQuizPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
             <div>
-              <label htmlFor="equiz" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="type" className="block text-sm font-medium text-gray-700 mb-1">
                 Loại bài kiểm tra
               </label>
               <select
-                id="equiz"
+                id="type"
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-teal-500 focus:border-teal-500"
-                value={quizInfo.equiz}
-                onChange={(e) => setQuizInfo({...quizInfo, equiz: e.target.value as QuizType})}
+                value={quizInfo.type}
+                onChange={(e) => setQuizInfo({...quizInfo, type: e.target.value as QuizType})}
               >
                 <option value={QuizType.QUIZ_FORM_FULL}>Bài kiểm tra đầy đủ</option>
                 <option value={QuizType.QUIZ_FILL}>Phiếu trả lời</option>
               </select>
               <p className="mt-1 text-sm text-gray-500">
-                {quizInfo.equiz === QuizType.QUIZ_FORM_FULL 
+                {quizInfo.type === QuizType.QUIZ_FORM_FULL 
                   ? "Hiển thị đầy đủ nội dung câu hỏi và các phương án trả lời." 
                   : "Hiển thị đề bài dưới dạng tài liệu PDF và phiếu trắc nghiệm để điền đáp án."}
               </p>
@@ -982,7 +1002,7 @@ export default function CreateQuizPage() {
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-teal-500 focus:border-teal-500"
                         rows={3}
                       />
-                  </div>
+                    </div>
                   )}
                 </div>
               ))}
