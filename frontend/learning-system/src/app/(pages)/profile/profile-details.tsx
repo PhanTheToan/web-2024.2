@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+// import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -158,7 +158,7 @@ export function ProfileDetails() {
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="username">Username</Label>
-              <Input
+              <input
                 id="username"
                 value={profile.username || ""}
                 disabled
@@ -166,7 +166,7 @@ export function ProfileDetails() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
-              <Input
+              <input
                 id="email"
                 type="email"
                 value={profile.email || ""}
@@ -175,7 +175,7 @@ export function ProfileDetails() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="firstName">First Name</Label>
-              <Input
+              <input
                 id="firstName"
                 value={profile.firstName || ""}
                 onChange={(e) => handleChange("firstName", e.target.value)}
@@ -183,7 +183,7 @@ export function ProfileDetails() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="lastName">Last Name</Label>
-              <Input
+              <input
                 id="lastName"
                 value={profile.lastName || ""}
                 onChange={(e) => handleChange("lastName", e.target.value)}
@@ -191,7 +191,7 @@ export function ProfileDetails() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="phone">Phone Number</Label>
-              <Input
+              <input
                 id="phone"
                 value={profile.phone || ""}
                 onChange={(e) => handleChange("phone", e.target.value)}
@@ -199,7 +199,7 @@ export function ProfileDetails() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="dob">Date of Birth</Label>
-              <Input
+              <input
                 id="dob"
                 type="date"
                 value={profile.dateOfBirth || ""}
@@ -224,7 +224,7 @@ export function ProfileDetails() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="profileImage">Profile Image</Label>
-              <Input
+              <input
                 id="profileImage"
                 type="file"
                 accept="image/*"

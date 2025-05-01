@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { StatisticCards } from "./components/statisticcards/StatisticCards";
 import { FaStar } from "react-icons/fa";
 import { FaCheckCircle } from "react-icons/fa";
-import { Button, Typography, Box } from '@mui/material';
+import { Button } from '@mui/material';
 import Image from 'next/image';
 import { Check } from "lucide-react";
 import * as dotenv from "dotenv";
@@ -21,8 +21,8 @@ export default function Home() {
   const [courses, setCourses] = useState([]);
   const [feedbacks, setFeedbacks] = useState([]);
 
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [ setLoading] = useState(true);
+  const [ setError] = useState(null);
 
   // Fetch categories
   useEffect(() => {
@@ -287,9 +287,7 @@ export default function Home() {
                 </div>
 
                 {/* Nội dung đánh giá */}
-                <p className="text-gray-600 sm:text-[16px] text-[14px]">
-                  "{feedback.comment}"
-                </p>
+                <p className="text-gray-600 sm:text-[16px] text-[14px]">'{feedback.comment}'</p>
               </div>
             ))}
 

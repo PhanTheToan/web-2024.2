@@ -1,9 +1,8 @@
-'use client'
+"use client"
 
 import { useState, useEffect } from "react"
-import img from "next/image"
 import Link from "next/link"
-import { CalendarIcon, PlusCircle, Search, ChevronLeft, ChevronRight } from "lucide-react"
+import { CalendarIcon, Search, ChevronLeft, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
@@ -18,43 +17,39 @@ export default function BlogPage() {
   const [totalItems, setTotalItems] = useState(0)
   const itemsPerPage = 9
 
-  // Helper function to format the createdAt array into a readable date
-  const formatDate = (createdAtArray) => {
-    const [year, month, day, hour, minute, second] = createdAtArray;
-    const date = new Date(year, month - 1, day, hour, minute, second);
-    const options = { year: 'numeric', month: 'short', day: 'numeric' };
-    return date.toLocaleDateString('en-US', options);
-  };
+  const formatDate = (createdAtArray: number[]) => {
+    const [year, month, day, hour, minute, second] = createdAtArray
+    const date = new Date(year, month - 1, day, hour, minute, second)
+    const options: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'short', day: 'numeric' }
+    return date.toLocaleDateString(undefined, options)
+  }
 
   useEffect(() => {
     const fetchBlogPosts = async () => {
       try {
         setLoading(true)
-        const queryParams = new URLSearchParams({
-          page: currentPage.toString(),
-          limit: itemsPerPage.toString(),
-          search: searchTerm,
-        })
 
-        const response = await fetch(`${BASE_URL}?${queryParams}`)
+        const searchUrl = searchTerm
+          ? `${BASE_URL}/search/${encodeURIComponent(searchTerm)}`
+          : `${BASE_URL}?page=${currentPage}&limit=${itemsPerPage}`
+
+        const response = await fetch(searchUrl)
 
         if (!response.ok) {
           throw new Error("Failed to fetch blog posts")
         }
 
         const data = await response.json()
-        console.log("API Response Data:", data) // Log phản hồi API
+        console.log("API Response Data:", data)
 
-        // Adjust based on actual API structure
-        const posts = data || [] // If data is already an array of posts
-        const total = posts.length || 0 // Total number of posts
-        const totalPages = Math.ceil(total / itemsPerPage) // Calculate total pages
+        const posts = Array.isArray(data) ? data : data.items || []
+        const total = posts.length
+        const totalPages = Math.ceil(total / itemsPerPage)
 
-        // Format the createdAt field for each post
         const formattedPosts = posts.map(post => ({
           ...post,
           formattedDate: formatDate(post.createdAt),
-        }));
+        }))
 
         setBlogPosts(formattedPosts)
         setTotalItems(total)
@@ -180,8 +175,8 @@ export default function BlogPage() {
                         <img
                           src={post.image || `/placeholder.svg?height=200&width=300`}
                           alt={post.title || "Blog post thumbnail"}
-                          fill
-                          className="object-cover"
+                          layout="fill"
+                          objectFit="cover"
                         />
                       </div>
                       <div className="p-4 flex-grow flex flex-col">
@@ -192,7 +187,7 @@ export default function BlogPage() {
                         </h2>
                         <div className="flex items-center text-sm text-gray-500 mb-3">
                           <CalendarIcon size={14} className="mr-1" />
-                          <span>{post.formattedDate || "Ngày chưa xác định"}</span> {/* Display formatted date */}
+                          <span>{post.formattedDate || "Ngày chưa xác định"}</span>
                         </div>
                         <p className="text-gray-600 text-sm line-clamp-3 flex-grow">
                           {post.content || "Nội dung bài viết chưa có."}
@@ -213,7 +208,7 @@ export default function BlogPage() {
                 </div>
               )}
 
-              {totalPages > 1 && (
+              {!searchTerm && totalPages > 1 && (
                 <div className="flex justify-center mt-8">
                   <nav className="flex items-center space-x-1">
                     <Button
