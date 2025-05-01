@@ -483,7 +483,7 @@ export default function CreateQuizPage() {
         passingScore: quizInfo.passingScore,
         order: quizInfo.order,
         status: quizInfo.status,
-        equiz: quizInfo.equiz,
+        // equiz: quizInfo.equiz,
         questions: questions.map(q => {
           // Chuẩn bị câu hỏi dựa trên loại
           const formattedQuestion: {

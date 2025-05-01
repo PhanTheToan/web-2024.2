@@ -47,7 +47,8 @@ interface Quiz {
   status?: QuizStatus;
   createdAt?: DateOrArray;
   updateAt?: DateOrArray;
-  equiz?: string | null;
+  type?: string | null;
+  material?: string | null;
 }
 
 export default function EditQuizPage() {
@@ -56,6 +57,7 @@ export default function EditQuizPage() {
   const courseId = params.id as string;
   const quizId = params.quizId as string;
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const pdfFileInputRef = useRef<HTMLInputElement>(null);
   
   const [course, setCourse] = useState<Course | null>(null);
   const [loading, setLoading] = useState(true);
@@ -63,6 +65,7 @@ export default function EditQuizPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadingPdf, setUploadingPdf] = useState(false);
 
   // Quiz information state
   const [quizInfo, setQuizInfo] = useState({
@@ -72,7 +75,8 @@ export default function EditQuizPage() {
     passingScore: 70, // percentage
     order: 1,
     status: QuizStatus.INACTIVE, // Default to inactive
-    equiz: QuizType.QUIZ_FORM_FULL, // Default quiz type
+    type: QuizType.QUIZ_FORM_FULL, // Default quiz type
+    material: null as string | null, // Material PDF
   });
 
   // Questions state
@@ -190,7 +194,8 @@ export default function EditQuizPage() {
         passingScore: quizData.passingScore || 70,
         order: quizData.order || 1,
         status: quizData.status || QuizStatus.INACTIVE,
-        equiz: (quizData.equiz as QuizType) || QuizType.QUIZ_FORM_FULL,
+        type: (quizData.type as QuizType) || QuizType.QUIZ_FORM_FULL,
+        material: quizData.material || null,
       });
       
       // Set questions
@@ -451,6 +456,77 @@ export default function EditQuizPage() {
     toast.success('Đã xóa hình ảnh');
   };
 
+  // Handler for PDF material upload
+  const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    
+    const file = files[0];
+    
+    // Check file size (10MB max)
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('Kích thước tệp PDF quá lớn. Tối đa 10MB');
+      return;
+    }
+    
+    // Check file type (PDF only)
+    if (file.type !== 'application/pdf') {
+      toast.error('Chỉ chấp nhận tệp PDF');
+      return;
+    }
+    
+    setUploadingPdf(true);
+    
+    try {
+      // Use the PDF upload API from screenshot
+      const formData = new FormData();
+      formData.append('files', file);
+      
+      console.log('Uploading PDF...');
+      
+      const response = await fetch(`${API_BASE_URL}/upload/pdf`, {
+        method: 'POST',
+        credentials: 'include',
+        body: formData
+      });
+      
+      if (!response.ok) {
+        throw new Error('Không thể tải lên tệp PDF');
+      }
+      
+      // API returns URL directly as text
+      const pdfUrl = await response.text();
+      console.log('PDF URL:', pdfUrl);
+      const urlArray = JSON.parse(pdfUrl);
+      const url = urlArray[0];
+      setQuizInfo({
+        ...quizInfo,
+        material: url
+      });
+      
+      toast.success('Tải lên tệp PDF thành công');
+      
+      // Reset file input
+      if (pdfFileInputRef.current) {
+        pdfFileInputRef.current.value = '';
+      }
+    } catch (err) {
+      console.error('Error uploading PDF:', err);
+      toast.error('Không thể tải lên tệp PDF. Vui lòng thử lại sau.');
+    } finally {
+      setUploadingPdf(false);
+    }
+  };
+
+  // Remove PDF material
+  const removePdf = () => {
+    setQuizInfo({
+      ...quizInfo,
+      material: null
+    });
+    toast.success('Đã xóa tệp PDF');
+  };
+
   const loadQuestion = (question: QuizQuestion) => {
     // Prepare options based on question type
     let options = [...(question.options || [])];
@@ -657,7 +733,8 @@ export default function EditQuizPage() {
         passingScore: quizInfo.passingScore,
         timeLimit: quizInfo.timeLimit,
         status: quizInfo.status,
-        equiz: quizInfo.equiz,
+        type: quizInfo.type,
+        material: quizInfo.material,
         questions: finalQuestions.map((q, index) => {
           console.log(`Đang map câu hỏi ${index + 1}, correctAnswer:`, q.correctAnswer);
           
@@ -938,13 +1015,13 @@ export default function EditQuizPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
               <div>
-                <label htmlFor="equiz" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="type" className="block text-sm font-medium text-gray-700 mb-1">
                   Loại bài kiểm tra
                 </label>
                 <select
-                  id="equiz"
-                  name="equiz"
-                  value={quizInfo.equiz}
+                  id="type"
+                  name="type"
+                  value={quizInfo.type}
                   onChange={handleQuizInfoChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500"
                 >
@@ -952,7 +1029,7 @@ export default function EditQuizPage() {
                   <option value={QuizType.QUIZ_FILL}>Phiếu trả lời</option>
                 </select>
                 <p className="text-xs text-gray-500 mt-1">
-                  {quizInfo.equiz === QuizType.QUIZ_FORM_FULL 
+                  {quizInfo.type === QuizType.QUIZ_FORM_FULL 
                     ? "Hiển thị đầy đủ nội dung câu hỏi và các phương án trả lời." 
                     : "Hiển thị đề bài dưới dạng tài liệu PDF và phiếu trắc nghiệm để điền đáp án."}
                 </p>
@@ -992,6 +1069,71 @@ export default function EditQuizPage() {
                     : "Học viên sẽ không thấy hoặc không thể làm bài kiểm tra này khi đang học khóa học."}
                 </p>
               </div>
+            </div>
+
+            <div className="mb-4">
+              <label htmlFor="material" className="block text-sm font-medium text-gray-700 mb-1">
+                Tài liệu bài kiểm tra (PDF)
+                {quizInfo.type === QuizType.QUIZ_FILL && <span className="text-red-500 ml-1">*</span>}
+              </label>
+              
+              {quizInfo.material ? (
+                <div className="mt-2 relative border border-gray-300 rounded-md p-4">
+                  <div className="flex items-center">
+                    <svg className="w-8 h-8 text-red-600 mr-2" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12.819 14.427c.064.267.077.679-.021.948-.128.351-.381.528-.754.528h-.637v-2.12h.496c.474 0 .803.173.916.644zm3.091-8.65c2.047-.479 4.805.279 6.09 1.179-1.494-1.997-5.23-5.708-7.432-6.882 1.157 1.168 1.563 4.235 1.342 5.703zm-7.457 7.955h-.546v.943h.546c.235 0 .467-.027.576-.227.067-.123.067-.366 0-.489-.121-.218-.326-.227-.576-.227zm13.547-2.732v13h-20v-24h8.409c4.858 0 3.334 8 3.334 8 3.011-.745 8.257-.42 8.257 3zm-12.108 2.761c-.16-.484-.606-.761-1.224-.761h-1.668v3.686h.907v-1.277h.761c.619 0 1.064-.277 1.224-.763.094-.292.094-.597 0-.885zm3.407-.303c-.297-.299-.711-.458-1.199-.458h-1.599v3.686h1.599c.537 0 .961-.181 1.262-.535.554-.659.586-2.035-.063-2.693zm3.701-.458h-2.628v3.686h.907v-1.472h1.49v-.732h-1.49v-.698h1.721v-.784z" />
+                    </svg>
+                    <div>
+                      <a href={quizInfo.material} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                        Xem tài liệu PDF
+                      </a>
+                      <p className="text-sm text-gray-500">Đã tải lên thành công</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={removePdf}
+                    className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full hover:bg-red-600 transition"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : (
+                <div className="mt-1 flex items-center">
+                  <input
+                    type="file"
+                    id="pdfMaterial"
+                    ref={pdfFileInputRef}
+                    accept="application/pdf"
+                    className="sr-only"
+                    onChange={handlePdfUpload}
+                  />
+                  <label
+                    htmlFor="pdfMaterial"
+                    className="cursor-pointer bg-white py-2 px-3 border border-gray-300 rounded-md shadow-sm text-sm leading-4 font-medium text-gray-700 hover:bg-gray-50 focus:outline-none"
+                  >
+                    {uploadingPdf ? (
+                      <span className="flex items-center">
+                        <Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-700" />
+                        Đang tải lên...
+                      </span>
+                    ) : (
+                      <span className="flex items-center">
+                        <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M12.819 14.427c.064.267.077.679-.021.948-.128.351-.381.528-.754.528h-.637v-2.12h.496c.474 0 .803.173.916.644zm3.091-8.65c2.047-.479 4.805.279 6.09 1.179-1.494-1.997-5.23-5.708-7.432-6.882 1.157 1.168 1.563 4.235 1.342 5.703zm-7.457 7.955h-.546v.943h.546c.235 0 .467-.027.576-.227.067-.123.067-.366 0-.489-.121-.218-.326-.227-.576-.227zm13.547-2.732v13h-20v-24h8.409c4.858 0 3.334 8 3.334 8 3.011-.745 8.257-.42 8.257 3zm-12.108 2.761c-.16-.484-.606-.761-1.224-.761h-1.668v3.686h.907v-1.277h.761c.619 0 1.064-.277 1.224-.763.094-.292.094-.597 0-.885zm3.407-.303c-.297-.299-.711-.458-1.199-.458h-1.599v3.686h1.599c.537 0 .961-.181 1.262-.535.554-.659.586-2.035-.063-2.693zm3.701-.458h-2.628v3.686h.907v-1.472h1.49v-.732h-1.49v-.698h1.721v-.784z" />
+                        </svg>
+                        Tải lên PDF
+                      </span>
+                    )}
+                  </label>
+                  <p className="ml-2 text-xs text-gray-500">PDF tối đa 10MB</p>
+                </div>
+              )}
+              {quizInfo.type === QuizType.QUIZ_FILL && !quizInfo.material && (
+                <p className="text-xs text-red-500 mt-1">
+                  Bài kiểm tra dạng phiếu trả lời cần có tài liệu PDF kèm theo
+                </p>
+              )}
             </div>
           </div>
         </div>

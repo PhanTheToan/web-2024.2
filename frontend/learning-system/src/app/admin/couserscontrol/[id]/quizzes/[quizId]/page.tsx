@@ -57,7 +57,7 @@ interface Quiz {
   createdAt: DateOrArray;
   updateAt?: DateOrArray;
   material?: string | null;
-  equiz?: string | null;
+  type?: string | null;
 }
 
 // Helper function to format API date (handles both string dates and array dates)
@@ -233,7 +233,7 @@ export default function QuizDetailPage() {
         createdAt: quizData.createdAt,
         updateAt: quizData.updateAt,
         material: quizData.material,
-        equiz: quizData.equiz || null
+        type: quizData.type || null
       };
       
       setQuiz(parsedQuiz);
@@ -460,19 +460,19 @@ export default function QuizDetailPage() {
           <div className="bg-white rounded-lg shadow">
             <div className="p-4 border-b flex justify-between items-center">
               <h3 className="text-lg font-bold">Câu hỏi ({quiz.questions.length})</h3>
-              {quiz.equiz && (
+              {quiz.type && (
                 <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                  quiz.equiz === QuizType.QUIZ_FORM_FULL 
+                  quiz.type === QuizType.QUIZ_FORM_FULL 
                     ? 'bg-indigo-100 text-indigo-800' 
                     : 'bg-purple-100 text-purple-800'
                 }`}>
-                  {quiz.equiz === QuizType.QUIZ_FORM_FULL ? 'Bài kiểm tra đầy đủ' : 'Phiếu trả lời'}
+                  {quiz.type === QuizType.QUIZ_FORM_FULL ? 'Bài kiểm tra đầy đủ' : 'Phiếu trả lời'}
                 </span>
               )}
             </div>
             
             {quiz.questions.length > 0 ? (
-              quiz.equiz === QuizType.QUIZ_FILL ? (
+              quiz.type === QuizType.QUIZ_FILL ? (
                 // QUIZ_FILL format (answer sheet style)
                 <div className="p-6">
                   <div className="mb-6 grid grid-cols-1 lg:grid-cols-4 gap-6">

@@ -47,7 +47,7 @@ interface Quiz {
   status?: QuizStatus;
   createdAt?: DateOrArray;
   updateAt?: DateOrArray;
-  equiz?: string | null;
+  type?: string | null;
 }
 
 export default function EditQuizPage() {
@@ -72,7 +72,7 @@ export default function EditQuizPage() {
     passingScore: 70, // percentage
     order: 1,
     status: QuizStatus.INACTIVE, // Default to inactive
-    equiz: QuizType.QUIZ_FORM_FULL, // Default quiz type
+    type: QuizType.QUIZ_FORM_FULL, // Default quiz type
   });
 
   // Questions state
@@ -190,7 +190,7 @@ export default function EditQuizPage() {
         passingScore: quizData.passingScore || 70,
         order: quizData.order || 1,
         status: quizData.status || QuizStatus.INACTIVE,
-        equiz: (quizData.equiz as QuizType) || QuizType.QUIZ_FORM_FULL,
+        type: (quizData.type as QuizType) || QuizType.QUIZ_FORM_FULL,
       });
       
       // Set questions
@@ -655,7 +655,7 @@ export default function EditQuizPage() {
         passingScore: quizInfo.passingScore,
         timeLimit: quizInfo.timeLimit,
         status: quizInfo.status,
-        equiz: quizInfo.equiz,
+        type: quizInfo.type,
         questions: finalQuestions.map((q, index) => {
           console.log(`Đang map câu hỏi ${index + 1}, correctAnswer:`, q.correctAnswer);
           
@@ -936,13 +936,13 @@ export default function EditQuizPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
               <div>
-                <label htmlFor="equiz" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="type" className="block text-sm font-medium text-gray-700 mb-1">
                   Loại bài kiểm tra
                 </label>
                 <select
-                  id="equiz"
-                  name="equiz"
-                  value={quizInfo.equiz}
+                  id="type"
+                  name="type"
+                  value={quizInfo.type}
                   onChange={handleQuizInfoChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500"
                 >
@@ -950,7 +950,7 @@ export default function EditQuizPage() {
                   <option value={QuizType.QUIZ_FILL}>Phiếu trả lời</option>
                 </select>
                 <p className="text-xs text-gray-500 mt-1">
-                  {quizInfo.equiz === QuizType.QUIZ_FORM_FULL 
+                  {quizInfo.type === QuizType.QUIZ_FORM_FULL 
                     ? "Hiển thị đầy đủ nội dung câu hỏi và các phương án trả lời." 
                     : "Hiển thị đề bài dưới dạng tài liệu PDF và phiếu trắc nghiệm để điền đáp án."}
                 </p>
