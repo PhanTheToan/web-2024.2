@@ -11,17 +11,24 @@ import Image from "next/image"
 
 const BASE_URL = process.env.BASE_URL || ""
 
+interface User {
+  profileImage: string;
+  role: string;
+  username: string;
+}
+
 export const Header = () => {
   const pathusername = usePathname()
   const router = useRouter()
   const [isOpen, setIsOpen] = useState(false)
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
-  const [user, setUser] = useState(null)
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true)
 
+  type Role = "ROLE_USER" | "ROLE_TEACHER" | "ROLE_ADMIN" | string
   // Ánh xạ vai trò sang tiếng Việt
-  const getRoleLabel = (role) => {
+  const getRoleLabel = (role: Role): string => {
     switch (role) {
       case "ROLE_USER":
         return "Học viên"
@@ -118,7 +125,7 @@ export const Header = () => {
     }
   }
 
-  const isActive = (href) => {
+  const isActive = (href: string) => {
     if (href === "/") {
       return pathusername === "/"
     }
@@ -196,7 +203,7 @@ export const Header = () => {
                   <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 border border-gray-200">
                     <div className="px-4 py-2 border-b border-gray-100">
                       <p className="text-sm font-medium text-gray-900">{user?.username || "Người dùng"}</p>
-                      <p className="text-xs text-gray-500">{getRoleLabel(user?.role)}</p>
+                      <p className="text-xs text-gray-500">{getRoleLabel(user?.role ?? "")}</p>
                     </div>
                     <Link
                       href={
@@ -267,7 +274,7 @@ export const Header = () => {
               )}
               <div className="ml-3">
                 <p className="text-sm font-medium text-gray-900">{user.username || "Người dùng"}</p>
-                <p className="text-xs text-gray-500">{getRoleLabel(user.role)}</p>
+                <p className="text-xs text-gray-500">{getRoleLabel(user?.role ?? "")}</p>
               </div>
             </div>
           </div>

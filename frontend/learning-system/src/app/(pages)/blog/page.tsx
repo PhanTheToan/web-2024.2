@@ -8,13 +8,29 @@ import { Input } from "@/components/ui/input"
 
 const BASE_URL = "https://api.alphaeducation.io.vn/api/blog"
 
+interface BlogPost {
+  id: string
+  title: string
+  slug: string
+  image?: string
+  content?: string
+  refer?: string
+  createdAt: number[]
+  formattedDate?: string
+}
+
+interface PaginationItem {
+  type: "page" | "ellipsis"
+  value?: number
+}
+
 export default function BlogPage() {
-  const [loading, setLoading] = useState(false)
-  const [blogPosts, setBlogPosts] = useState([])
-  const [searchTerm, setSearchTerm] = useState("")
-  const [currentPage, setCurrentPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
-  const [totalItems, setTotalItems] = useState(0)
+  const [loading, setLoading] = useState<boolean>(false)
+  const [blogPosts, setBlogPosts] = useState<BlogPost[]>([])
+  const [searchTerm, setSearchTerm] = useState<string>("")
+  const [currentPage, setCurrentPage] = useState<number>(1)
+  const [totalPages, setTotalPages] = useState<number>(1)
+  const [totalItems, setTotalItems] = useState<number>(0)
   const itemsPerPage = 9
 
   const formatDate = (createdAtArray: number[]) => {
@@ -40,13 +56,11 @@ export default function BlogPage() {
         }
 
         const data = await response.json()
-        console.log("API Response Data:", data)
-
-        const posts = Array.isArray(data) ? data : data.items || []
+        const posts: BlogPost[] = Array.isArray(data) ? data : data.items || []
         const total = posts.length
         const totalPages = Math.ceil(total / itemsPerPage)
 
-        const formattedPosts = posts.map(post => ({
+        const formattedPosts = posts.map((post) => ({
           ...post,
           formattedDate: formatDate(post.createdAt),
         }))
@@ -68,18 +82,18 @@ export default function BlogPage() {
     return () => clearTimeout(timeoutId)
   }, [currentPage, searchTerm])
 
-  const handleSearchChange = (e) => {
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value)
     setCurrentPage(1)
   }
 
-  const handlePageChange = (page) => {
+  const handlePageChange = (page: number) => {
     setCurrentPage(page)
     window.scrollTo({ top: 0, behavior: "smooth" })
   }
 
-  const generatePaginationItems = () => {
-    const items = []
+  const generatePaginationItems = (): PaginationItem[] => {
+    const items: PaginationItem[] = []
     const maxVisiblePages = 5
 
     items.push({ type: "page", value: 1 })
@@ -175,8 +189,7 @@ export default function BlogPage() {
                         <img
                           src={post.image || `/placeholder.svg?height=200&width=300`}
                           alt={post.title || "Blog post thumbnail"}
-                          layout="fill"
-                          objectFit="cover"
+                          className="w-full h-full object-cover"
                         />
                       </div>
                       <div className="p-4 flex-grow flex flex-col">
@@ -192,12 +205,14 @@ export default function BlogPage() {
                         <p className="text-gray-600 text-sm line-clamp-3 flex-grow">
                           {post.content || "Nội dung bài viết chưa có."}
                         </p>
-                        <Link
-                          href={`${post.refer}`}
-                          className="mt-3 text-orange-500 hover:text-orange-600 text-sm font-medium"
-                        >
-                          Read More
-                        </Link>
+                        {post.refer && (
+                          <Link
+                            href={post.refer}
+                            className="mt-3 text-orange-500 hover:text-orange-600 text-sm font-medium"
+                          >
+                            Read More
+                          </Link>
+                        )}
                       </div>
                     </article>
                   ))}
@@ -221,20 +236,16 @@ export default function BlogPage() {
                       <ChevronLeft className="h-4 w-4" />
                     </Button>
 
-                    {generatePaginationItems().map((item, index) => {
-                      if (item.type === "ellipsis") {
-                        return (
-                          <span key={`ellipsis-${index}`} className="px-3 py-2">
-                            ...
-                          </span>
-                        )
-                      }
-
-                      return (
+                    {generatePaginationItems().map((item, index) =>
+                      item.type === "ellipsis" ? (
+                        <span key={`ellipsis-${index}`} className="px-3 py-2">
+                          ...
+                        </span>
+                      ) : (
                         <Button
                           key={`page-${item.value}`}
                           variant={currentPage === item.value ? "default" : "outline"}
-                          onClick={() => handlePageChange(item.value)}
+                          onClick={() => item.value && handlePageChange(item.value)}
                           className={`h-9 w-9 p-0 ${
                             currentPage === item.value ? "bg-orange-500 text-white border-orange-500" : ""
                           }`}
@@ -242,7 +253,7 @@ export default function BlogPage() {
                           {item.value}
                         </Button>
                       )
-                    })}
+                    )}
 
                     <Button
                       variant="outline"

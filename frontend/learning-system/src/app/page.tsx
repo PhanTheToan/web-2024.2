@@ -16,13 +16,27 @@ dotenv.config();
 const API_BASE_URL = process.env.BASE_URL;
 console.log("API_BASE_URL:", API_BASE_URL);
 
-export default function Home() {
-  const [categories, setCategories] = useState([]);
-  const [courses, setCourses] = useState([]);
-  const [feedbacks, setFeedbacks] = useState([]);
+interface Category {
+  categoryId: string;
+  categoryDisplayName: string;
+  categoryUrl: string;
+  categoryCount: number;
+}
 
-  const [ setLoading] = useState(true);
-  const [ setError] = useState(null);
+interface Feedback {
+  id: string;
+  fullName: string;
+  rating: number;
+  comment: string;
+}
+
+export default function Home() {
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [courses, setCourses] = useState([]);
+  const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
+
+  // const [setLoading] = useState(true);
+  // const [setError] = useState(null);
 
   // Fetch categories
   useEffect(() => {
@@ -37,7 +51,7 @@ export default function Home() {
         })
         .catch((error) => {
           console.error("Lỗi khi lấy danh mục:", error);
-          setError("Dữ liệu danh mục hiển thị là tạm thời.");
+          // setError?.("Dữ liệu danh mục hiển thị là tạm thời.");
         });
     }, 2000);
   }, []);
@@ -63,14 +77,16 @@ export default function Home() {
           if (Array.isArray(data.body) && data.body.length > 0) {
             setCourses(data.body);  // Assuming data.body contains the courses
           } else {
-            setError("Không có dữ liệu khóa học từ API, hiển thị dữ liệu mặc định.");
+            // setError("Không có dữ liệu khóa học từ API, hiển thị dữ liệu mặc định.");
+            console.log("Dữ liệu từ API");
           }
         })
         .catch((err) => {
           console.error("Lỗi API:", err);
-          setError("Dữ liệu khóa học hiển thị là tạm thời.");
+          // setError("Dữ liệu khóa học hiển thị là tạm thời.");
         })
-        .finally(() => setLoading(false));
+        // .finally(() => setLoading(false));
+        .finally(() => console.log("Dữ liệu từ API"));
 
     }, 2000);  // Optional delay before fetching
   }, []);  // Empty array to run only once when the component is mounted
@@ -97,14 +113,15 @@ export default function Home() {
           if (data.body && Array.isArray(data.body) && data.body.length > 0) {
             setFeedbacks(data.body);  // Set the feedbacks to the state
           } else {
-            setError("Không có phản hồi từ API, hiển thị dữ liệu mặc định.");
+            // setError("Không có phản hồi từ API, hiển thị dữ liệu mặc định.");
+            console.log("Dữ liệu từ API");
           }
         })
         .catch((err) => {
           console.error("Lỗi API:", err);
-          setError("Dữ liệu phản hồi hiển thị là tạm thời.");
+          // setError("Dữ liệu phản hồi hiển thị là tạm thời.");
         })
-        .finally(() => setLoading(false));
+        .finally(() => console.log("Dữ liệu từ API"));
 
     }, 2000);  // Optional delay before fetching
   }, []);  // Empty array to run only once when the component is mounted  
@@ -287,7 +304,10 @@ export default function Home() {
                 </div>
 
                 {/* Nội dung đánh giá */}
-                <p className="text-gray-600 sm:text-[16px] text-[14px]">'{feedback.comment}'</p>
+                <p className="text-gray-600 sm:text-[16px] text-[14px]">
+                  &lsquo;{feedback.comment}&rsquo;
+                </p>
+
               </div>
             ))}
 
