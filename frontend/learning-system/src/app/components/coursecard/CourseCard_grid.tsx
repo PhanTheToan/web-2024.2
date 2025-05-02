@@ -34,7 +34,13 @@ const CourseCardGrid: React.FC<CourseCardGridProps> = ({ course }) => {
           </span>
           <span className="flex-shrink-0">•</span>
           <span className="truncate">
-            {course.teacherId.firstName} {course.teacherId.lastName}
+            {typeof course.teacherId === "object" ? (
+              <>
+                {course.teacherId.firstName} {course.teacherId.lastName}
+              </>
+            ) : (
+              course.teacherId
+            )}
           </span>
         </div>
         <h3 className="text-lg font-semibold text-gray-900 mb-4 line-clamp-2 h-[3.2rem] flex items-start">

@@ -644,7 +644,9 @@ const LessonDetailPage: React.FC = () => {
         lessons: [],
         quizzes: [],
         studentsEnrolled: [],
-        teacherId: parsedCourse.teacherId || ''
+        teacherId: parsedCourse.teacherId || '',
+        duration: parsedCourse.duration || 0, // Add a default value or fetch the actual duration
+        rating: parsedCourse.rating || 0 // Add a default value or fetch the actual rating
       };
       
       setCourse(extendedCourse);

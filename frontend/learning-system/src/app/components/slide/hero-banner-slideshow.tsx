@@ -6,9 +6,9 @@ import Link from "next/link"
 
 export default function HeroBanner() {
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
-  const [backgroundImages, setBackgroundImages] = useState([])
+  const [backgroundImages, setBackgroundImages] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+  const [error] = useState(null)
 
   // Fetch the image from the API
   useEffect(() => {
@@ -23,9 +23,9 @@ export default function HeroBanner() {
         } else {
           throw new Error("Image URL not found in the response.")
         }
-      } catch (error) {
-        setError(error.message)
-        console.error("Error fetching image:", error)
+      } catch  {
+        
+        console.error("Error fetching image:")
       } finally {
         setLoading(false)
       }

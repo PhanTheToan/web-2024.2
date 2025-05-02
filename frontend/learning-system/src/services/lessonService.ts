@@ -1,6 +1,6 @@
 import { Lesson } from '@/app/types';
-import { mockLessons } from '@/data/mockData';
-import { mockCourses } from '@/data/mockCourses';
+import { mockLessons } from '../data/mockData';
+import { mockCourses } from '../data/mockCourses';
 
 // const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
 
@@ -125,21 +125,21 @@ export const lessonService = {
     const description = lessonData.description || '';
     
     // Temporary mock implementation
-    const newLesson: Omit<Lesson, 'description'> & { description: string } = {
+    const newLesson: Lesson = {
       _id: lessonData._id || `lesson-${Date.now()}`,
       courseId: lessonData.courseId,
       title: lessonData.title,
-      content: lessonData.content,
+      content: lessonData.content || '',
       videoUrl: lessonData.videoUrl || '',
       materials: lessonData.materials || [],
       order: lessonData.order || 1,
       timeLimit: lessonData.timeLimit || 30, // Default to 30 minutes if not provided
       createdAt: new Date(),
-      description,
+      description: description,
     };
     
     // In a real application, this would update the database
-    mockLessons.push(newLesson);
+    mockLessons.push(newLesson as typeof mockLessons[number]);
     
     // Find the course and add the lesson to it if it exists
     const courseIndex = mockCourses.findIndex(c => c._id === lessonData.courseId);
@@ -203,7 +203,7 @@ export const lessonService = {
       ...lessonData,
     };
     
-    mockLessons[lessonIndex] = updatedLesson;
+    mockLessons[lessonIndex] = updatedLesson as typeof mockLessons[number];
     return updatedLesson;
   },
   

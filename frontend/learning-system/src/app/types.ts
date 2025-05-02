@@ -95,6 +95,8 @@ export interface CourseData {
     isPopular?: boolean;
     totalDuration?: number;
     registrations?: number;
+    duration: string | number;
+    rating: number;
     
     // Add new properties from API responses
     teacherFullName?: string;

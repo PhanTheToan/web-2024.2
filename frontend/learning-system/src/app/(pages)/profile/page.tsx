@@ -16,6 +16,7 @@ interface Profile {
   lastName: string
   email: string
   profileImage?: string | null
+  username: string
 }
 
 export default function ProfilePage() {
