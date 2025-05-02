@@ -28,8 +28,13 @@ export const UserControl = () => {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
   const [userToDelete, setUserToDelete] = useState<string | null>(null)
-  const [selectedRole, setSelectedRole] = useState<string>("USER")
+  const [selectedRole, setSelectedRole] = useState<string>("ROLE_USER");
   const [showInactive, setShowInactive] = useState(false)
+  const [isPermanentDeleteModalOpen, setIsPermanentDeleteModalOpen] = useState(false);
+  const [confirmUsernameInput, setConfirmUsernameInput] = useState("");
+  const [userToPermanentlyDelete, setUserToPermanentlyDelete] = useState<{ userId: string; username: string } | null>(null);
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const fetchUserData = async () => {
     setLoading(true)
@@ -107,92 +112,113 @@ export const UserControl = () => {
     }
   }
 
-  const handleAdd = (role: string) => {
+  const handleAdd = () => {
     setEditingUser(null)
-    setSelectedRole(role)
     setIsModalOpen(true)
   }
 
   const closeModal = () => {
-    setIsModalOpen(false)
+    setIsModalOpen(false);  
+    setConfirmPassword(""); // Clear confirm password field
   }
 
   const handleSubmit = async () => {
-    try {
-      const username = (document.getElementById("username") as HTMLInputElement)?.value
-      const email = (document.getElementById("email") as HTMLInputElement)?.value
-      const password = (document.getElementById("password") as HTMLInputElement)?.value
-      const firstName = (document.getElementById("firstName") as HTMLInputElement)?.value
-      const lastName = (document.getElementById("lastName") as HTMLInputElement)?.value
-      const phone = (document.getElementById("phone") as HTMLInputElement)?.value
-      const dateOfBirth = (document.getElementById("dateOfBirth") as HTMLInputElement)?.value
-      const gender = (document.getElementById("gender") as HTMLSelectElement)?.value
+    if (isSubmitting) return; // Prevent multiple submissions
 
-      if (!username || !email || !password || !firstName || !lastName || !phone || !dateOfBirth) {
-        alert("Vui lòng điền đầy đủ thông tin bắt buộc!")
-        return
+    setIsSubmitting(true);
+    try {
+      const username = (document.getElementById("username") as HTMLInputElement)?.value;
+      const email = (document.getElementById("email") as HTMLInputElement)?.value;
+      const password = (document.getElementById("password") as HTMLInputElement)?.value;
+      const confirmPasswordInput = (document.getElementById("confirmPassword") as HTMLInputElement)?.value;
+      const firstName = (document.getElementById("firstName") as HTMLInputElement)?.value;
+      const lastName = (document.getElementById("lastName") as HTMLInputElement)?.value;
+      const phone = (document.getElementById("phone") as HTMLInputElement)?.value;
+      const dateOfBirth = (document.getElementById("dateOfBirth") as HTMLInputElement)?.value;
+      const gender = (document.getElementById("gender") as HTMLSelectElement)?.value;
+
+      if (!username || !email || (!editingUser && !password) || (!editingUser && !confirmPasswordInput) || !firstName || !lastName || !phone || !dateOfBirth) {
+        alert("Vui lòng điền đầy đủ thông tin bắt buộc!");
+        setIsSubmitting(false);
+        return;
       }
 
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+      if (!editingUser && password !== confirmPasswordInput) {
+        alert("Mật khẩu xác nhận không khớp!");
+        setIsSubmitting(false);
+        return;
+      }
+
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(email)) {
-        alert("Email không hợp lệ!")
-        return
+        alert("Email không hợp lệ!");
+        setIsSubmitting(false);
+        return;
       }
 
       const userData = {
         username,
         email,
-        password,
+        password: editingUser ? undefined : password, // Only send password for new users
         firstName,
         lastName,
+        role: selectedRole,
         phone,
         dateOfBirth,
         gender,
         profileImage: null,
         coursesEnrolled: [],
-      }
+      };
 
-      let apiUrl
-      if (selectedRole === "TEACHER") {
-        apiUrl = `${BASE_URL}/admin/teacher-signup`
-      } else if (selectedRole === "ADMIN") {
-        apiUrl = `${BASE_URL}/admin/admin-signup`
-      } else {
-        apiUrl = `${BASE_URL}/admin/user-signup`
-      }
-
-      console.log("Gửi tới:", apiUrl)
-      console.log("Dữ liệu gửi đi:", userData)
+      const apiUrl = editingUser 
+        ? `${BASE_URL}/user/editUser/${editingUser.UserId}` 
+        : `${BASE_URL}/admin/admin-signup`;
 
       const response = await fetch(apiUrl, {
-        method: "POST",
+        method: editingUser ? "PUT" : "POST",
         headers: {
           "Content-Type": "application/json",
         },
         credentials: "include",
         body: JSON.stringify(userData),
-      })
+      });
 
-      const data = await response.json()
+      const contentType = response.headers.get("Content-Type");
+      let data;
 
-      console.log("Phản hồi API:", data)
+      if (contentType && contentType.includes("application/json")) {
+        data = await response.json();
+      } else {
+        data = { message: await response.text() };
+      }
 
       if (response.ok) {
-        alert("Tạo tài khoản thành công!")
-        await fetchUserData()
-        closeModal()
+        alert(editingUser ? "Cập nhật tài khoản thành công!" : "Tạo tài khoản thành công!");
+        await fetchUserData();
+        closeModal();
       } else {
-        alert(data.message || "Không thể tạo tài khoản!")
+        alert(data.message || (editingUser ? "Không thể cập nhật tài khoản!" : "Không thể tạo tài khoản!"));
       }
     } catch (err) {
       console.error("Lỗi kết nối:", err);
       alert(`Lỗi kết nối: ${(err as Error).message || err}`);
+    } finally {
+      setIsSubmitting(false);
     }
-  }
+  };
 
-  const handlePermanentDelete = async (userId: string, username: string) => {
-    const confirmUsername = window.prompt(`Vui lòng nhập "${username}" để xác nhận xóa vĩnh viễn:`);
-    if (confirmUsername !== username) {
+  const openPermanentDeleteModal = (userId: string, username: string) => {
+    setUserToPermanentlyDelete({ userId, username });
+    setConfirmUsernameInput("");
+    setIsPermanentDeleteModalOpen(true);
+  };
+
+  const handlePermanentDeleteConfirm = async () => {
+    if (!userToPermanentlyDelete) return;
+
+    const { userId, username } = userToPermanentlyDelete;
+
+    if (confirmUsernameInput !== username) {
       alert("Username không khớp. Hủy thao tác xóa.");
       return;
     }
@@ -227,6 +253,8 @@ export const UserControl = () => {
     } catch (err) {
       console.error("Lỗi kết nối:", err);
       alert(`Lỗi kết nối: ${(err as Error).message || err}`);
+    } finally {
+      setIsPermanentDeleteModalOpen(false);
     }
   };
 
@@ -275,22 +303,10 @@ export const UserControl = () => {
         </div>
         {!showInactive && (
           <div className="flex gap-3">
-            <div onClick={() => handleAdd("USER")} className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 flex items-center transition-colors duration-200">
+            <div onClick={handleAdd} className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 flex items-center transition-colors duration-200">
               <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                 <span className="mr-2">+</span>
-                Tạo tài khoản User
-              </motion.button>
-            </div>
-            <div onClick={() => handleAdd("TEACHER")} className="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 flex items-center transition-colors duration-200">
-              <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                <span className="mr-2">+</span>
-                Tạo tài khoản Teacher
-              </motion.button>
-            </div>
-            <div onClick={() => handleAdd("ADMIN")} className="bg-purple-500 text-white px-4 py-2 rounded-md hover:bg-purple-600 flex items-center transition-colors duration-200">
-              <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                <span className="mr-2">+</span>
-                Tạo tài khoản Admin
+                Tạo tài khoản
               </motion.button>
             </div>
           </div>
@@ -357,7 +373,7 @@ export const UserControl = () => {
                             </motion.button>
                           </div>
                           {user.Status === "INACTIVE" && (
-                            <div onClick={() => handlePermanentDelete(user.UserId, user.Username)} className="hover:text-red-700 transition-colors duration-200 flex items-center text-lg">
+                            <div onClick={() => openPermanentDeleteModal(user.UserId, user.Username)} className="hover:text-red-700 transition-colors duration-200 flex items-center text-lg">
                               <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                                 <FaTrashAlt />
                               </motion.button>
@@ -383,10 +399,6 @@ export const UserControl = () => {
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.9, opacity: 0 }}
               >
-                <h3 className="text-xl font-semibold mb-4">
-                  {editingUser ? "Chỉnh sửa người dùng" : `Tạo tài khoản ${selectedRole}`}
-                </h3>
-                <p className="text-sm text-gray-500 mb-4">Các trường có dấu * là bắt buộc</p>
                 <div className="mb-4">
                   <label className="block mb-2">Tên đăng nhập *</label>
                   <input
@@ -406,14 +418,26 @@ export const UserControl = () => {
                   />
                 </div>
                 {!editingUser && (
-                  <div className="mb-4">
-                    <label className="block mb-2">Mật khẩu *</label>
-                    <input
-                      id="password"
-                      type="password"
-                      className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                    />
-                  </div>
+                  <>
+                    <div className="mb-4">
+                      <label className="block mb-2">Mật khẩu *</label>
+                      <input
+                        id="password"
+                        type="password"
+                        className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                      />
+                    </div>
+                    <div className="mb-4">
+                      <label className="block mb-2">Xác nhận mật khẩu *</label>
+                      <input
+                        id="confirmPassword"
+                        type="password"
+                        className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                      />
+                    </div>
+                  </>
                 )}
                 <div className="grid grid-cols-2 gap-4 mb-4">
                   <div>
@@ -462,6 +486,19 @@ export const UserControl = () => {
                     <option value="Male">Nam</option>
                     <option value="Female">Nữ</option>
                     <option value="Other">Khác</option>
+                  </select>
+                </div>
+                <div className="mb-4">
+                  <label className="block mb-2">Vai trò *</label>
+                  <select
+                    id="role"
+                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                    value={selectedRole}
+                    onChange={(e) => setSelectedRole(e.target.value)}
+                  >
+                    <option value="ROLE_USER">User</option>
+                    <option value="ROLE_TEACHER">Teacher</option>
+                    <option value="ROLE_ADMIN">Admin</option>
                   </select>
                 </div>
                 <div className="flex justify-end space-x-2">
@@ -514,6 +551,39 @@ export const UserControl = () => {
           </div>
         )}
       </AnimatePresence>
+
+      {isPermanentDeleteModalOpen && (
+        <div className="fixed inset-0 bg-gray-500 bg-opacity-50 flex justify-center items-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-lg w-1/3">
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+            >
+              <h3 className="text-xl font-semibold mb-4">Xác nhận xóa vĩnh viễn</h3>
+              <p className="mb-4">Vui lòng nhập &quot;{userToPermanentlyDelete?.username}&quot; để xác nhận xóa vĩnh viễn:</p>
+              <input
+                type="text"
+                className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 mb-4"
+                value={confirmUsernameInput}
+                onChange={(e) => setConfirmUsernameInput(e.target.value)}
+              />
+              <div className="flex justify-end space-x-2">
+                <div onClick={() => setIsPermanentDeleteModalOpen(false)} className="bg-gray-400 text-white px-4 py-2 rounded-md hover:bg-gray-500 transition-colors duration-200">
+                  <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 98 }}>
+                    Hủy
+                  </motion.button>
+                </div>
+                <div onClick={handlePermanentDeleteConfirm} className="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600 transition-colors duration-200">
+                  <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                    Xóa vĩnh viễn
+                  </motion.button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
