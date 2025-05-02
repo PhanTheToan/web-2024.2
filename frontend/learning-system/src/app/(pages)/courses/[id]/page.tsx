@@ -9,8 +9,7 @@ export default function CourseDetailPage() {
   return (
     <>
       <DetailCoursePage />
-      <h1 className="text-[38px] font-[700]">Trang chi tiết khóa học</h1>
-
+  
     </>
   )
 }

@@ -1,5 +1,5 @@
 import React from "react";
-import Select from "react-select";
+import Select, { MultiValue } from "react-select";
 import { StarIcon } from "@heroicons/react/24/solid"; // Icon ngôi sao
 
 interface CategoryItem {
@@ -39,6 +39,12 @@ interface SidebarProps {
   selectedFilters: FilterState;
 }
 
+// Define the select option type
+interface SelectOption {
+  value: string;
+  label: string;
+}
+
 const Sidebar: React.FC<SidebarProps> = ({
   categories,
   instructors,
@@ -55,8 +61,8 @@ const Sidebar: React.FC<SidebarProps> = ({
     onFiltersChange({ ...selectedFilters, categories: newCategories });
   };
 
-  const handleInstructorChange = (selected: any) => {
-    const newInstructors = selected ? selected.map((option: any) => option.value) : [];
+  const handleInstructorChange = (selected: MultiValue<SelectOption>) => {
+    const newInstructors = selected.map((option) => option.value);
     onFiltersChange({ ...selectedFilters, instructors: newInstructors });
   };
 
@@ -107,7 +113,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
       <div className="mb-6">
         <h3 className="text-sm font-medium text-gray-700 mb-2">Giảng viên</h3>
-        <Select
+        <Select<SelectOption, true>
           isMulti
           options={instructors.map((instructor) => ({
             value: instructor.id, // Lưu User.id
