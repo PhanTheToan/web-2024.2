@@ -44,7 +44,7 @@ export default function CreateLessonPage() {
       try {
         setLoading(true);
         console.log("Fetching course:", courseId);
-        const response = await fetch(`${API_BASE_URL}/course/info/${courseId}`, {
+        const response = await fetch(`${API_BASE_URL}/course/info-course/${courseId}`, {
           method: 'GET',
           credentials: 'include',
           headers: {

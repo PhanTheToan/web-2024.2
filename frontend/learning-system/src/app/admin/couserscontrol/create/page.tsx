@@ -6,7 +6,7 @@ import { ArrowLeft, Upload, X, CheckCircle, Save } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 // API Base URL
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8082/api';
+const API_BASE_URL = process.env.BASE_URL || 'http://localhost:8082/api';
 
 // Định nghĩa interface cho Category
 interface Category {

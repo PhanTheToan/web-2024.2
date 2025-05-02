@@ -77,7 +77,7 @@ const CourseListingHeader: React.FC<CourseListingHeaderProps> = ({
   return (
     <div className="mb-6">
       <h2 className="text-4xl font-bold text-gray-900 mb-4 max-sm:text-2xl">
-        All Courses
+        Danh sách khóa học
       </h2>
 
       <div className="flex justify-between items-center max-sm:flex-col max-sm:gap-4">

@@ -32,7 +32,7 @@ export interface Course {
   categories: string[];
   description?: string;
   createdAt?: string;
-  lessons?: any[];
-  quizzes?: any[];
-  studentsEnrolled?: any[];
+  lessons?: [];
+  quizzes?: [];
+  studentsEnrolled?: [];
 }

@@ -1,5 +1,6 @@
 'use client';
 
+import { AxiosError } from "axios"
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -47,12 +48,15 @@ export function RecommendedCourses() {
         } else {
           throw new Error(data.message || 'Không thể tải danh sách khóa học chưa bắt đầu');
         }
-      } catch (err) {
-        console.error('Lỗi khi gọi API /notstarted-course:', err);
-        setError(err.message || 'Không thể tải danh sách khóa học chưa bắt đầu');
+      } catch (err: unknown) {
+        const error = err as AxiosError;
+      
+        console.error('Lỗi khi gọi API /notstarted-course:', error);
+        setError(error.message || 'Không thể tải danh sách khóa học chưa bắt đầu');
         setLoading(false);
-        if (err.response?.status === 401 || err.response?.status === 403) {
-          window.location.href = '/login'; // Chuyển hướng nếu chưa đăng nhập
+      
+        if (error.response?.status === 401 || error.response?.status === 403) {
+          window.location.href = '/login';
         }
       }
     };

@@ -11,25 +11,43 @@ import Image from "next/image"
 
 const BASE_URL = process.env.BASE_URL || ""
 
+interface User {
+  profileImage: string;
+  role: string;
+  username: string;
+}
+
 export const Header = () => {
   const pathusername = usePathname()
   const router = useRouter()
   const [isOpen, setIsOpen] = useState(false)
   const [dropdownOpen, setDropdownOpen] = useState(false)
-
-  // Authentication state
   const [isLoggedIn, setIsLoggedIn] = useState(false)
-  const [user, setUser] = useState(null)
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true)
 
-  // Fetch user data on component mount
+  type Role = "ROLE_USER" | "ROLE_TEACHER" | "ROLE_ADMIN" | string
+  // Ánh xạ vai trò sang tiếng Việt
+  const getRoleLabel = (role: Role): string => {
+    switch (role) {
+      case "ROLE_USER":
+        return "Học viên"
+      case "ROLE_TEACHER":
+        return "Giáo viên"
+      case "ROLE_ADMIN":
+        return "Admin"
+      default:
+        return "Người dùng"
+    }
+  }
+
   useEffect(() => {
     const fetchUserData = async () => {
       try {
         setLoading(true)
         const response = await fetch(`${BASE_URL}/auth/check`, {
           method: "GET",
-          credentials: "include", // Đảm bảo cookie được gửi
+          credentials: "include",
         })
 
         if (response.ok) {
@@ -37,7 +55,6 @@ export const Header = () => {
           setUser(data.data)
           setIsLoggedIn(true)
         } else {
-          // Nếu response không ok, người dùng không đăng nhập hoặc token hết hạn
           setUser(null)
           setIsLoggedIn(false)
         }
@@ -53,7 +70,6 @@ export const Header = () => {
     fetchUserData()
   }, [])
 
-  // Hàm đăng xuất
   const handleLogout = async () => {
     try {
       const response = await fetch(`${BASE_URL}/auth/signout`, {
@@ -74,24 +90,22 @@ export const Header = () => {
     }
   }
 
-  // Hàm toggle menu
   const toggleMenu = () => {
     setIsOpen(!isOpen)
   }
 
-  // Hàm toggle dropdown
   const toggleDropdown = () => {
     setDropdownOpen(!dropdownOpen)
   }
 
-  // Xác định menu phù hợp theo vai trò
   const getMenuItems = () => {
     if (pathusername.startsWith("/admin")) {
       return [
-        { href: "/admin/courses", label: "Khóa học" },
-        { href: "/admin/users", label: "Học viên" },
+        { href: "/admin/couserscontrol", label: "Khóa học" },
+        { href: "/admin/usercontrol", label: "Học viên" },
         { href: "/admin/blogs", label: "Quản lý Blog" },
-        { href: "/admin/settings", label: "Cài đặt" },
+        { href: "/admin/registercontrol", label: "Cài đặt" },
+        { href: "/admin/imagecontrol", label: "Hình ảnh" },
       ]
     } else if (pathusername.startsWith("/teacher")) {
       return [
@@ -111,8 +125,7 @@ export const Header = () => {
     }
   }
 
-  // Check if a menu item is active
-  const isActive = (href) => {
+  const isActive = (href: string) => {
     if (href === "/") {
       return pathusername === "/"
     }
@@ -123,7 +136,6 @@ export const Header = () => {
     <header className="border-b border-gray-200 shadow-sm">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16 md:h-20">
-          {/* Logo section */}
           <div className="flex items-center">
             <button onClick={toggleMenu} className="mr-4 text-gray-600 md:hidden">
               <FaBars size={20} />
@@ -140,16 +152,13 @@ export const Header = () => {
             </Link>
           </div>
 
-          {/* Main navigation - desktop */}
           <nav className="hidden md:flex items-center justify-center flex-1 mx-4">
             <ul className="flex space-x-1">
               {getMenuItems().map((item) => (
                 <li key={item.href}>
                   <Link
                     href={item.href}
-                    className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-                      isActive(item.href) ? "bg-orange-50 text-orange-500" : "text-gray-700 hover:bg-gray-100"
-                    }`}
+                    className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${isActive(item.href) ? "bg-orange-50 text-orange-500" : "text-gray-700 hover:bg-gray-100"}`}
                   >
                     {item.label}
                   </Link>
@@ -158,19 +167,15 @@ export const Header = () => {
             </ul>
           </nav>
 
-          {/* User actions */}
           <div className="flex items-center space-x-4">
             {loading ? (
-              // Loading state
               <div className="w-8 h-8 rounded-full bg-gray-200 animate-pulse"></div>
             ) : !isLoggedIn ? (
-              // Not logged in state
               <Link href="/login" className="flex items-center text-sm font-medium text-gray-700 hover:text-orange-500">
                 <IoIosLogIn className="mr-1" size={18} />
                 <span className="hidden sm:inline">Đăng nhập</span>
               </Link>
             ) : (
-              // Logged in state
               <div className="relative">
                 <button
                   onClick={toggleDropdown}
@@ -194,27 +199,25 @@ export const Header = () => {
                   </span>
                 </button>
 
-                {/* Dropdown Menu */}
                 {dropdownOpen && (
                   <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 border border-gray-200">
                     <div className="px-4 py-2 border-b border-gray-100">
                       <p className="text-sm font-medium text-gray-900">{user?.username || "Người dùng"}</p>
-                      <p className="text-xs text-gray-500 capitalize">{user?.role || "student"}</p>
+                      <p className="text-xs text-gray-500">{getRoleLabel(user?.role ?? "")}</p>
                     </div>
                     <Link
-                      href="/profile"
+                      href={
+                        user?.role === "ROLE_ADMIN"
+                          ? "/admin/profile"
+                          : user?.role === "ROLE_TEACHER"
+                          ? "/teacher/profile"
+                          : "/profile"
+                      }
                       className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                       onClick={() => setDropdownOpen(false)}
                     >
                       Trang cá nhân
                     </Link>
-                  {/*  <Link
-                      href="/dashboard"
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      onClick={() => setDropdownOpen(false)}
-                    >
-                      Dashboard
-                    </Link>  */}
                     <div className="border-t border-gray-100">
                       <button
                         className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
@@ -233,15 +236,11 @@ export const Header = () => {
 
       {/* Mobile menu */}
       <div
-        className={`fixed inset-0 bg-black bg-opacity-50 z-50 transition-opacity duration-300 ${
-          isOpen ? "opacity-100 visible" : "opacity-0 invisible"
-        }`}
+        className={`fixed inset-0 bg-black bg-opacity-50 z-50 transition-opacity duration-300 ${isOpen ? "opacity-100 visible" : "opacity-0 invisible"}`}
         onClick={toggleMenu}
       ></div>
       <div
-        className={`fixed top-0 left-0 h-full w-64 bg-white shadow-lg z-50 transform transition-transform duration-300 ease-in-out ${
-          isOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
+        className={`fixed top-0 left-0 h-full w-64 bg-white shadow-lg z-50 transform transition-transform duration-300 ease-in-out ${isOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
         <div className="flex items-center justify-between p-4 border-b border-gray-200">
           <Link href="/" className="flex items-center" onClick={toggleMenu}>
@@ -275,7 +274,7 @@ export const Header = () => {
               )}
               <div className="ml-3">
                 <p className="text-sm font-medium text-gray-900">{user.username || "Người dùng"}</p>
-                <p className="text-xs text-gray-500 capitalize">{user.role || "student"}</p>
+                <p className="text-xs text-gray-500">{getRoleLabel(user?.role ?? "")}</p>
               </div>
             </div>
           </div>
@@ -287,9 +286,7 @@ export const Header = () => {
               <li key={item.href}>
                 <Link
                   href={item.href}
-                  className={`block px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-                    isActive(item.href) ? "bg-orange-50 text-orange-500" : "text-gray-700 hover:bg-gray-100"
-                  }`}
+                  className={`block px-4 py-2 text-sm font-medium rounded-md transition-colors ${isActive(item.href) ? "bg-orange-50 text-orange-500" : "text-gray-700 hover:bg-gray-100"}`}
                   onClick={toggleMenu}
                 >
                   {item.label}

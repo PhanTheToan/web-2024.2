@@ -52,7 +52,7 @@ export default function LessonDetailPage() {
         
         // Fetch course data from API
         console.log("Fetching course:", courseId);
-        const courseResponse = await fetch(`${API_BASE_URL}/course/info/${courseId}`, {
+        const courseResponse = await fetch(`${API_BASE_URL}/course/info-course/${courseId}`, {
           method: 'GET',
           credentials: 'include',
           headers: {
@@ -109,6 +109,41 @@ export default function LessonDetailPage() {
   // Function to check if a material is a PDF
   const isPdf = (url: string): boolean => {
     return url.toLowerCase().endsWith('.pdf') || url.includes('pdf');
+  };
+  
+  // Function to convert YouTube URL to embed URL
+  const getYoutubeEmbedUrl = (url: string): string => {
+    if (!url) return '';
+    
+    // Handle different YouTube URL formats
+    let videoId = '';
+    
+    try {
+      // Handle youtu.be format
+      if (url.includes('youtu.be')) {
+        videoId = url.split('youtu.be/')[1]?.split('?')[0];
+      }
+      // Handle youtube.com format
+      else if (url.includes('youtube.com')) {
+        // Handle watch URL
+        if (url.includes('watch')) {
+          const urlParams = new URLSearchParams(new URL(url).search);
+          videoId = urlParams.get('v') || '';
+        }
+        // Handle embed URL
+        else if (url.includes('embed')) {
+          videoId = url.split('embed/')[1]?.split('?')[0];
+        }
+      }
+      
+      if (!videoId) return url; // Return original URL if not a valid YouTube URL
+      
+      // Return embed URL with additional parameters
+      return `https://www.youtube.com/embed/${videoId}?autoplay=0&rel=0&modestbranding=1&showinfo=0`;
+    } catch (error) {
+      console.error('Error parsing YouTube URL:', error);
+      return url; // Return original URL if parsing fails
+    }
   };
   
   if (loading) {
@@ -274,19 +309,29 @@ export default function LessonDetailPage() {
           {/* Video preview if available */}
           {lesson.videoUrl && (
             <div className="mb-6 bg-white rounded-lg shadow">
-              <div className="p-4 border-b">
+              <div className="p-4 border-b flex justify-between items-center">
                 <h3 className="text-lg font-bold">Video bài học</h3>
+                <a
+                  href={lesson.videoUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary-600 hover:text-primary-800 text-sm flex items-center"
+                >
+                  Mở trên YouTube
+                </a>
               </div>
               <div className="p-4">
-                <div className="relative aspect-video">
+                <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
                   <iframe
-                    className="absolute w-full h-full rounded-md"
-                    src={lesson.videoUrl}
+                    className="absolute w-full h-full"
+                    src={getYoutubeEmbedUrl(lesson.videoUrl)}
                     title={`Video for ${lesson.title}`}
-                    frameBorder="0"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                     allowFullScreen
                   ></iframe>
+                </div>
+                <div className="mt-3 text-sm text-gray-500">
+                  <p>Video URL: <a href={lesson.videoUrl} target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:text-primary-800">{lesson.videoUrl}</a></p>
                 </div>
               </div>
             </div>

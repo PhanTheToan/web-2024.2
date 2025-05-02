@@ -7,7 +7,7 @@ import {
   BarChart2, Star,  Users, Clock, FileText, 
   Eye, MoveUp, MoveDown, AlertTriangle, CheckCircle2,
   ArrowUpDown, Plus, UserMinus, UserPlus,
-  Loader2, Trash2
+  Loader2, Trash2, Sparkles
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { courseService } from '@/services/courseService';
@@ -324,16 +324,16 @@ export default function CourseDetailPage() {
   const fetchCourse = async () => {
     setLoading(true);
     try {
-      // Fetch course information
+      // Fetch course information using the new API endpoint
       console.log(`Fetching course details for ID: ${courseId}`);
-      const response = await fetch(`${API_BASE_URL}/course/info/${courseId}`, {
+      const response = await fetch(`${API_BASE_URL}/course/info-course/${courseId}`, {
         method: 'GET',
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json'
         }
       });
-      
+      console.log("Response:", response);
       if (!response.ok) {
         throw new Error('Không thể tải thông tin khóa học');
       }
@@ -342,55 +342,55 @@ export default function CourseDetailPage() {
       const courseData = await response.json();
       console.log("Course data:", courseData);
       
-      // Parse course data based on API response structure
+      // Parse course data based on the new API response structure
       let parsedCourse: Course;
       
+      // The new API response has a body field as shown in the screenshot
       if (courseData.body) {
-        // Handle nested response structure
         parsedCourse = {
           id: courseData.body.id || courseId,
           teacherId: courseData.body.teacherId || '',
-          teacherFullName: courseData.body.teacherFullName || courseData.body.teacherName || '',
+          teacherFullName: courseData.body.teacherName || '',
           teacherName: courseData.body.teacherName || '',
           title: courseData.body.title || '',
           description: courseData.body.description || '',
           thumbnail: courseData.body.thumbnail || '',
           price: courseData.body.price || 0,
-          courseStatus: courseData.body.courseStatus || 'INACTIVE',
+          courseStatus: 'ACTIVE', // Default to ACTIVE since we have course data
           contentCount: courseData.body.contentCount || 0,
           totalTimeLimit: courseData.body.totalTimeLimit || 0,
-          totalDuration: courseData.body.totalDuration || 0,
+          totalDuration: courseData.body.totalTimeLimit || 0, // Using totalTimeLimit as totalDuration
           studentsCount: courseData.body.studentsCount || 0,
-          categories: courseData.body.categories || [],
-          createdAt: courseData.body.createdAt || new Date().toISOString(),
-          updatedAt: courseData.body.updatedAt || new Date().toISOString(),
-          registrations: courseData.body.registrations || 0,
-          rating: courseData.body.averageRating || 0,
+          categories: courseData.body.categories || [], // Categories like ["DEVELOPMENT", "POPULAR", "PRIVATE"]
+          createdAt: new Date().toISOString(), // Default value as it's not in the response
+          updatedAt: new Date().toISOString(), // Default value as it's not in the response
+          registrations: courseData.body.studentsCount || 0, // Using studentsCount as registrations
+          rating: courseData.body.averageRating ?? 0, // Using null-coalescing to handle null values
           lessons: [],
           quizzes: [],
           studentsEnrolled: []
         };
       } else {
-        // Handle direct response structure
+        // Fallback to direct response structure
         parsedCourse = {
           id: courseData.id || courseId,
           teacherId: courseData.teacherId || '',
-          teacherFullName: courseData.teacherFullName || courseData.teacherName || '',
+          teacherFullName: courseData.teacherName || '',
           teacherName: courseData.teacherName || '',
           title: courseData.title || '',
           description: courseData.description || '',
           thumbnail: courseData.thumbnail || '',
           price: courseData.price || 0,
-          courseStatus: courseData.courseStatus || 'INACTIVE',
+          courseStatus: 'INACTIVE',
           contentCount: courseData.contentCount || 0,
           totalTimeLimit: courseData.totalTimeLimit || 0,
-          totalDuration: courseData.totalDuration || 0,
+          totalDuration: courseData.totalTimeLimit || 0,
           studentsCount: courseData.studentsCount || 0,
           categories: courseData.categories || [],
-          createdAt: courseData.createdAt || new Date().toISOString(),
-          updatedAt: courseData.updatedAt || new Date().toISOString(),
-          registrations: courseData.registrations || 0,
-          rating: courseData.rating || 0,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          registrations: courseData.studentsCount || 0,
+          rating: courseData.averageRating ?? 0, // Using null-coalescing to handle null values
           lessons: [],
           quizzes: [],
           studentsEnrolled: []
@@ -1640,6 +1640,13 @@ export default function CourseDetailPage() {
                     <Plus className="w-4 h-4 mr-1" />
                     Thêm bài kiểm tra
                   </Link>
+                  <Link 
+                    href={`/admin/couserscontrol/${course?.id || courseId}/quizzes/create-ai`}
+                    className="bg-purple-600 text-white px-3 py-1.5 rounded-md text-sm flex items-center"
+                  >
+                    <Sparkles className="w-4 h-4 mr-1" />
+                    Tạo bằng AI
+                  </Link>
                 </div>
               </div>
               
@@ -1648,13 +1655,22 @@ export default function CourseDetailPage() {
                   <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg">
                     <FileText className="w-12 h-12 mx-auto text-gray-400 mb-2" />
                     <p>Khóa học chưa có bài kiểm tra nào</p>
-                    <Link 
-                      href={`/admin/couserscontrol/${course?.id || courseId}/quizzes/create`}
-                      className="mt-4 inline-flex items-center text-indigo-600 hover:text-indigo-800"
-                    >
-                      <Plus className="w-4 h-4 mr-1" />
-                      Thêm bài kiểm tra đầu tiên
-                    </Link>
+                    <div className="flex justify-center mt-4 space-x-4">
+                      <Link 
+                        href={`/admin/couserscontrol/${course?.id || courseId}/quizzes/create`}
+                        className="inline-flex items-center text-indigo-600 hover:text-indigo-800"
+                      >
+                        <Plus className="w-4 h-4 mr-1" />
+                        Thêm bài kiểm tra
+                      </Link>
+                      <Link 
+                        href={`/admin/couserscontrol/${course?.id || courseId}/quizzes/create-ai`}
+                        className="inline-flex items-center text-purple-600 hover:text-purple-800"
+                      >
+                        <Sparkles className="w-4 h-4 mr-1" />
+                        Tạo bài kiểm tra bằng AI
+                      </Link>
+                    </div>
                   </div>
                 ) : (
                   course.quizzes.map((quiz, index) => {

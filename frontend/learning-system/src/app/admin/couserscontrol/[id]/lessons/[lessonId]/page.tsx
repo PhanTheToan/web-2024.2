@@ -41,7 +41,7 @@ export default function LessonDetailPage() {
         
         // Fetch course data directly using API
         console.log("Fetching course:", courseId);
-        const courseResponse = await fetch(`${API_BASE_URL}/course/info/${courseId}`, {
+        const courseResponse = await fetch(`${API_BASE_URL}/course/info-course/${courseId}`, {
           method: 'GET',
           credentials: 'include',
           headers: {
@@ -171,6 +171,34 @@ export default function LessonDetailPage() {
   const getFileName = (material: string | LessonMaterial): string => {
     const path = typeof material === 'string' ? material : material.path;
     return path.split('/').pop() || path;
+  };
+  
+  // Function to convert YouTube URL to embed URL
+  const getYoutubeEmbedUrl = (url: string): string => {
+    if (!url) return '';
+    
+    // Handle different YouTube URL formats
+    let videoId = '';
+    
+    // Handle youtu.be format
+    if (url.includes('youtu.be')) {
+      videoId = url.split('youtu.be/')[1]?.split('?')[0];
+    }
+    // Handle youtube.com format
+    else if (url.includes('youtube.com')) {
+      // Handle watch URL
+      if (url.includes('watch')) {
+        const urlParams = new URLSearchParams(new URL(url).search);
+        videoId = urlParams.get('v') || '';
+      }
+      // Handle embed URL
+      else if (url.includes('embed')) {
+        videoId = url.split('embed/')[1]?.split('?')[0];
+      }
+    }
+    
+    if (!videoId) return url; // Return original URL if not a valid YouTube URL
+    return `https://www.youtube.com/embed/${videoId}`;
   };
   
   if (loading) {
@@ -344,20 +372,32 @@ export default function LessonDetailPage() {
           {/* Video preview if available */}
           {lesson.videoUrl && (
             <div className="mb-6 bg-white rounded-lg shadow">
-              <div className="p-4 border-b">
+              <div className="p-4 border-b flex justify-between items-center">
                 <h3 className="text-lg font-bold">Video bài học</h3>
+                <div className="flex items-center space-x-2">
+                  <a
+                    href={lesson.videoUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary-600 hover:text-primary-800 flex items-center"
+                  >
+                    <ExternalLink className="w-4 h-4 mr-1" />
+                    Mở trên YouTube
+                  </a>
+                </div>
               </div>
               <div className="p-4">
-                {/* For demo only. In a real app, this would be a proper video player component */}
-                <div className="relative aspect-video">
+                <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
                   <iframe
-                    className="absolute w-full h-full rounded-md"
-                    src={lesson.videoUrl}
+                    className="absolute w-full h-full"
+                    src={`${getYoutubeEmbedUrl(lesson.videoUrl)}?autoplay=0&rel=0&modestbranding=1&showinfo=0`}
                     title={`Video for ${lesson.title}`}
-                    frameBorder="0"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                     allowFullScreen
                   ></iframe>
+                </div>
+                <div className="mt-3 text-sm text-gray-500">
+                  <p>Video URL: <a href={lesson.videoUrl} target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:text-primary-800">{lesson.videoUrl}</a></p>
                 </div>
               </div>
             </div>

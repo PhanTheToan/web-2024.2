@@ -19,6 +19,7 @@ interface QuizQuestion {
   eQuestion: EQuestion; // Loại câu hỏi
   options: string[]; // Danh sách đáp án
   correctAnswer: string[] | string; // Đáp án đúng - có thể là array cho MULTIPLE_CHOICE hoặc string cho các loại khác
+  equestion?: EQuestion; // Added field from API
 }
 
 // Enum for question types
@@ -26,6 +27,12 @@ enum EQuestion {
   SINGLE_CHOICE = 'SINGLE_CHOICE', 
   MULTIPLE_CHOICE = 'MULTIPLE_CHOICE', 
   SHORT_ANSWER = 'SHORT_ANSWER'
+}
+
+// Enum for quiz display modes
+enum EQuiz {
+  QUIZ_FORM_FULL = 'QUIZ_FORM_FULL',
+  QUIZ_FILL = 'QUIZ_FILL'
 }
 
 // Add type definitions for API response items
@@ -38,11 +45,12 @@ interface LessonApiItem {
 
 interface QuizApiItem {
   quizId: string;
-  title?: string;
+  title: string;
   questionCount?: number;
   orderQuiz: number;
   timeLimit?: number;
   passingScore?: number;
+  status?: string | null;
 }
 
 interface Quiz {
@@ -57,6 +65,8 @@ interface Quiz {
   order?: number;
   orderQuiz?: number;
   createdAt: Date;
+  type?: EQuiz; // Field matching API response
+  material?: string;
 }
 
 interface Course {
@@ -144,6 +154,8 @@ interface QuizQuestionProps {
   correctAnswer?: string | string[];
   questionType: EQuestion;
   material?: string;
+  quizData?: Quiz | null;
+  feedback?: { questionIndex?: number; isCorrect: boolean; correctAnswer?: string } | null;
 }
 
 const QuizQuestion: React.FC<QuizQuestionProps> = ({
@@ -155,7 +167,9 @@ const QuizQuestion: React.FC<QuizQuestionProps> = ({
   isSubmitted,
   correctAnswer,
   questionType,
-  material
+  material,
+  quizData,
+  feedback
 }) => {
   // Function to check if an option is selected for multiple choice
   const isOptionSelected = (option: string): boolean => {
@@ -199,16 +213,31 @@ const QuizQuestion: React.FC<QuizQuestionProps> = ({
       return option === correctAnswer;
     }
   };
+
+  // Function to get option label (A, B, C, D, etc.)
+  const getOptionLabel = (index: number): string => {
+    return String.fromCharCode(65 + index); // A = 65 in ASCII
+  };
+  
+  // Get the quiz display mode from the props
+  const quizDisplayMode = quizData?.type || EQuiz.QUIZ_FORM_FULL;
+  const isQuizFillMode = quizDisplayMode === EQuiz.QUIZ_FILL;
+  
+  // Check if this question has feedback and if it's correct
+  const isQuestionCorrect = feedback ? feedback.isCorrect : undefined;
   
   return (
-    <div id={`question-${questionIndex}`} className="bg-white rounded-lg shadow-md p-6 mb-4">
-      <h3 className="text-lg font-bold mb-4">
-        Câu hỏi {questionIndex + 1}: {question}
+    <div id={`question-${questionIndex}`} className={`bg-white rounded-lg shadow-md p-6 mb-4 ${
+      isSubmitted && isQuestionCorrect !== undefined ? (isQuestionCorrect ? 'border-l-4 border-green-500' : 'border-l-4 border-red-500') : ''
+    }`}>
+      <h3 className={`text-lg font-bold mb-4 ${
+        isSubmitted && isQuestionCorrect !== undefined ? (isQuestionCorrect ? 'text-green-700' : 'text-red-700') : ''
+      }`}>
+        Câu hỏi {questionIndex + 1}{!isQuizFillMode && `: ${question}`}
       </h3>
       
       {material && (
         <div className="mb-4 p-3 bg-gray-50 rounded-lg text-gray-700 border border-gray-200">
-          
           <div className="mt-2">
             <img 
               src={material} 
@@ -220,90 +249,104 @@ const QuizQuestion: React.FC<QuizQuestionProps> = ({
         </div>
       )}
       
+      {isSubmitted && isQuestionCorrect === false && (
+        <div className="mb-4 p-3 bg-red-50 rounded-lg text-red-700 border border-red-200">
+          <p className="font-medium">Câu trả lời chưa chính xác</p>
+        </div>
+      )}
+      
       {questionType === EQuestion.SHORT_ANSWER ? (
         // Short answer input
         <div className="mb-4">
           <input
             type="text"
             className={`w-full p-3 border rounded-lg ${
-              isSubmitted ? 'bg-gray-100' : ''
+              isSubmitted ? (isQuestionCorrect ? 'bg-green-50 border-green-300' : 'bg-red-50 border-red-300') : ''
             }`}
             placeholder="Nhập câu trả lời của bạn"
             value={selectedAnswer as string || ''}
             onChange={(e) => !isSubmitted && onSelectAnswer(e.target.value)}
             disabled={isSubmitted}
           />
-          {isSubmitted && (
-            <div className="mt-2 p-3 bg-blue-50 rounded-lg">
+          {isSubmitted && !isQuizFillMode && (
+            <div className={`mt-2 p-3 rounded-lg ${isQuestionCorrect ? 'bg-green-50' : 'bg-blue-50'}`}>
               <p className="font-medium">Đáp án đúng:</p>
-              <p>{correctAnswer}</p>
+              <p>{Array.isArray(correctAnswer) ? correctAnswer.join(', ') : correctAnswer}</p>
             </div>
           )}
         </div>
       ) : (
         // Multiple choice or single choice options
-      <div className="space-y-3">
-        {options.map((option, index) => {
+        <div className="space-y-3">
+          {options.map((option, index) => {
             const isSelected = isOptionSelected(option);
-          let optionClassName = "p-4 border rounded-lg flex items-center";
-          
-          if (isSubmitted) {
+            const optionLabel = getOptionLabel(index);
+            let optionClassName = "p-4 border rounded-lg flex items-center";
+            
+            if (isSubmitted) {
               if (isCorrectAnswer(option)) {
-              optionClassName += " bg-green-50 border-green-300";
+                optionClassName += " bg-green-50 border-green-300";
               } else if (isSelected && !isCorrectAnswer(option)) {
-              optionClassName += " bg-red-50 border-red-300";
+                optionClassName += " bg-red-50 border-red-300";
+              } else if (isSelected && isCorrectAnswer(option)) {
+                // For MULTIPLE_CHOICE questions that are partially correct
+                optionClassName += " bg-green-50 border-green-300";
+              }
+            } else if (isSelected) {
+              optionClassName += " bg-blue-50 border-blue-300";
+            } else {
+              optionClassName += " hover:bg-gray-50";
             }
-          } else if (isSelected) {
-            optionClassName += " bg-blue-50 border-blue-300";
-          } else {
-            optionClassName += " hover:bg-gray-50";
-          }
-          
-          return (
-            <div 
-              key={index} 
-              className={optionClassName}
+            
+            return (
+              <div 
+                key={index} 
+                className={optionClassName}
                 onClick={() => handleOptionSelect(option)}
-            >
+              >
                 <div className={`w-5 h-5 flex-shrink-0 ${questionType === EQuestion.MULTIPLE_CHOICE ? 'rounded' : 'rounded-full'} border mr-3 ${
-                isSelected ? 'bg-blue-500 border-blue-500' : 'border-gray-300'
-              }`}>
-                {isSelected && (
-                  <div className="w-full h-full flex items-center justify-center">
+                  isSelected ? (isSubmitted && isCorrectAnswer(option) ? 'bg-green-500 border-green-500' : 
+                               isSubmitted && !isCorrectAnswer(option) ? 'bg-red-500 border-red-500' : 
+                               'bg-blue-500 border-blue-500') : 'border-gray-300'
+                }`}>
+                  {isSelected && (
+                    <div className="w-full h-full flex items-center justify-center">
                       {questionType === EQuestion.MULTIPLE_CHOICE ? (
                         <CheckCircle className="text-white w-3 h-3" />
                       ) : (
-                    <div className="w-2 h-2 bg-white rounded-full"></div>
+                        <div className="w-2 h-2 bg-white rounded-full"></div>
                       )}
+                    </div>
+                  )}
+                </div>
+                <span className="font-semibold mr-2">{optionLabel}.</span>
+                {!isQuizFillMode && <span>{option}</span>}
+                
+                {isSubmitted && !isQuizFillMode && (
+                  <div className="ml-auto">
+                    {isCorrectAnswer(option) ? (
+                      <CheckCircle className="text-green-500 w-5 h-5" />
+                    ) : (isSelected && !isCorrectAnswer(option)) ? (
+                      <AlertCircle className="text-red-500 w-5 h-5" />
+                    ) : null}
                   </div>
                 )}
               </div>
-              <span>{option}</span>
-              
-              {isSubmitted && (
-                <div className="ml-auto">
-                    {isCorrectAnswer(option) ? (
-                    <CheckCircle className="text-green-500 w-5 h-5" />
-                    ) : (isSelected && !isCorrectAnswer(option)) ? (
-                    <AlertCircle className="text-red-500 w-5 h-5" />
-                  ) : null}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
       )}
     </div>
   );
 };
 
-// Define an interface for API question data
+// Interface for API question data
 interface ApiQuizQuestion {
   question: string;
   options?: string[];
-  correctAnswer?: string | string[];
-  eQuestion?: EQuestion;
+  correctAnswer?: string[];
+  eQuestion?: EQuestion; // API can provide either eQuestion or equestion
+  equestion?: EQuestion; // Use equestion as fallback if eQuestion is not available
   material?: string | null;
 }
 
@@ -541,17 +584,29 @@ const QuizPage: React.FC = () => {
         courseId: quizData.body.courseId,
         title: quizData.body.title,
         description: quizData.body.description,
-        questions: (quizData.body.questions || []).map((q: ApiQuizQuestion) => ({
-          question: q.question,
-          options: q.options || [],
-          correctAnswer: q.correctAnswer || (q.eQuestion === EQuestion.MULTIPLE_CHOICE ? [] : ''),
-          eQuestion: q.eQuestion || EQuestion.SINGLE_CHOICE,
-          material: q.material || null
-        })),
+        questions: (quizData.body.questions || []).map((q: ApiQuizQuestion) => {
+          // Determine the question type, preferring eQuestion if available, falling back to equestion
+          const questionType = q.eQuestion || q.equestion || EQuestion.SINGLE_CHOICE;
+          
+          // Format the correct answer based on question type
+          const formattedCorrectAnswer = q.correctAnswer || [];
+         
+          
+          return {
+            question: q.question,
+            options: q.options || [],
+            correctAnswer: formattedCorrectAnswer,
+            eQuestion: questionType,
+            material: q.material || null
+          };
+        }),
         passingScore: quizData.body.passingScore || 70,
         timeLimit: quizData.body.timeLimit || 30,
         order: quizData.body.order || quizData.body.orderQuiz,
-        createdAt: new Date(quizData.body.createdAt)
+        createdAt: new Date(quizData.body.createdAt),
+        // Use type from the API response
+        type: quizData.body.type || EQuiz.QUIZ_FORM_FULL,
+        material: quizData.body.material || ''
       };
       
       setQuiz(parsedQuiz);
@@ -679,10 +734,25 @@ const QuizPage: React.FC = () => {
   };
 
   const handleSelectAnswer = (questionIndex: number, answer: string | string[]) => {
-    setSelectedAnswers(prev => ({
-      ...prev,
-      [questionIndex]: answer
-    }));
+    // For QUIZ_FILL mode, we need to handle single selections differently
+    if (quiz?.type === EQuiz.QUIZ_FILL) {
+      // For QUIZ_FILL, always use single selection mode
+      setSelectedAnswers(prev => {
+        // Start with previous answers
+        const newAnswers = { ...prev };
+        
+        // Replace the answer for this question
+        newAnswers[questionIndex] = answer;
+        
+        return newAnswers;
+      });
+    } else {
+      // For regular quizzes, just use the normal behavior
+      setSelectedAnswers(prev => ({
+        ...prev,
+        [questionIndex]: answer
+      }));
+    }
   };
 
   const getQuestionStats = () => {
@@ -743,24 +813,24 @@ const QuizPage: React.FC = () => {
     
     // Check if all questions are answered
     const stats = getQuestionStats();
-    if (stats.unanswered > 0 && remainingTime > 10) {
+    if (stats.unanswered > 0) {
       const confirm = window.confirm(`Bạn còn ${stats.unanswered} câu hỏi chưa trả lời. Bạn có chắc chắn muốn nộp bài?`);
       if (!confirm) return;
     }
     
     setIsSubmitting(true);
     try {
-      // Format answers for the API according to the screenshot format
-      const answers = Object.entries(selectedAnswers).map(([questionIndex, selectedAnswer]) => {
-        const index = parseInt(questionIndex);
-        const question = quiz.questions[index];
+      // Format answers for all questions, including those not answered
+      const answers = quiz.questions.map((question, index) => {
+        // Get the selected answer if it exists, otherwise use empty array/string
+        const selectedAnswer = selectedAnswers[index];
         
         // Ensure selectedAnswer is always an array as shown in the screenshot
         const formattedAnswer = Array.isArray(selectedAnswer) 
           ? selectedAnswer 
           : selectedAnswer !== null && selectedAnswer !== undefined 
             ? [selectedAnswer.toString()] 
-            : [];
+            : ['']; // Default empty string for unanswered questions
         
         return {
           question: question.question,
@@ -772,6 +842,8 @@ const QuizPage: React.FC = () => {
       const requestBody = {
         answers: answers
       };
+      
+      console.log("Submitting quiz with answers:", requestBody);
       
       // Call the submit API with the formatted answers
       const response = await fetch(`${API_BASE_URL}/course/quiz/${quizId}/submit`, {
@@ -795,16 +867,16 @@ const QuizPage: React.FC = () => {
       const passingScore = data.passingScore || quiz.passingScore;
       const passed = data.passed === true;
       const message = data.message || '';
-      const incorrectQuestions = data.incorrectQuestions || [];
       
-      // Calculate correct answers based on total and incorrect count
-      const totalQuestions = quiz.questions.length;
-      const correctAnswers = totalQuestions - incorrectQuestions.length;
+      // Get the incorrectQuestions array from the response
+      const incorrectQuestions = data.incorrectQuestions || [];
+      console.log("Incorrect questions:", incorrectQuestions);
       
       // Create a list of feedback items from the incorrectQuestions array
       const feedback = quiz.questions.map((question, index) => {
-        // Check if this question index is in incorrectQuestions array
-        const isIncorrect = incorrectQuestions.includes(index);
+        // Check if this question is in the incorrectQuestions array
+        const isIncorrect = incorrectQuestions.includes(index) || 
+                            incorrectQuestions.includes(question.question);
         
         return {
           questionIndex: index,
@@ -814,6 +886,10 @@ const QuizPage: React.FC = () => {
             : question.correctAnswer as string
         };
       });
+      
+      // Calculate correct answers based on total and incorrect count
+      const totalQuestions = quiz.questions.length;
+      const correctAnswers = totalQuestions - incorrectQuestions.length;
       
       // Create a QuizResult object
       const result: QuizResult = {
@@ -1249,20 +1325,113 @@ const QuizPage: React.FC = () => {
               {/* Quiz questions */}
               {!quizResult && (
                 <div className="space-y-6">
-                  {quiz.questions.map((question, index) => (
-                    <div key={index} className="quiz-question">
-                      <QuizQuestion
-                        question={question.question}
-                        options={question.options}
-                        questionIndex={index}
-                        selectedAnswer={selectedAnswers[index] || null}
-                        onSelectAnswer={(answer) => handleSelectAnswer(index, answer)}
-                        isSubmitted={false}
-                        questionType={question.eQuestion || EQuestion.SINGLE_CHOICE}
-                        material={question.material}
-                      />
+                  {quiz.type === EQuiz.QUIZ_FILL ? (
+                    // Render special answer sheet format for QUIZ_FILL type
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                      {/* PDF Material Display - Left column (2/3 width) */}
+                      <div className="lg:col-span-2 bg-white rounded-lg shadow-md p-6">
+                        <h3 className="text-lg font-bold mb-4">Đề bài</h3>
+                        {quiz.material ? (
+                          <div className="w-full rounded-lg overflow-hidden border border-gray-200 h-[calc(100vh-250px)] min-h-[600px]">
+                            <iframe
+                              src={`${quiz.material}#toolbar=0&navpanes=0&scrollbar=0`}
+                              width="100%"
+                              height="100%"
+                              className="border-0"
+                              title="Tài liệu bài kiểm tra"
+                              allowFullScreen
+                            ></iframe>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-center h-[500px] bg-gray-50 rounded-lg border border-gray-200">
+                            <p className="text-gray-500">Không có tài liệu đính kèm</p>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Answer Sheet Display - Right column (1/3 width) */}
+                      <div className="bg-white rounded-lg shadow-md p-6">
+                        <h3 className="text-lg font-bold mb-4">Phiếu trả lời</h3>
+                        
+                        {/* Answer section with single question per row layout */}
+                        <div className="space-y-2 mb-6 max-h-[calc(100vh-100px)] overflow-y-auto pr-1">
+                          {quiz.questions.map((question, index) => {
+                            const optionLetters = ['A', 'B', 'C', 'D'];
+                            const selectedOption = selectedAnswers[index];
+                            
+                            return (
+                              <div key={index} className="border border-red-200 rounded-md p-2 flex items-center">
+                                <div className="text-red-600 font-medium min-w-[40px] text-center">
+                                  {index + 1}.
+                                </div>
+                                <div className="flex space-x-4 ml-2">
+                                  {optionLetters.slice(0, question.options.length).map((letter, letterIdx) => (
+                                    <div 
+                                      key={letter}
+                                      onClick={() => !isSubmitting && handleSelectAnswer(index, question.options[letterIdx])}
+                                      className={`w-7 h-7 rounded-full flex items-center justify-center text-sm cursor-pointer border ${
+                                        selectedOption === question.options[letterIdx]
+                                          ? 'bg-blue-500 text-white border-blue-500' 
+                                          : 'border-gray-300 hover:border-blue-400'
+                                      }`}
+                                    >
+                                      {letter}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        
+                        {/* Question Material References */}
+                        {quiz.questions.some(q => q.material) && (
+                          <div className="mt-8">
+                            <h4 className="text-md font-medium mb-4">Tài liệu tham khảo cho câu hỏi:</h4>
+                            <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
+                              {quiz.questions.map((question, index) => (
+                                question.material && (
+                                  <div key={index} className="border rounded-lg overflow-hidden">
+                                    <div className="border-b px-3 py-2 bg-gray-50 flex items-center">
+                                      <span className="bg-primary-100 text-primary-800 rounded-full w-6 h-6 flex items-center justify-center mr-2">
+                                        {index + 1}
+                                      </span>
+                                      <span className="text-sm font-medium">Tài liệu cho câu hỏi {index + 1}</span>
+                                    </div>
+                                    <div className="p-4 flex justify-center">
+                                      <img 
+                                        src={question.material} 
+                                        alt={`Tài liệu cho câu hỏi ${index + 1}`}
+                                        className="max-h-64 rounded"
+                                      />
+                                    </div>
+                                  </div>
+                                )
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  ))}
+                  ) : (
+                    // Regular quiz display with individual questions
+                    quiz.questions.map((question, index) => (
+                      <div key={index} className="quiz-question">
+                        <QuizQuestion
+                          question={question.question}
+                          options={question.options}
+                          questionIndex={index}
+                          selectedAnswer={selectedAnswers[index] || null}
+                          onSelectAnswer={(answer) => handleSelectAnswer(index, answer)}
+                          isSubmitted={false}
+                          questionType={question.eQuestion || EQuestion.SINGLE_CHOICE}
+                          material={question.material}
+                          quizData={quiz}
+                          feedback={null}
+                        />
+                      </div>
+                    ))
+                  )}
                   
                   {/* Submit button - now at the bottom of the page, not sticky */}
                   <div className="py-4 mt-10">
@@ -1316,20 +1485,145 @@ const QuizPage: React.FC = () => {
               {quizResult && (
                 <div className="bg-white rounded-lg shadow-md p-6 mt-6">
                   <h2 className="text-xl font-bold mb-4">Chi tiết kết quả</h2>
-                  {quiz.questions.map((question, index) => (
-                    <QuizQuestion
-                      key={index}
-                      question={question.question}
-                      options={question.options}
-                      questionIndex={index}
-                      selectedAnswer={selectedAnswers[index] || null}
-                      onSelectAnswer={() => {}}
-                      isSubmitted={true}
-                      correctAnswer={question.correctAnswer}
-                      questionType={question.eQuestion || EQuestion.SINGLE_CHOICE}
-                      material={question.material}
-                    />
-                  ))}
+                  
+                  {quiz.type === EQuiz.QUIZ_FILL ? (
+                    // Special display for QUIZ_FILL mode results
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                      {/* Display quiz material - Left column (2/3 width) */}
+                      <div className="lg:col-span-2">
+                        <h3 className="text-lg font-medium mb-3">Đề bài</h3>
+                        {quiz.material ? (
+                          <div className="w-full rounded-lg overflow-hidden border border-gray-200 h-[calc(100vh-250px)] min-h-[600px]">
+                            <iframe
+                              src={`${quiz.material}#toolbar=0&navpanes=0&scrollbar=0`}
+                              width="100%" 
+                              height="100%"
+                              className="border-0"
+                              title="Tài liệu bài kiểm tra"
+                              allowFullScreen
+                            ></iframe>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-center h-[500px] bg-gray-50 rounded-lg border border-gray-200">
+                            <p className="text-gray-500">Không có tài liệu đính kèm</p>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Answer sheet with correct/incorrect indicators - Right column (1/3 width) */}
+                      <div>
+                        <h3 className="text-lg font-medium mb-3">Kết quả bài làm</h3>
+                        
+                        {/* Answer section with single question per row layout */}
+                        <div className="space-y-2 mb-6">
+                          {quiz.questions.map((question, index) => {
+                            const optionLetters = ['A', 'B', 'C', 'D'];
+                            const selectedOption = selectedAnswers[index];
+                            const feedback = quizResult.feedback[index];
+                            const isCorrect = feedback ? feedback.isCorrect : false;
+                            
+                            // Find the correct answer option index
+                            const correctAnswers = Array.isArray(question.correctAnswer) 
+                              ? question.correctAnswer 
+                              : [question.correctAnswer];
+                            
+                            return (
+                              <div key={index} className={`border rounded-md p-2 flex items-center ${
+                                isCorrect ? 'border-green-500 bg-green-50' : 'border-red-500 bg-red-50'
+                              }`}>
+                                <div className={`font-medium min-w-[40px] text-center ${
+                                  isCorrect ? 'text-green-600' : 'text-red-600'
+                                }`}>
+                                  {index + 1}.
+                                </div>
+                                <div className="flex space-x-4 ml-2">
+                                  {optionLetters.slice(0, question.options.length).map((letter, letterIdx) => {
+                                    const option = question.options[letterIdx];
+                                    const isSelected = selectedOption === option;
+                                    const isCorrectOption = correctAnswers.includes(option);
+                                    
+                                    let buttonClass = "w-7 h-7 rounded-full flex items-center justify-center text-sm border ";
+                                    
+                                    if (isCorrectOption) {
+                                      buttonClass += "bg-green-500 text-white border-green-500";
+                                    } else if (isSelected) {
+                                      buttonClass += "bg-red-500 text-white border-red-500";
+                                    } else {
+                                      buttonClass += "border-gray-300 text-gray-700";
+                                    }
+                                    
+                                    // If it's correctly selected, always use green
+                                    if (isSelected && isCorrectOption) {
+                                      buttonClass = "w-7 h-7 rounded-full flex items-center justify-center text-sm bg-green-500 text-white border-green-500";
+                                    }
+                                    
+                                    return (
+                                      <div 
+                                        key={letter}
+                                        className={buttonClass}
+                                      >
+                                        {letter}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        
+                        {/* Question materials for reference */}
+                        {quiz.questions.some(q => q.material) && (
+                          <div className="mt-6">
+                            <h4 className="text-md font-medium mb-3">Tài liệu tham khảo:</h4>
+                            <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
+                              {quiz.questions.map((question, index) => (
+                                question.material && (
+                                  <div key={index} className="border rounded-lg overflow-hidden">
+                                    <div className="border-b px-3 py-2 bg-gray-50 flex items-center">
+                                      <span className="bg-primary-100 text-primary-800 rounded-full w-6 h-6 flex items-center justify-center mr-2">
+                                        {index + 1}
+                                      </span>
+                                      <span className="text-sm font-medium">Tài liệu cho câu hỏi {index + 1}</span>
+                                    </div>
+                                    <div className="p-4 flex justify-center">
+                                      <img 
+                                        src={question.material} 
+                                        alt={`Tài liệu cho câu hỏi ${index + 1}`}
+                                        className="max-h-64 rounded"
+                                      />
+                                    </div>
+                                  </div>
+                                )
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    // Regular quiz result display
+                    quiz.questions.map((question, index) => (
+                      <QuizQuestion
+                        key={index}
+                        question={question.question}
+                        options={question.options}
+                        questionIndex={index}
+                        selectedAnswer={selectedAnswers[index] || null}
+                        onSelectAnswer={() => {}}
+                        isSubmitted={true}
+                        correctAnswer={question.correctAnswer}
+                        questionType={question.eQuestion || EQuestion.SINGLE_CHOICE}
+                        material={question.material}
+                        quizData={quiz}
+                        feedback={quizResult && quizResult.feedback ? { 
+                          questionIndex: index,
+                          isCorrect: quizResult.feedback[index]?.isCorrect || false,
+                          correctAnswer: quizResult.feedback[index]?.correctAnswer
+                        } : null}
+                      />
+                    ))
+                  )}
                 </div>
               )}
             </div>

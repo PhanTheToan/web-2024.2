@@ -18,6 +18,7 @@
     "@mui/material": "^6.4.6",
     "@radix-ui/react-avatar": "^1.1.3",
     "@radix-ui/react-label": "^2.1.2",
+    "@radix-ui/react-popover": "^1.1.11",
     "@radix-ui/react-progress": "^1.1.2",
     "@radix-ui/react-radio-group": "^1.2.3",
     "@radix-ui/react-select": "^2.1.6",
@@ -28,6 +29,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "dotenv": "^16.4.7",
+    "emoji-picker-react": "^4.12.2",
     "framer-motion": "^10.16.4",
     "katex": "^0.16.21",
     "learning-system": "file:",
@@ -43,6 +45,7 @@
     "react-select": "^5.10.1",
     "recharts": "^2.15.2",
     "sonner": "^2.0.3",
+    "swiper": "^11.2.6",
     "tailwind-merge": "^3.1.0",
     "tailwindcss-animate": "^1.0.7",
     "zod": "^3.24.2"

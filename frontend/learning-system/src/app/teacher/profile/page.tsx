@@ -2,10 +2,9 @@
 
 import { useEffect, useState } from "react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { BookOpen, ClipboardList, GraduationCap, Settings, User, Users } from "lucide-react"
+import { Settings, User } from "lucide-react"
 import { ProfileDetails } from "./profile-details"
 import { AccountSettings } from "./account-setting"
 import Link from "next/link"
@@ -90,10 +89,6 @@ export default function ProfilePage() {
             <Settings className="h-4 w-4" />
             <span className="hidden md:inline">Cài đặt</span>
           </TabsTrigger>
-          <TabsTrigger value="management" className="flex items-center gap-2">
-            <BookOpen className="h-4 w-4" />
-            <span className="hidden md:inline">Quản lý Website</span>
-          </TabsTrigger>
         </TabsList>
 
         {/* Tab: Hồ sơ */}
@@ -123,7 +118,7 @@ export default function ProfilePage() {
         </TabsContent>
 
         {/* Tab: Quản lý */}
-        <TabsContent value="management">
+        {/* <TabsContent value="management">
           <div className="grid gap-6 md:grid-cols-3">
             <Card className="overflow-hidden">
               <div className="h-48 bg-gradient-to-br from-green-100 to-green-300">
@@ -197,7 +192,7 @@ export default function ProfilePage() {
               </CardContent>
             </Card>
           </div>
-        </TabsContent>
+        </TabsContent> */}
       </Tabs>
     </div>
   )

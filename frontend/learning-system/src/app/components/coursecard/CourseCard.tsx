@@ -111,7 +111,7 @@ const CourseCard: React.FC<CourseCardProps> = ({
                   <span className="text-green-600 font-semibold">Miễn phí</span>
                 ) : (
                   <span className="text-primary-600 font-semibold">
-                    ${course.price}
+                    {course.price} VNĐ
                   </span>
                 )}
               </div>
@@ -160,7 +160,7 @@ const CourseCard: React.FC<CourseCardProps> = ({
                 <span className="text-green-600 font-semibold">Miễn phí</span>
               ) : (
                 <span className="text-primary-600 font-semibold">
-                  ${course.price}
+                  {course.price} VNĐ
                 </span>
               )}
             </div>
