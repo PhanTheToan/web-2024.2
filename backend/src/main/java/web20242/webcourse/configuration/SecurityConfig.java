@@ -77,7 +77,7 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Collections.singletonList("http://localhost:3000")); // Thay bằng domain frontend
+        configuration.setAllowedOrigins(Arrays.asList("http://localhost:3000","https://alphaeducation.io.vn","https://web-2024-2.vercel.app")); // Thay bằng domain frontend
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE"));
         configuration.setAllowedHeaders(Collections.singletonList("*"));
         configuration.setAllowCredentials(true); // Quan trọng: Cho phép gửi cookie
