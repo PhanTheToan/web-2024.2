@@ -5,9 +5,10 @@ import Link from 'next/link';
 import { ArrowLeft, AlertCircle, CheckCircle, Loader2, X, File } from 'lucide-react';
 import { Course, LessonMaterial } from '@/app/types';
 import { toast } from 'react-hot-toast';
-
+import dotenv from 'dotenv';
+dotenv.config();
 // Define API base URL
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8082/api';
+const API_BASE_URL = process.env.BASE_URL || 'http://localhost:8082/api';
 
 export default function EditLessonPage() {
   const params = useParams();
@@ -31,6 +32,7 @@ export default function EditLessonPage() {
     materials: [] as LessonMaterial[],
     orderLesson: 0,
     timeLimit: 0,
+    status: 'INACTIVE',
   });
 
   // Additional state for file upload
@@ -71,7 +73,7 @@ export default function EditLessonPage() {
       setLoading(true);
       try {
         // Fetch course info
-        const courseRes = await fetch(`${API_BASE_URL}/course/info/${courseId}`, {
+        const courseRes = await fetch(`${API_BASE_URL}/course/info-course/${courseId}`, {
           credentials: 'include'
         });
         
@@ -110,6 +112,7 @@ export default function EditLessonPage() {
           }) : [],
           orderLesson: lessonData.order || 0,
           timeLimit: lessonData.timeLimit || 0,
+          status: lessonData.status || 'INACTIVE',
         });
         
         // Set video preview if URL exists
@@ -132,7 +135,7 @@ export default function EditLessonPage() {
   }, [courseId, lessonId, router]);
   
   // Handle form input changes
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
@@ -300,7 +303,8 @@ export default function EditLessonPage() {
         videoUrl: formData.videoUrl,
         materials: materialPaths,
         order: formData.orderLesson,
-        timeLimit: formData.timeLimit
+        timeLimit: formData.timeLimit,
+        status: formData.status
       };
       
       console.log("Updating lesson with data:", requestData);
@@ -502,16 +506,17 @@ export default function EditLessonPage() {
             <label className="block text-gray-700 font-medium mb-2" htmlFor="orderLesson">
               Thứ tự bài học
             </label>
-            <input
-              id="orderLesson"
-              name="orderLesson"
-              type="number"
-              min="1"
-              placeholder="Nhập thứ tự bài học"
-              className="w-full px-3 py-2 border rounded-md"
-              value={formData.orderLesson}
-              onChange={handleChange}
-            />
+            <div className="flex items-center">
+              <span className="w-full px-3 py-2 border rounded-md bg-gray-50 text-gray-600">
+                {formData.orderLesson}
+              </span>
+              <span className="ml-2 text-sm text-gray-500">
+                (Thứ tự được quản lý tự động trong phần sắp xếp nội dung khóa học)
+              </span>
+            </div>
+            <p className="text-gray-500 text-sm mt-2">
+              Để thay đổi thứ tự, vui lòng sử dụng chức năng &quot;Sắp xếp lại&quot; trong trang chi tiết khóa học
+            </p>
           </div>
           
           <div className="mb-6">
@@ -530,6 +535,28 @@ export default function EditLessonPage() {
               onChange={handleChange}
             />
             <p className="text-gray-500 text-sm mt-1">Thời gian ước tính để hoàn thành bài học</p>
+          </div>
+          
+          <div className="mb-6">
+            <label className="block text-gray-700 font-medium mb-2" htmlFor="status">
+              Trạng thái bài học <span className="text-red-500">*</span>
+            </label>
+            <select
+              id="status"
+              name="status"
+              required
+              className="w-full px-3 py-2 border rounded-md"
+              value={formData.status}
+              onChange={handleChange}
+            >
+              <option value="ACTIVE">Hoạt động (học viên có thể truy cập)</option>
+              <option value="INACTIVE">Không hoạt động (học viên không thể truy cập)</option>
+            </select>
+            <p className="text-gray-500 text-sm mt-1">
+              {formData.status === 'ACTIVE' 
+                ? "Bài học đang được kích hoạt, học viên có thể truy cập." 
+                : "Bài học hiện đang bị vô hiệu hóa, học viên không thể truy cập."}
+            </p>
           </div>
           
           <div className="mb-6">

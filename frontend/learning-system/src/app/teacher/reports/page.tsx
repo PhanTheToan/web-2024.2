@@ -5,27 +5,32 @@ import { courseService } from "@/services/courseService";
 import { ArrowUp, BookText, CheckCircle, Clock, Users } from "lucide-react";
 import Link from "next/link";
 import { Course } from "@/app/types";
-// @ts-expect-error - Recharts library doesn't have TypeScript definitions
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
-// Add getTeacherCourses to courseService if it doesn't exist
-declare module '@/services/courseService' {
-  export interface CourseService {
-    getTeacherCourses(): Promise<Course[]>;
-  }
+// Extend courseService type to include getTeacherCourses
+interface ExtendedCourseService {
+  getTeacherCourses: () => Promise<Course[]>;
 }
 
+const extendedCourseService = courseService as typeof courseService & ExtendedCourseService;
+
 // Add method if it doesn't exist
-if (!courseService.getTeacherCourses) {
-  courseService.getTeacherCourses = async () => {
+if (!extendedCourseService.getTeacherCourses) {
+  extendedCourseService.getTeacherCourses = async () => {
     const response = await courseService.getCourses(1, 100);
-    return response.courses;
+    return response.courses.map(course => ({
+      ...course,
+      studentsEnrolled: Array.isArray(course.studentsEnrolled)
+        ? course.studentsEnrolled.filter((item): item is string => typeof item === 'string')
+        : []
+    })) as Course[];
   };
 }
 
 // Mock enrollment service methods
 const enrollmentStats = {
-  getCourseCompletionStats: async (/* courseId: string */) => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  getCourseCompletionStats: async (_courseId: string) => {
     // Mock implementation - would be replaced with actual API call
     const completed = Math.floor(Math.random() * 30);
     const total = completed + Math.floor(Math.random() * 20);
@@ -45,8 +50,8 @@ export default function TeacherReportsPage() {
     totalCourses: 0,
     completionRate: 0,
     averageCompletionTime: 0,
-    studentsByMonth: [] as {name: string, students: number}[],
-    courseCompletionData: [] as {name: string, completed: number, inProgress: number}[]
+    studentsByMonth: [] as { name: string, students: number }[],
+    courseCompletionData: [] as { name: string, completed: number, inProgress: number }[]
   });
 
   useEffect(() => {
@@ -54,7 +59,7 @@ export default function TeacherReportsPage() {
       try {
         setLoading(true);
         // Fetch courses taught by the current teacher
-        const teacherCourses = await courseService.getTeacherCourses();
+        const teacherCourses = await extendedCourseService.getTeacherCourses();
         setCourses(teacherCourses);
         
         // Calculate stats

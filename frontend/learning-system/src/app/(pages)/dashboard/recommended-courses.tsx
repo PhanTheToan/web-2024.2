@@ -1,66 +1,136 @@
-import Image from "next/image"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
+'use client';
 
-// Mock data for recommended courses
-const recommendedCourses = [
-    {
-        id: "rec-1",
-        title: "Node.js Nâng cao",
-        image: "/placeholder.svg?height=80&width=150",
-        match: "98% phù hợp",
-        description: "Học cách xây dựng ứng dụng server-side với Node.js nâng cao.",
-    },
-    {
-        id: "rec-2",
-        title: "Docker cho Developers",
-        image: "/placeholder.svg?height=80&width=150",
-        match: "95% phù hợp",
-        description: "Học cách sử dụng Docker để đóng gói và triển khai ứng dụng.",
-    },
-    {
-        id: "rec-3",
-        title: "TypeScript cơ bản",
-        image: "/placeholder.svg?height=80&width=150",
-        match: "92% phù hợp",
-        description: "Học TypeScript để phát triển ứng dụng JavaScript mạnh mẽ hơn.",
-    },
-]
+import { AxiosError } from "axios"
+import { useEffect, useState } from 'react';
+import Image from 'next/image';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import Link from 'next/link';
 
-export function RecommendedCourses() {
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle className="text-[#FF782D]">Khóa học gợi ý</CardTitle>
-                <CardDescription>Dựa trên sở thích và lịch sử học tập của bạn.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <div className="space-y-4">
-                    {recommendedCourses.map((course) => (
-                        <div key={course.id} className="flex gap-3 border rounded-lg p-3 transition">
-                            <div className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-md">
-                                <Image src={course.image || "/placeholder.svg"} alt={course.title} fill className="object-cover" />
-                            </div>
-                            <div className="flex flex-1 flex-col">
-                                <div>
-                                    <h4 className="font-medium hover:text-[#FF782D]">{course.title}</h4>
-                                    <p className="text-xs text-[#666666]">{course.match}</p>
-                                    <p className="mt-1 text-xs line-clamp-2 text-[#444]">{course.description}</p>
-                                </div>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="mt-2 self-start border-[#FF782D] text-[#FF782D] hover:bg-[#FF782D] hover:text-white transition"
-                                >
-                                    Đăng ký
-                                </Button>
-                            </div>
-                        </div>
-                    ))}
-
-                </div>
-            </CardContent>
-        </Card>
-    )
+// Định nghĩa interface cho khóa học chưa bắt đầu
+interface NotStartedCourse {
+  id: string;
+  title: string;
+  thumbnail: string | null;
+  teacherName: string;
+  description: string;
+  status: string;
 }
 
+const BASE_URL = process.env.BASE_URL || 'http://localhost:8082/api';
+
+export function RecommendedCourses() {
+  const [courses, setCourses] = useState<NotStartedCourse[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchNotStartedCourses = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch(`${BASE_URL}/course/notstarted-course`, {
+          method: 'GET',
+          credentials: 'include', // Đảm bảo cookie được gửi
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          // Lấy data.body và kiểm tra xem nó có phải mảng không
+          const courseData = data.body || [];
+          if (Array.isArray(courseData)) {
+            setCourses(courseData);
+          } else {
+            console.error('Dữ liệu từ API /notstarted-course không phải mảng:', courseData);
+            setCourses([]);
+          }
+          setLoading(false);
+        } else {
+          throw new Error(data.message || 'Không thể tải danh sách khóa học chưa bắt đầu');
+        }
+      } catch (err: unknown) {
+        const error = err as AxiosError;
+      
+        console.error('Lỗi khi gọi API /notstarted-course:', error);
+        setError(error.message || 'Không thể tải danh sách khóa học chưa bắt đầu');
+        setLoading(false);
+      
+        if (error.response?.status === 401 || error.response?.status === 403) {
+          window.location.href = '/login';
+        }
+      }
+    };
+    fetchNotStartedCourses();
+  }, []);
+
+  if (loading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-[#FF782D]">Khóa học chưa bắt đầu</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p>Đang tải...</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-[#FF782D]">Khóa học chưa bắt đầu</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-red-500">{error}</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-[#FF782D]">Khóa học chưa bắt đầu</CardTitle>
+        <CardDescription>Dựa trên sở thích và lịch sử học tập của bạn.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          {courses.length === 0 ? (
+            <p>Chưa có khóa học nào chưa bắt đầu.</p>
+          ) : (
+            courses.map((course) => (
+              <div key={course.id} className="flex gap-3 border rounded-lg p-3 transition">
+                <div className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-md">
+                  <Image
+                    src={course.thumbnail && typeof course.thumbnail === 'string' ? course.thumbnail : '/placeholder.svg'}
+                    alt={course.title}
+                    fill
+                    className="object-cover"
+                  />
+                </div>
+                <div className="flex flex-1 flex-col">
+                  <div>
+                    <h4 className="font-medium hover:text-[#FF782D]">{course.title}</h4>
+                    <p className="text-xs text-[#666666]">{course.teacherName}</p>
+                    <p className="mt-1 text-xs line-clamp-2 text-[#444]">{course.description}</p>
+                  </div>
+                  <Link href={`/courses/${course.id}`}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="mt-2 self-start border-[#FF782D] text-[#FF782D] hover:bg-[#FF782D] hover:text-white transition"
+                      >
+                        Bắt đầu học
+                      </Button>
+                    </Link>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}

@@ -3,10 +3,10 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Upload, X, Save, Loader2 } from 'lucide-react';
-import { CategoryItem, Category } from '@/app/types';
 import Image from 'next/image';
 import { toast } from 'react-hot-toast';
-
+import dotenv from 'dotenv';
+dotenv.config();
 // Define the CourseData interface for the form
 interface CourseData {
   title: string;
@@ -14,10 +14,29 @@ interface CourseData {
   price: number;
   thumbnail: string;
   totalDuration: number; // in minutes, calculated from lessons and quizzes timeLimit
-  categories: string[]; // Changed from category to categories array
+  totalTimeLimit: number; // Total time limit in minutes
+  categories: string[]; // Regular categories
+  specialCategory: string; // For PRIVATE or PUBLIC
   teacherId: string;
-  isPopular: boolean; // Added isPopular field
+  teacherName: string; // To display teacher name
+  isPopular: boolean; 
   isPublished: boolean;
+}
+
+// Update Category interface to include isSpecial flag
+interface CategoryItem {
+  name: string;
+  displayName: string;
+  id: string;
+  count: number;
+  isActive: boolean;
+  isSpecial?: boolean; // Flag for PRIVATE/PUBLIC categories
+}
+
+interface CategoryOrString {
+  name?: string;
+  categoryName?: string;
+  [key: string]: unknown;
 }
 
 export default function EditCoursePage() {
@@ -30,10 +49,13 @@ export default function EditCoursePage() {
     description: '',
     price: 0,
     thumbnail: '',
-    totalDuration: 0, // in minutes
-    categories: [], // Changed from category to categories array
+    totalDuration: 0,
+    totalTimeLimit: 0,
+    categories: [],
+    specialCategory: '',
     teacherId: '',
-    isPopular: false, // Added isPopular field
+    teacherName: '',
+    isPopular: false,
     isPublished: false,
   });
   
@@ -42,12 +64,11 @@ export default function EditCoursePage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [categories, setCategories] = useState<CategoryItem[]>([]);
-  const [availableTeachers, setAvailableTeachers] = useState<{_id: string; firstName: string; lastName: string}[]>([]);
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8082/api';
+  const API_BASE_URL = process.env.BASE_URL || 'http://localhost:8082/api';
   // Fetch course data on component mount
   useEffect(() => {
     const fetchData = async () => {
@@ -55,8 +76,8 @@ export default function EditCoursePage() {
       try {
         console.log("fetching course data...", {courseId});
         
-        // Fetch course info using the /api/course/info/:id endpoint
-        const courseResponse = await fetch(`${API_BASE_URL}/course/info/${courseId}`, {
+        // Fetch course info using the new API endpoint from the first image
+        const courseResponse = await fetch(`${API_BASE_URL}/course/info-course/${courseId}`, {
           method: 'GET',
           credentials: 'include',
           headers: {
@@ -67,8 +88,9 @@ export default function EditCoursePage() {
         if (!courseResponse.ok) {
           throw new Error('Không thể tải thông tin khóa học');
         }
-        
+       
         const courseData = await courseResponse.json();
+        console.log("courseData", courseData);
         const course = courseData.body || courseData;
         
         // Fetch featured categories using the /api/categories/featured-category endpoint
@@ -85,10 +107,10 @@ export default function EditCoursePage() {
         }
         
         const categoriesData = await categoriesResponse.json();
-        const categories = categoriesData.body || [];
+        const categoriesArray = categoriesData.body || [];
         
-        // Format categories based on the actual API response format
-        setCategories(categories.map((cat: {
+        // Format categories based on the actual API response format and mark special categories
+        setCategories(categoriesArray.map((cat: {
           categoryId?: string; 
           categoryName?: string;
           categoryDisplayName?: string | null;
@@ -97,52 +119,46 @@ export default function EditCoursePage() {
           displayName: cat.categoryDisplayName || cat.categoryName || '',
           id: cat.categoryId || '',
           count: 0,
-          isActive: false
+          isActive: false,
+          isSpecial: cat.categoryName === 'PRIVATE' || cat.categoryName === 'PUBLIC'
         })));
         
-        // Fetch teachers from API
-        const teachersResponse = await fetch(`${API_BASE_URL}/user/all-teacher`, {
-          method: 'GET',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        });
+        // Process teacher ID and name
+        const teacherId = course.teacherId || '';
+        const teacherName = course.teacherName || '';
         
-        if (teachersResponse.ok) {
-          const teachersData = await teachersResponse.json();
-          if (teachersData.body && Array.isArray(teachersData.body)) {
-            setAvailableTeachers(teachersData.body.map((teacher: {
-              _id?: string;
-              id?: string;
-              firstName?: string;
-              lastName?: string;
-            }) => ({
-              _id: teacher._id || teacher.id || '',
-              firstName: teacher.firstName || '',
-              lastName: teacher.lastName || ''
-            })));
-          }
-        } else {
-          console.error("Failed to fetch teachers");
-          toast.error("Không thể tải danh sách giảng viên");
-          setAvailableTeachers([]);
-        }
-        
-        // Process teacher ID
-        const teacherId = typeof course.teacherId === 'object' 
-          ? course.teacherId._id 
-          : course.teacherId;
-        
-        // Process categories with proper typing (similar to teacher page)
+        // Process categories with proper typing
         const processedCategories = Array.isArray(course.categories) 
-          ? course.categories.map((cat: Category | string) => {
-              if (typeof cat === 'object' && cat !== null && 'name' in cat) {
-                return (cat as Category).name;
+          ? course.categories.filter((cat: string | CategoryOrString) => {
+              if (typeof cat === 'string') {
+                return cat !== 'PRIVATE' && cat !== 'PUBLIC';
+              } else {
+                const catName = cat?.name || cat?.categoryName || '';
+                return catName !== 'PRIVATE' && catName !== 'PUBLIC';
               }
-              return String(cat);
-            }) 
+            }).map((cat: string | CategoryOrString) => {
+              return typeof cat === 'string' ? cat : (cat?.name || cat?.categoryName || '');
+            })
           : [];
+          
+        // Find the special category (PRIVATE or PUBLIC)
+        let specialCategory = '';
+        if (Array.isArray(course.categories)) {
+          const foundSpecialCategory = course.categories.find((cat: string | CategoryOrString) => {
+            if (typeof cat === 'string') {
+              return cat === 'PRIVATE' || cat === 'PUBLIC';
+            } else {
+              const catName = cat?.name || cat?.categoryName || '';
+              return catName === 'PRIVATE' || catName === 'PUBLIC';
+            }
+          });
+          
+          if (foundSpecialCategory) {
+            specialCategory = typeof foundSpecialCategory === 'string' 
+              ? foundSpecialCategory 
+              : (foundSpecialCategory?.name || foundSpecialCategory?.categoryName || '');
+          }
+        }
         
         // Set course data in the form
         setCourseData({
@@ -150,11 +166,14 @@ export default function EditCoursePage() {
           description: course.description || '',
           price: course.price || 0,
           thumbnail: course.thumbnail || '',
-          totalDuration: course.totalDuration || 0,
+          totalDuration: 0, // This will be set based on totalTimeLimit
+          totalTimeLimit: course.totalTimeLimit || 0,
           categories: processedCategories,
-          teacherId: teacherId || '',
-          isPopular: !!course.isPopular,
-          isPublished: !!course.isPublished,
+          specialCategory: specialCategory,
+          teacherId: teacherId,
+          teacherName: teacherName,
+          isPopular: processedCategories.includes('POPULAR'),
+          isPublished: course.status === 'ACTIVE',
         });
         
         // Set selected categories to match course categories
@@ -177,6 +196,14 @@ export default function EditCoursePage() {
       fetchData();
     }
   }, [courseId]);
+  
+  // Update totalDuration whenever totalTimeLimit changes
+  useEffect(() => {
+    setCourseData(prev => ({
+      ...prev,
+      totalDuration: prev.totalTimeLimit
+    }));
+  }, [courseData.totalTimeLimit]);
   
   // Keep courseData.categories in sync with selectedCategories
   useEffect(() => {
@@ -254,16 +281,36 @@ export default function EditCoursePage() {
         throw new Error('Mô tả khóa học không được để trống');
       }
       
+      if (courseData.categories.length === 0) {
+        throw new Error('Vui lòng chọn ít nhất một danh mục cho khóa học');
+      }
+      
+      if (!courseData.specialCategory) {
+        throw new Error('Vui lòng chọn PRIVATE hoặc PUBLIC cho khóa học');
+      }
+      
+      // Combine regular categories with special category
+      const allCategories = [...courseData.categories];
+      
+      // Add special category if selected
+      if (courseData.specialCategory) {
+        allCategories.push(courseData.specialCategory);
+      }
+      
+      // Add POPULAR if isPopular is checked
+      if (courseData.isPopular && !allCategories.includes('POPULAR')) {
+        allCategories.push('POPULAR');
+      }
+      
       // Prepare the updated course data
       const updatedCourse = {
         title: courseData.title,
         description: courseData.description,
         price: courseData.price,
-        thumbnail: courseData.thumbnail,
-        categories: courseData.categories,
+        status: courseData.isPublished ? 'ACTIVE' : 'INACTIVE',
         teacherId: courseData.teacherId,
-        isPopular: courseData.isPopular,
-        courseStatus: courseData.isPublished ? 'ACTIVE' : 'INACTIVE',
+        thumbnail: courseData.thumbnail,
+        categories: allCategories
       };
       
       // Handle file upload if there's a new thumbnail
@@ -297,9 +344,9 @@ export default function EditCoursePage() {
           throw new Error('Lỗi khi tải lên ảnh thumbnail');
         }
       }
-      
-      // Update the course using API
-      const updateResponse = await fetch(`${API_BASE_URL}/course/update/${courseId}`, {
+      console.log("updatedCourse", updatedCourse);
+      // Update the course using the new API endpoint from the second image
+      const updateResponse = await fetch(`${API_BASE_URL}/course/update/course-info/${courseId}`, {
         method: 'PUT',
         credentials: 'include',
         headers: {
@@ -396,20 +443,11 @@ export default function EditCoursePage() {
             <label className="block text-gray-700 font-medium mb-2" htmlFor="teacherId">
               Giảng viên
             </label>
-            <select
-              id="teacherId"
-              name="teacherId"
-              value={courseData.teacherId}
-              disabled={true} // Make teacher non-editable
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-100" // Added bg-gray-100 to indicate disabled state
-            >
-              <option value="">Chọn giảng viên</option>
-              {availableTeachers.map(teacher => (
-                <option key={teacher._id} value={teacher._id}>
-                  {teacher.firstName} {teacher.lastName}
-                </option>
-              ))}
-            </select>
+            <div className="flex items-center">
+              <div className="bg-gray-100 px-3 py-2 border border-gray-300 rounded-md w-full">
+                <span>{courseData.teacherName}</span>
+              </div>
+            </div>
           </div>
           
           <div className="mb-6">
@@ -430,7 +468,7 @@ export default function EditCoursePage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <div>
               <label className="block text-gray-700 font-medium mb-2" htmlFor="price">
-                Giá khóa học (USD) <span className="text-red-500">*</span>
+                Giá khóa học (VNĐ) <span className="text-red-500">*</span>
               </label>
               <input
                 type="number"
@@ -454,7 +492,9 @@ export default function EditCoursePage() {
                 <div className="p-4 bg-gray-50 border-b">
                   <div className="flex items-center justify-between">
                     <h4 className="font-medium text-gray-700">Chọn danh mục cho khóa học</h4>
-                    <span className="text-sm text-gray-500">Đã chọn: {selectedCategories.length}</span>
+                    <span className="text-sm text-gray-500">
+                      Đã chọn: {selectedCategories.length + (courseData.specialCategory ? 1 : 0)}
+                    </span>
                   </div>
                 </div>
                 
@@ -462,70 +502,164 @@ export default function EditCoursePage() {
                   {categories.length === 0 ? (
                     <p className="text-gray-500 text-sm italic">Không có danh mục nào</p>
                   ) : (
-                    <div className="space-y-3">
-                      {categories.map(cat => {
-                        const isSelected = selectedCategories.includes(cat.name);
-                        return (
-                          <div 
-                            key={cat.name} 
-                            className={`flex items-center p-3 rounded-lg border cursor-pointer transition-all
-                              ${isSelected ? 'border-indigo-200 bg-indigo-50' : 'border-gray-200 hover:border-indigo-200 hover:bg-gray-50'}`}
-                            onClick={() => {
-                              if (isSelected) {
-                                setSelectedCategories(prev => prev.filter(name => name !== cat.name));
-                              } else {
-                                setSelectedCategories(prev => [...prev, cat.name]);
+                    <div>
+                      {/* Special categories (PRIVATE/PUBLIC) section */}
+                      <div className="mb-4">
+                        <h5 className="font-medium text-gray-700 mb-2 border-b pb-2">
+                          Vui lòng chọn một trong hai
+                        </h5>
+                        <div className="space-y-3">
+                          {categories
+                            .filter(cat => cat.isSpecial)
+                            .map(cat => {
+                              if (!cat || !cat.name) {
+                                return null;
                               }
-                            }}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={() => {}} // Controlled by the div onClick
-                              className="h-5 w-5 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
-                            />
-                            <div className="ml-3 flex-1">
-                              <span className="text-gray-800 font-medium">{cat.name}</span>
-                            </div>
-                            {cat.count > 0 && (
-                              <span className="ml-auto bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded-full">
-                                {cat.count} khóa học
-                              </span>
-                            )}
-                          </div>
-                        );
-                      })}
+                              
+                              const isSelected = courseData.specialCategory === cat.name;
+                              return (
+                                <div 
+                                  key={cat.id || cat.name} 
+                                  className={`flex items-center p-3 rounded-lg border cursor-pointer transition-all
+                                    ${isSelected ? 'border-indigo-200 bg-indigo-50' : 'border-gray-200 hover:border-indigo-200 hover:bg-gray-50'}`}
+                                  onClick={() => {
+                                    setCourseData({
+                                      ...courseData,
+                                      specialCategory: isSelected ? '' : cat.name
+                                    });
+                                  }}
+                                >
+                                  <input
+                                    type="radio"
+                                    name="specialCategory"
+                                    checked={isSelected}
+                                    onChange={() => {}} // Controlled by the div onClick
+                                    className="h-5 w-5 text-indigo-600 border-gray-300 focus:ring-indigo-500"
+                                  />
+                                  <div className="ml-3 flex-1">
+                                    <span className="text-gray-800 font-medium">{cat.displayName || cat.name}</span>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                        </div>
+                      </div>
+                      
+                      {/* Regular categories section */}
+                      <div>
+                        <h5 className="font-medium text-gray-700 mb-2 border-b pb-2">
+                          Chọn ít nhất một danh mục bình thường
+                        </h5>
+                        <div className="space-y-3">
+                          {categories
+                            .filter(cat => !cat.isSpecial)
+                            .map(cat => {
+                              if (!cat || !cat.name) {
+                                return null;
+                              }
+                              
+                              const isSelected = selectedCategories.includes(cat.name);
+                              return (
+                                <div 
+                                  key={cat.id || cat.name} 
+                                  className={`flex items-center p-3 rounded-lg border cursor-pointer transition-all
+                                    ${isSelected ? 'border-indigo-200 bg-indigo-50' : 'border-gray-200 hover:border-indigo-200 hover:bg-gray-50'}`}
+                                  onClick={() => {
+                                    if (isSelected) {
+                                      setSelectedCategories(prev => prev.filter(name => name !== cat.name));
+                                    } else {
+                                      setSelectedCategories(prev => [...prev, cat.name]);
+                                    }
+                                  }}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={() => {}} // Controlled by the div onClick
+                                    className="h-5 w-5 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
+                                  />
+                                  <div className="ml-3 flex-1">
+                                    <span className="text-gray-800 font-medium">{cat.displayName || cat.name}</span>
+                                  </div>
+                                  {cat.count > 0 && (
+                                    <span className="ml-auto bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded-full">
+                                      {cat.count} khóa học
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            })}
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
                 
-                {selectedCategories.length > 0 && (
-                  <div className="p-4 border-t bg-white">
-                    <div className="text-sm font-medium text-gray-700 mb-2">Danh mục đã chọn:</div>
-                    <div className="flex flex-wrap gap-2">
-                      {selectedCategories.map(categoryName => (
-                        <div 
-                          key={categoryName}
-                          className="flex items-center bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded-full text-sm"
-                        >
-                          {categoryName}
-                          <button
-                            type="button"
-                            className="ml-1.5 text-indigo-500 hover:text-indigo-700"
-                            onClick={() => setSelectedCategories(prev => prev.filter(name => name !== categoryName))}
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                            </svg>
-                          </button>
-                        </div>
-                      ))}
+                <div className="p-4 border-t bg-white">
+                  {/* Display validation messages */}
+                  {!courseData.specialCategory && (
+                    <div className="text-yellow-600 text-sm mb-2">
+                      Vui lòng chọn PRIVATE hoặc PUBLIC cho khóa học
                     </div>
-                  </div>
-                )}
+                  )}
+                  
+                  {selectedCategories.length === 0 && (
+                    <div className="text-yellow-600 text-sm mb-2">
+                      Vui lòng chọn ít nhất một danh mục bình thường
+                    </div>
+                  )}
+                  
+                  {/* Display selected special category */}
+                  {courseData.specialCategory && (
+                    <div>
+                      <div className="text-sm font-medium text-gray-700 mb-2">Loại khóa học:</div>
+                      <div className="flex items-center bg-purple-50 text-purple-700 px-3 py-1.5 rounded-full text-sm inline-block mb-2">
+                        {courseData.specialCategory}
+                        <button
+                          type="button"
+                          className="ml-1.5 text-purple-500 hover:text-purple-700"
+                          onClick={() => {
+                            setCourseData({
+                              ...courseData,
+                              specialCategory: ''
+                            });
+                          }}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Display selected regular categories */}
+                  {selectedCategories.length > 0 && (
+                    <div>
+                      <div className="text-sm font-medium text-gray-700 mb-2">Danh mục đã chọn:</div>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedCategories.map(categoryName => (
+                          <div 
+                            key={categoryName}
+                            className="flex items-center bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded-full text-sm"
+                          >
+                            {categoryName}
+                            <button
+                              type="button"
+                              className="ml-1.5 text-indigo-500 hover:text-indigo-700"
+                              onClick={() => setSelectedCategories(prev => prev.filter(name => name !== categoryName))}
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                              </svg>
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
-              
-              {/* Add any necessary error handling for category selection */}
             </div>
           </div>
           
@@ -536,13 +670,13 @@ export default function EditCoursePage() {
               </label>
               <input
                 type="number"
-                id="totalDuration"
-                name="totalDuration"
+                id="totalTimeLimit"
+                name="totalTimeLimit"
                 className="w-full px-3 py-2 border rounded bg-gray-100 cursor-not-allowed"
-                value={courseData.totalDuration}
+                value={courseData.totalTimeLimit || courseData.totalDuration}
                 disabled
               />
-              <p className="text-gray-500 text-xs mt-1">Sẽ được tự động tính từ thời gian của các bài học và bài kiểm tra</p>
+              <p className="text-gray-500 text-xs mt-1">Thời lượng được tính từ các bài học và bài kiểm tra</p>
             </div>
             
             <div>

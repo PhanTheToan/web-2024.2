@@ -4,131 +4,39 @@ import React, { useEffect, useState } from "react";
 import { StatisticCards } from "./components/statisticcards/StatisticCards";
 import { FaStar } from "react-icons/fa";
 import { FaCheckCircle } from "react-icons/fa";
-import { Button, Grid, Typography, Box } from '@mui/material';
+import { Button } from '@mui/material';
 import Image from 'next/image';
-import { ChevronRight, Star } from "@mui/icons-material";
-import CourseGrid from "./components/courses-grid/page";
 import { Check } from "lucide-react";
-// import * as dotenv from "dotenv";
+import * as dotenv from "dotenv";
+import CourseGrid from "./components/courses-grid/CourseGrid";
+import Link from "next/link";
+import HeroBanner from "./components/slide/hero-banner-slideshow";
 
-// dotenv.config();
-const API_BASE_URL = "http://localhost:8082/api";
+dotenv.config();
+const API_BASE_URL = process.env.BASE_URL;
 console.log("API_BASE_URL:", API_BASE_URL);
 
-const defaultCourses: Course[] = [
-  {
-    id: 1,
-    title: "Khóa học ReactJS",
-    instructor: "Nguyễn Văn A",
-    category: "Web Development",
-    duration: "2 weeks",
-    students: 150,
-    originalPrice: 29.99,
-    currentPrice: null,
-    isFree: true,
-    imageUrl: "https://edupress.thimpress.com/wp-content/uploads/2024/01/Introduction-learnpress-lms-plugin-1.jpg",
-  },
-  {
-    id: 2,
-    title: "Khóa học NodeJS",
-    instructor: "Trần Văn B",
-    category: "Backend Development",
-    duration: "3 weeks",
-    students: 120,
-    originalPrice: 59.0,
-    currentPrice: 49.0,
-    isFree: false,
-    imageUrl: "https://edupress.thimpress.com/wp-content/uploads/2024/11/course-offline-01.jpg",
-  },
-];
+interface Category {
+  categoryId: string;
+  categoryDisplayName: string;
+  categoryUrl: string;
+  categoryCount: number;
+}
 
-const defaultCategories = [
-  {
-    id: 1,
-    name: "Nghệ thuật & Thiết kế",
-    slug: "art-design",
-    courses: 2,
-    image: "https://edupress.thimpress.com/wp-content/uploads/2023/11/art-icon.svg",
-  },
-  {
-    id: 2,
-    name: "Giao tiếp",
-    slug: "communation",
-    courses: 2,
-    image: "https://edupress.thimpress.com/wp-content/uploads/2023/11/comu-icon.svg",
-  },
-  {
-    id: 3,
-    name: "Viết nội dung",
-    slug: "content-writing",
-    courses: 2,
-    image: "https://edupress.thimpress.com/wp-content/uploads/2023/11/content-icon.svg",
-  },
-  {
-    id: 4,
-    name: "Lập trình & Phát triển",
-    slug: "development",
-    courses: 2,
-    image: "https://edupress.thimpress.com/wp-content/uploads/2023/11/develop-icon.svg",
-  },
-  {
-    id: 5,
-    name: "Tài chính & Ngân hàng",
-    slug: "finance-bank",
-    courses: 2,
-    image: "https://edupress.thimpress.com/wp-content/uploads/2023/11/finance-icon.svg",
-  },
-  {
-    id: 6,
-    name: "Marketing",
-    slug: "marketing",
-    courses: 2,
-    image: "https://edupress.thimpress.com/wp-content/uploads/2023/11/marketing-icon.svg",
-  },
-  {
-    id: 7,
-    name: "Mạng máy tính",
-    slug: "network",
-    courses: 2,
-    image: "https://edupress.thimpress.com/wp-content/uploads/2023/11/network-icon.svg",
-  },
-  {
-    id: 8,
-    name: "Nhiếp ảnh",
-    slug: "photography",
-    courses: 2,
-    image: "https://edupress.thimpress.com/wp-content/uploads/2023/11/photo-icon.svg",
-  },
-];
-
-const defaultFeedbacks = [
-  {
-    id: 1,
-    name: "Lê Văn A",
-    rating: 5,
-    comment: "Trang web có giao diện thân thiện, dễ sử dụng.",
-  },
-  {
-    id: 2,
-    name: "Nguyễn Văn B",
-    rating: 4,
-    comment: "Dịch vụ tốt nhưng cần cải thiện tốc độ tải trang.",
-  },
-  {
-    id: 3,
-    name: "Trần Thị C",
-    rating: 5,
-    comment: "Nội dung khóa học rất hữu ích, hỗ trợ nhiệt tình.",
-  },
-];
+interface Feedback {
+  id: string;
+  fullName: string;
+  rating: number;
+  comment: string;
+}
 
 export default function Home() {
-  const [categories, setCategories] = useState([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [courses, setCourses] = useState([]);
-  const [feedbacks, setFeedbacks] = useState([]);
+  const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
 
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  // const [setLoading] = useState(true);
+  // const [setError] = useState(null);
 
   // Fetch categories
   useEffect(() => {
@@ -143,7 +51,7 @@ export default function Home() {
         })
         .catch((error) => {
           console.error("Lỗi khi lấy danh mục:", error);
-          setError("Dữ liệu danh mục hiển thị là tạm thời.");
+          // setError?.("Dữ liệu danh mục hiển thị là tạm thời.");
         });
     }, 2000);
   }, []);
@@ -169,14 +77,16 @@ export default function Home() {
           if (Array.isArray(data.body) && data.body.length > 0) {
             setCourses(data.body);  // Assuming data.body contains the courses
           } else {
-            setError("Không có dữ liệu khóa học từ API, hiển thị dữ liệu mặc định.");
+            // setError("Không có dữ liệu khóa học từ API, hiển thị dữ liệu mặc định.");
+            console.log("Dữ liệu từ API");
           }
         })
         .catch((err) => {
           console.error("Lỗi API:", err);
-          setError("Dữ liệu khóa học hiển thị là tạm thời.");
+          // setError("Dữ liệu khóa học hiển thị là tạm thời.");
         })
-        .finally(() => setLoading(false));
+        // .finally(() => setLoading(false));
+        .finally(() => console.log("Dữ liệu từ API"));
 
     }, 2000);  // Optional delay before fetching
   }, []);  // Empty array to run only once when the component is mounted
@@ -203,14 +113,15 @@ export default function Home() {
           if (data.body && Array.isArray(data.body) && data.body.length > 0) {
             setFeedbacks(data.body);  // Set the feedbacks to the state
           } else {
-            setError("Không có phản hồi từ API, hiển thị dữ liệu mặc định.");
+            // setError("Không có phản hồi từ API, hiển thị dữ liệu mặc định.");
+            console.log("Dữ liệu từ API");
           }
         })
         .catch((err) => {
           console.error("Lỗi API:", err);
-          setError("Dữ liệu phản hồi hiển thị là tạm thời.");
+          // setError("Dữ liệu phản hồi hiển thị là tạm thời.");
         })
-        .finally(() => setLoading(false));
+        .finally(() => console.log("Dữ liệu từ API"));
 
     }, 2000);  // Optional delay before fetching
   }, []);  // Empty array to run only once when the component is mounted  
@@ -218,23 +129,22 @@ export default function Home() {
   return (
     <>
       {/* Section 1 */}
-      <Box
+      {/* <Box
         sx={{
           backgroundImage: 'url(./images/HeroBanner.svg)',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           backgroundRepeat: 'no-repeat',
           width: '100%',
-          minHeight: '80vh', // Giữ chiều cao tối thiểu 100% viewport height
+          minHeight: '80vh', 
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'flex-start',
-          px: { xs: 6, md: 40 }, // Cách lề rộng hơn trên màn hình lớn
-          py: { xs: 10, md: 20 }, // Tăng khoảng cách trên/dưới
+          px: { xs: 6, md: 40 }, 
+          py: { xs: 10, md: 20 }, 
           mb: '90px',
         }}
       >
-        {/* Khối nội dung chỉ chiếm 50% chiều rộng */}
         <Box sx={{ maxWidth: { xs: '90%', md: '50%' }, textAlign: 'left' }}>
           <Typography variant="h3" fontWeight="bold" sx={{ lineHeight: 1.2 }}>
             Build Skills With <br /> Online Course
@@ -243,15 +153,18 @@ export default function Home() {
             Get started with modern education and skills that help you get ahead and stay ahead.
             Thousands of courses to help you grow.
           </Typography>
-          <Button
-            variant="contained"
-            color="warning"
-            sx={{ borderRadius: '50px', px: 4, mt: 3 }}
-          >
-            Get Started
-          </Button>
+          <Link href="/courses">
+            <Button
+              variant="contained"
+              color="warning"
+              sx={{ borderRadius: '50px', px: 4, mt: 3 }}
+            >
+              Get Started
+            </Button>
+          </Link>
         </Box>
-      </Box>
+      </Box> */}
+      <HeroBanner />
       {/* End Section 1 */}
 
       {/* Section 2 */}
@@ -262,10 +175,12 @@ export default function Home() {
             <h2 className="font-bold text-[24px] text-black  mb-1 capitalize m-0 sx:text-[20px]">Danh mục hàng đầu</h2>
             <div className="font-medium text-[18px] text-[#555555] sx:text-[14px]">Khám phá </div>
           </div>
-          <button className="inline-flex items-center h-[44px] px-7 text-black font-medium text-[16px] bg-transparent rounded-full transition border border-[1.5px] border-[#FF782D] hover:bg-[#FF782D] hover:text-white">
-            Tất cả danh mục
-            <i className="fa-solid fa-angle-right text-[18px] text-[#555555] ml-[11px] transition group-hover:text-white"></i>
-          </button>
+          <Link href="/courses">
+            <button className="inline-flex items-center h-[44px] px-7 text-black font-medium text-[16px] bg-transparent rounded-full transition border border-[1.5px] border-[#FF782D] hover:bg-[#FF782D] hover:text-white">
+              Tất cả danh mục
+              <i className="fa-solid fa-angle-right text-[18px] text-[#555555] ml-[11px] transition group-hover:text-white"></i>
+            </button>
+          </Link>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 p-8 bg-white">
@@ -273,7 +188,7 @@ export default function Home() {
             <div key={category.categoryId} className="border border-gray-300 rounded-2xl p-6 text-center transition duration-300 hover:shadow-lg">
               <img src={category.categoryUrl} alt={category.categoryDisplayName} className="mx-auto mb-4" />
               <h4 className="text-lg font-semibold mb-2 text-gray-800">
-                <a href={"#"} className="hover:text-orange-500">
+                <a href={"/courses"} className="hover:text-orange-500">
                   {category.categoryDisplayName}
                 </a>
               </h4>
@@ -344,13 +259,15 @@ export default function Home() {
                 ))}
               </div>
 
-              <Button
-                variant="contained"
-                color="warning"
-                sx={{ borderRadius: '50px', px: 4, mt: 3 }}
-              >
-                Explorer Course
-              </Button>
+              <Link href="/courses">
+                <Button
+                  variant="contained"
+                  color="warning"
+                  sx={{ borderRadius: '50px', px: 4, mt: 3 }}
+                >
+                  Explorer Course
+                </Button>
+              </Link>
             </div>
           </div>
         </main>
@@ -388,8 +305,9 @@ export default function Home() {
 
                 {/* Nội dung đánh giá */}
                 <p className="text-gray-600 sm:text-[16px] text-[14px]">
-                  "{feedback.comment}"
+                  &lsquo;{feedback.comment}&rsquo;
                 </p>
+
               </div>
             ))}
 

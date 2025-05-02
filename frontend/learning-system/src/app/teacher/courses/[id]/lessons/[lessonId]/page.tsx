@@ -9,9 +9,10 @@ import {
 } from 'lucide-react';
 import { Course } from '@/app/types';
 import { formatDate } from '@/lib/utils';
-
+import dotenv from 'dotenv';
+dotenv.config();
 // API Base URL
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8082/api';
+const API_BASE_URL = process.env.BASE_URL || 'http://localhost:8082/api';
 
 // Define Lesson interface based on API response
 interface Lesson {
@@ -28,13 +29,18 @@ interface Lesson {
   updatedAt?: string | Date;
 }
 
+// Thêm interface mở rộng để hỗ trợ trường status
+interface ExtendedLesson extends Lesson {
+  status?: string;
+}
+
 export default function LessonDetailPage() {
   const params = useParams();
   const courseId = params.id as string;
   const lessonId = params.lessonId as string;
   
   const [course, setCourse] = useState<Course | null>(null);
-  const [lesson, setLesson] = useState<Lesson | null>(null);
+  const [lesson, setLesson] = useState<ExtendedLesson | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedPdf, setSelectedPdf] = useState<string | null>(null);
@@ -46,7 +52,7 @@ export default function LessonDetailPage() {
         
         // Fetch course data from API
         console.log("Fetching course:", courseId);
-        const courseResponse = await fetch(`${API_BASE_URL}/course/info/${courseId}`, {
+        const courseResponse = await fetch(`${API_BASE_URL}/course/info-course/${courseId}`, {
           method: 'GET',
           credentials: 'include',
           headers: {
@@ -103,6 +109,41 @@ export default function LessonDetailPage() {
   // Function to check if a material is a PDF
   const isPdf = (url: string): boolean => {
     return url.toLowerCase().endsWith('.pdf') || url.includes('pdf');
+  };
+  
+  // Function to convert YouTube URL to embed URL
+  const getYoutubeEmbedUrl = (url: string): string => {
+    if (!url) return '';
+    
+    // Handle different YouTube URL formats
+    let videoId = '';
+    
+    try {
+      // Handle youtu.be format
+      if (url.includes('youtu.be')) {
+        videoId = url.split('youtu.be/')[1]?.split('?')[0];
+      }
+      // Handle youtube.com format
+      else if (url.includes('youtube.com')) {
+        // Handle watch URL
+        if (url.includes('watch')) {
+          const urlParams = new URLSearchParams(new URL(url).search);
+          videoId = urlParams.get('v') || '';
+        }
+        // Handle embed URL
+        else if (url.includes('embed')) {
+          videoId = url.split('embed/')[1]?.split('?')[0];
+        }
+      }
+      
+      if (!videoId) return url; // Return original URL if not a valid YouTube URL
+      
+      // Return embed URL with additional parameters
+      return `https://www.youtube.com/embed/${videoId}?autoplay=0&rel=0&modestbranding=1&showinfo=0`;
+    } catch (error) {
+      console.error('Error parsing YouTube URL:', error);
+      return url; // Return original URL if parsing fails
+    }
   };
   
   if (loading) {
@@ -230,6 +271,26 @@ export default function LessonDetailPage() {
                 </div>
               </div>
             </div>
+            
+            {/* Thêm phần hiển thị trạng thái */}
+            <div className="p-4 border-t">
+              <h3 className="text-sm font-medium mb-2">Trạng thái bài học:</h3>
+              <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm ${
+                lesson.status === 'ACTIVE' 
+                  ? 'bg-green-100 text-green-800' 
+                  : 'bg-gray-100 text-gray-800'
+              }`}>
+                <div className={`w-2 h-2 rounded-full mr-2 ${
+                  lesson.status === 'ACTIVE' ? 'bg-green-500' : 'bg-gray-500'
+                }`}></div>
+                {lesson.status === 'ACTIVE' ? 'Hoạt động' : 'Không hoạt động'}
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                {lesson.status === 'ACTIVE'
+                  ? "Bài học đang được kích hoạt. Học viên có thể truy cập bài học này."
+                  : "Bài học đang bị vô hiệu hóa. Học viên không thể truy cập bài học này."}
+              </p>
+            </div>
           </div>
           
           {/* Lesson content */}
@@ -248,19 +309,29 @@ export default function LessonDetailPage() {
           {/* Video preview if available */}
           {lesson.videoUrl && (
             <div className="mb-6 bg-white rounded-lg shadow">
-              <div className="p-4 border-b">
+              <div className="p-4 border-b flex justify-between items-center">
                 <h3 className="text-lg font-bold">Video bài học</h3>
+                <a
+                  href={lesson.videoUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary-600 hover:text-primary-800 text-sm flex items-center"
+                >
+                  Mở trên YouTube
+                </a>
               </div>
               <div className="p-4">
-                <div className="relative aspect-video">
+                <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
                   <iframe
-                    className="absolute w-full h-full rounded-md"
-                    src={lesson.videoUrl}
+                    className="absolute w-full h-full"
+                    src={getYoutubeEmbedUrl(lesson.videoUrl)}
                     title={`Video for ${lesson.title}`}
-                    frameBorder="0"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                     allowFullScreen
                   ></iframe>
+                </div>
+                <div className="mt-3 text-sm text-gray-500">
+                  <p>Video URL: <a href={lesson.videoUrl} target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:text-primary-800">{lesson.videoUrl}</a></p>
                 </div>
               </div>
             </div>

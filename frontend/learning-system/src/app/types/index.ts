@@ -15,20 +15,24 @@ export interface Lesson {
   title: string;
   description: string;
 }
-
 export interface Course {
-  _id: string;
+  _id?: string;
+  id?: string;
   title: string;
-  description: string;
-  teacherId: User;
-  categories: string[];
-  thumbnail: string;
+  teacherFullName?: string;
+  teacherId?: string | { firstName?: string; lastName?: string };
+  teacherName?: string;
+  thumbnail?: string | null;
+  courseStatus?: string;
   price: number;
-  studentsEnrolled: User[];
-  lessons: Lesson[];
-  quizzes: string[];
-  rating: number;
-  requirements: string[];
-  createdAt: Date;
-  updatedAt: Date;
-} 
+  studentsCount?: number;
+  contentCount?: number;
+  totalTimeLimit?: number;
+  totalDuration?: number;
+  categories: string[];
+  description?: string;
+  createdAt?: string;
+  lessons?: [];
+  quizzes?: [];
+  studentsEnrolled?: [];
+}

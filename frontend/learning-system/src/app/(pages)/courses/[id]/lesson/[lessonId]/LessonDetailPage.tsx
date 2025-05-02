@@ -9,29 +9,81 @@ import { Lesson, Course, User, Quiz, LessonMaterial } from "@/app/types";
 // import { enrollmentService } from "@/services/enrollmentService";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, BookOpen, Clock, Check, FileText, PlayCircle, Download, Eye, ExternalLink, ClipboardCheck } from "lucide-react";
+import * as dotenv from "dotenv";
+
+dotenv.config();
 
 // API Base URL
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8082/api';
+const API_BASE_URL = process.env.BASE_URL || 'http://localhost:8082/api';
 
-// Helper function to get and set cookies
-const getCookie = (name: string) => {
-  if (typeof document === 'undefined') return null;
-  const value = `; ${document.cookie}`;
-  const parts = value.split(`; ${name}=`);
-  if (parts.length === 2) return parts.pop()?.split(';').shift() || null;
-  return null;
+// Helper function to get and set JWT tokens
+const getJwtToken = () => {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem('jwt_token');
 };
 
-const setCookie = (name: string, value: string, days: number) => {
-  if (typeof document === 'undefined') return;
-  const date = new Date();
-  date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
-  const expires = `; expires=${date.toUTCString()}`;
-  document.cookie = `${name}=${value}${expires}; path=/`;
+const setJwtToken = (token: string) => {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem('jwt_token', token);
 };
+
+// Function to decode JWT token
+const decodeJwtToken = (token: string) => {
+  try {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => {
+      return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+    }).join(''));
+    return JSON.parse(jsonPayload);
+  } catch (error) {
+    console.error('Error decoding JWT token:', error);
+    return null;
+  }
+};
+
+// Interface for timer data
+interface TimerData {
+  elapsed: number;
+  timestamp: number;
+}
+
+// Interface for JWT payload
+interface JwtPayload {
+  timerStates: {
+    [key: string]: TimerData;
+  };
+}
+
+// Function to encode JWT token
+const encodeJwtToken = (payload: JwtPayload) => {
+  try {
+    // JWT header
+    const header = {
+      alg: 'HS256',
+      typ: 'JWT'
+    };
+
+    // Encode header and payload
+    const encodedHeader = btoa(JSON.stringify(header));
+    const encodedPayload = btoa(JSON.stringify(payload));
+
+    // Create signature (in a real app, this would be signed with a secret key)
+    const signature = btoa(JSON.stringify({ sig: 'demo' }));
+
+    // Combine all parts
+    return `${encodedHeader}.${encodedPayload}.${signature}`;
+  } catch (error) {
+    console.error('Error encoding JWT token:', error);
+    return null;
+  }
+};
+
+// Add mock data import for breadcrumb
+// import { mockCourses } from "@/data/mockCourses";
 
 // Extended interfaces for handling type checking
-interface ExtendedLesson extends Lesson {
+interface ExtendedLesson extends Omit<Lesson, 'content'> {
   complete?: boolean;
   duration?: number;
   materials?: LessonMaterial[] | string[];
@@ -87,13 +139,14 @@ interface ContentReference {
   type: 'lesson' | 'quiz';
 }
 
-// Response structure for the lesson_quiz endpoint
-interface LessonQuizResponse {
+// Updated interface to match actual response format
+interface LessonQuizResponseData {
   body: {
     notLearned?: {
       quizzes: Array<{
         quizId: string;
-        title: string;
+        title?: string;  // Make this optional as it might be missing
+        name?: string;   // Add alternative field
         questionCount: number;
         orderQuiz: number;
         passingScore: number;
@@ -108,7 +161,8 @@ interface LessonQuizResponse {
     learned?: {
       quizzes: Array<{
         quizId: string;
-        title: string;
+        title?: string;  // Make this optional as it might be missing
+        name?: string;   // Add alternative field
         questionCount: number;
         orderQuiz: number;
         passingScore: number;
@@ -120,9 +174,42 @@ interface LessonQuizResponse {
         orderLesson: number;
       }>;
     };
+    // Add these for the basic format
+    lessons?: Array<{
+      lessonId: string;
+      lessonTitle: string;
+      lessonShortTitle?: string;
+      orderLesson: number;
+    }>;
+    quizzes?: Array<{
+      quizId: string;
+      title?: string;
+      name?: string;
+      questionCount: number;
+      orderQuiz: number;
+      passingScore: number;
+    }>;
   };
-  statusCodeValue: number;
-  statusCode: string;
+  statusCodeValue?: number;
+  statusCode?: string;
+}
+
+// Define a type for quiz data to replace usage of 'any'
+interface QuizData {
+  quizId: string;
+  title?: string;
+  name?: string;
+  questionCount?: number;
+  orderQuiz?: number;
+  passingScore?: number;
+}
+
+// Define a type for lesson data to replace usage of 'any'
+interface LessonData {
+  lessonId: string;
+  lessonTitle: string;
+  lessonShortTitle?: string;
+  orderLesson: number;
 }
 
 // Interface for user authentication response
@@ -155,7 +242,7 @@ const LessonDetailPage: React.FC = () => {
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const lastTickRef = useRef<number>(Date.now());
   const [orderedContent, setOrderedContent] = useState<ContentItem[]>([]); // New state for ordered content
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(true); // Changed default to true for testing
   // const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
 
   const courseId = params.id as string;
@@ -169,6 +256,41 @@ const LessonDetailPage: React.FC = () => {
   // Function to check if file is a PDF
   const isPdf = (path: string) => {
     return path.toLowerCase().endsWith('.pdf');
+  };
+
+  // Function to convert YouTube URL to embed URL
+  const getYoutubeEmbedUrl = (url: string): string => {
+    if (!url) return '';
+    
+    // Handle different YouTube URL formats
+    let videoId = '';
+    
+    try {
+      // Handle youtu.be format
+      if (url.includes('youtu.be')) {
+        videoId = url.split('youtu.be/')[1]?.split('?')[0];
+      }
+      // Handle youtube.com format
+      else if (url.includes('youtube.com')) {
+        // Handle watch URL
+        if (url.includes('watch')) {
+          const urlParams = new URLSearchParams(new URL(url).search);
+          videoId = urlParams.get('v') || '';
+        }
+        // Handle embed URL
+        else if (url.includes('embed')) {
+          videoId = url.split('embed/')[1]?.split('?')[0];
+        }
+      }
+      
+      if (!videoId) return url; // Return original URL if not a valid YouTube URL
+      
+      // Return embed URL with additional parameters
+      return `https://www.youtube.com/embed/${videoId}?autoplay=0&rel=0&modestbranding=1&showinfo=0`;
+    } catch (error) {
+      console.error('Error parsing YouTube URL:', error);
+      return url; // Return original URL if parsing fails
+    }
   };
 
   // Check user authentication
@@ -199,8 +321,8 @@ const LessonDetailPage: React.FC = () => {
         // Check if user is enrolled in this course
         if (Array.isArray(authData.data.coursesEnrolled) && 
             authData.data.coursesEnrolled.includes(courseId)) {
-        return true;
-      }
+          return true;
+        }
       }
       return false;
     } catch (error) {
@@ -253,9 +375,39 @@ const LessonDetailPage: React.FC = () => {
     }
   };
 
-  // Fetch course content from the API
+  // Fetch course content from the API - fixed error handling
   const fetchCourseContent = async () => {
     try {
+      // First, get quiz data from lesson_quiz (with underscore) to ensure we have quiz titles
+      const quizTitlesMap = new Map<string, string>();
+      
+      try {
+        const quizDataResponse = await fetch(`${API_BASE_URL}/course/lesson_quiz/${courseId}`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (quizDataResponse.ok) {
+          const quizData = await quizDataResponse.json();
+          console.log('Quiz data for titles:', quizData);
+          
+          // Extract quiz titles and store them by ID
+          if (quizData.body && quizData.body.quizzes && Array.isArray(quizData.body.quizzes)) {
+            quizData.body.quizzes.forEach((quiz: QuizData) => {
+              if (quiz.quizId && (quiz.title || quiz.name)) {
+                quizTitlesMap.set(quiz.quizId, quiz.title || quiz.name || '');
+                console.log(`Stored quiz title: ${quiz.quizId} -> ${quiz.title || quiz.name}`);
+              }
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching quiz titles:', error);
+      }
+      
       // Use lesson-quiz (with hyphen) for enrolled users to get learned/not learned content
       // This endpoint returns which lessons and quizzes the user has completed
       const contentResponse = await fetch(`${API_BASE_URL}/course/lesson-quiz/${courseId}`, {
@@ -270,7 +422,7 @@ const LessonDetailPage: React.FC = () => {
         throw new Error('Failed to fetch course content');
       }
 
-      const contentData = await contentResponse.json() as LessonQuizResponse;
+      const contentData = await contentResponse.json() as LessonQuizResponseData;
       console.log('Course content data:', contentData);
       
       const combinedItems: ContentItem[] = [];
@@ -278,7 +430,7 @@ const LessonDetailPage: React.FC = () => {
       // Process learned and not learned content
       if (contentData.body) {
         // Process not learned lessons - these are items the user still needs to complete
-        if (contentData.body.notLearned?.lessons) {
+        if (contentData.body.notLearned && contentData.body.notLearned.lessons) {
           contentData.body.notLearned.lessons.forEach(lesson => {
             combinedItems.push({
               _id: lesson.lessonId,
@@ -294,11 +446,14 @@ const LessonDetailPage: React.FC = () => {
         }
         
         // Process not learned quizzes - these are quizzes the user still needs to complete
-        if (contentData.body.notLearned?.quizzes) {
+        if (contentData.body.notLearned && contentData.body.notLearned.quizzes) {
           contentData.body.notLearned.quizzes.forEach(quiz => {
+            // Use the title from our map, or from the response, or a default
+            const quizTitle = quizTitlesMap.get(quiz.quizId) || quiz.title || quiz.name || `Quiz ${quiz.orderQuiz || ''}`;
+            
             combinedItems.push({
               _id: quiz.quizId,
-              title: quiz.title,
+              title: quizTitle,
               order: quiz.orderQuiz,
               orderQuiz: quiz.orderQuiz,
               type: 'quiz',
@@ -309,7 +464,7 @@ const LessonDetailPage: React.FC = () => {
         }
         
         // Process learned lessons - these are lessons the user has already completed
-        if (contentData.body.learned?.lessons) {
+        if (contentData.body.learned && contentData.body.learned.lessons) {
           contentData.body.learned.lessons.forEach(lesson => {
             combinedItems.push({
               _id: lesson.lessonId,
@@ -325,16 +480,54 @@ const LessonDetailPage: React.FC = () => {
         }
         
         // Process learned quizzes - these are quizzes the user has already completed
-        if (contentData.body.learned?.quizzes) {
+        if (contentData.body.learned && contentData.body.learned.quizzes) {
           contentData.body.learned.quizzes.forEach(quiz => {
+            // Use the title from our map, or from the response, or a default
+            const quizTitle = quizTitlesMap.get(quiz.quizId) || quiz.title || quiz.name || `Quiz ${quiz.orderQuiz || ''}`;
+            
             combinedItems.push({
               _id: quiz.quizId,
-              title: quiz.title,
+              title: quizTitle,
               order: quiz.orderQuiz,
               orderQuiz: quiz.orderQuiz,
               type: 'quiz',
               complete: true, // Mark as completed
               quizId: quiz.quizId
+            });
+          });
+        }
+      }
+      
+      // If no items were found in the notLearned/learned sections, try the basic format
+      if (combinedItems.length === 0 && contentData.body) {
+        // Process lessons
+        if (contentData.body.lessons && Array.isArray(contentData.body.lessons)) {
+          contentData.body.lessons.forEach((lesson: LessonData) => {
+            combinedItems.push({
+              _id: lesson.lessonId,
+              title: lesson.lessonTitle || 'Untitled Lesson',
+              description: lesson.lessonShortTitle || '',
+              order: lesson.orderLesson || 0,
+              orderLesson: lesson.orderLesson || 0,
+              type: 'lesson',
+              complete: false
+            });
+          });
+        }
+        
+        // Process quizzes
+        if (contentData.body.quizzes && Array.isArray(contentData.body.quizzes)) {
+          contentData.body.quizzes.forEach((quiz: QuizData) => {
+            // Use the title from our map, or from the response, or a default
+            const quizTitle = quizTitlesMap.get(quiz.quizId) || quiz.title || quiz.name || `Quiz ${quiz.orderQuiz || ''}`;
+            
+            combinedItems.push({
+              _id: quiz.quizId,
+              title: quizTitle,
+              order: quiz.orderQuiz || 0,
+              orderQuiz: quiz.orderQuiz || 0,
+              type: 'quiz',
+              complete: false
             });
           });
         }
@@ -379,13 +572,13 @@ const LessonDetailPage: React.FC = () => {
       setOrderedContent(combinedItems);
       
       // Mark completed lessons
-          const completed = new Set<string>();
+      const completed = new Set<string>();
       combinedItems.forEach(item => {
         if (item.type === 'lesson' && item.complete) {
-              completed.add(item._id);
-            }
+          completed.add(item._id);
+        }
       });
-          setCompletedLessons(completed);
+      setCompletedLessons(completed);
           
       // Find the current lesson in the ordered content
       const currentIndex = combinedItems.findIndex(item => 
@@ -393,24 +586,28 @@ const LessonDetailPage: React.FC = () => {
       );
       
       // Set previous and next content
-          if (currentIndex > 0) {
+      if (currentIndex > 0) {
         const prev = combinedItems[currentIndex - 1];
-            setPrevContent({ id: prev._id, type: prev.type });
-          } else {
-            setPrevContent(null);
-          }
+        setPrevContent({ id: prev._id, type: prev.type });
+      } else {
+        setPrevContent(null);
+      }
           
       if (currentIndex < combinedItems.length - 1) {
         const next = combinedItems[currentIndex + 1];
-            setNextContent({ id: next._id, type: next.type });
-          } else {
-            setNextContent(null);
-          }
+        setNextContent({ id: next._id, type: next.type });
+      } else {
+        setNextContent(null);
+      }
           
       return combinedItems;
     } catch (error) {
       console.error('Error fetching course content:', error);
-      throw error;
+      // Initialize with empty data instead of throwing error
+      setOrderedContent([]);
+      setPrevContent(null);
+      setNextContent(null);
+      return [];
     }
   };
 
@@ -447,7 +644,9 @@ const LessonDetailPage: React.FC = () => {
         lessons: [],
         quizzes: [],
         studentsEnrolled: [],
-        teacherId: parsedCourse.teacherId || ''
+        teacherId: parsedCourse.teacherId || '',
+        duration: parsedCourse.duration || 0, // Add a default value or fetch the actual duration
+        rating: parsedCourse.rating || 0 // Add a default value or fetch the actual rating
       };
       
       setCourse(extendedCourse);
@@ -458,44 +657,53 @@ const LessonDetailPage: React.FC = () => {
     }
   };
 
-  // Load saved timer state from cookies
+  // Load saved timer state from JWT token
   const loadTimerState = () => {
     try {
-      const timerCookie = getCookie(`lesson_timer_${lessonId}`);
-      if (!timerCookie) return 0;
-      
-      // Parse the cookie value
-      const timerData = JSON.parse(atob(timerCookie));
-      
-      // Verify it's for the current lesson and course
-      if (timerData.lessonId === lessonId && timerData.courseId === courseId) {
-        console.log('Loaded saved timer state:', timerData.elapsed);
-        return timerData.elapsed;
-      }
-      return 0;
+      const token = getJwtToken();
+      if (!token) return 0;
+
+      const decodedToken = decodeJwtToken(token);
+      if (!decodedToken) return 0;
+
+      // Find timer data for current lesson
+      const timerData = decodedToken.timerStates?.[`${courseId}_${lessonId}`];
+      if (!timerData) return 0;
+
+      // Check if timer data is still valid (within 24 hours)
+      const now = Date.now();
+      if (now - timerData.timestamp > 24 * 60 * 60 * 1000) return 0;
+
+      console.log('Loaded saved timer state:', timerData.elapsed);
+      return timerData.elapsed;
     } catch (error) {
       console.error('Error loading timer state:', error);
       return 0;
     }
   };
 
-  // Save the timer state to cookies
+  // Save timer state to JWT token
   const saveTimerState = (elapsedSeconds: number) => {
     try {
-      // Create a simple data object with the timer info
-      const timerData = {
-        lessonId,
-        courseId,
-        elapsed: elapsedSeconds,
-        timestamp: Date.now()
+      const token = getJwtToken();
+      let decodedToken = token ? decodeJwtToken(token) : { timerStates: {} };
+      if (!decodedToken) decodedToken = { timerStates: {} };
+
+      // Update timer data for current lesson
+      decodedToken.timerStates = {
+        ...decodedToken.timerStates,
+        [`${courseId}_${lessonId}`]: {
+          elapsed: elapsedSeconds,
+          timestamp: Date.now()
+        }
       };
-      
-      // Convert to base64 for storage
-      const timerString = btoa(JSON.stringify(timerData));
-      
-      // Save to cookie with 7-day expiration
-      setCookie(`lesson_timer_${lessonId}`, timerString, 7);
-      console.log('Saved timer state:', elapsedSeconds);
+
+      // Create new token
+      const newToken = encodeJwtToken(decodedToken);
+      if (newToken) {
+        setJwtToken(newToken);
+        console.log('Saved timer state:', elapsedSeconds);
+      }
     } catch (error) {
       console.error('Error saving timer state:', error);
     }
@@ -507,7 +715,7 @@ const LessonDetailPage: React.FC = () => {
       setError(null);
       try {
         // Check if user is authenticated and enrolled in the course
-        // const isEnrolled = await checkUserAuth();
+        await checkUserAuth(); // Don't assign the result to unused variable
         
         if (!isAuthenticated) {
           console.log('User is not authenticated');
@@ -533,11 +741,11 @@ const LessonDetailPage: React.FC = () => {
     fetchData();
   }, [courseId, lessonId]);
 
-  // Timer effect for tracking elapsed time - updated to use persisted state
+  // Timer effect for tracking elapsed time - updated to use persisted state and fix errors
   useEffect(() => {
-    if (!lesson || !lesson.timeLimit || isLoading) return;
+    if (!lesson || isLoading) return;
 
-    // Load the initial state from cookies when component mounts
+    // Load the initial state from JWT token when component mounts
     if (elapsedTime === 0) {
       const savedTime = loadTimerState();
       if (savedTime > 0) {
@@ -545,18 +753,37 @@ const LessonDetailPage: React.FC = () => {
       }
     }
 
+    // Check if current lesson is already completed
+    const isLessonCompleted = completedLessons.has(lessonId);
+    
+    // If lesson is already completed, no need to setup a timer
+    if (isLessonCompleted) {
+      return;
+    }
+
     const tick = () => {
       const now = Date.now();
       const delta = Math.floor((now - lastTickRef.current) / 1000);
       
-      setElapsedTime(prevTime => {
-        const newTime = prevTime + delta;
-        // Save to cookie every 15 seconds to avoid too frequent writes
-        if (delta >= 15 || Math.floor(newTime / 15) > Math.floor(prevTime / 15)) {
-          saveTimerState(newTime);
-        }
-        return newTime;
-      });
+      if (delta > 0) {
+        setElapsedTime(prevTime => {
+          const newTime = prevTime + delta;
+          
+          // Check if time threshold is met (75% of time limit)
+          const timeLimit = lesson.timeLimit || 5;
+          const requiredTime = timeLimit * 60 * 0.75;
+          
+          if (newTime >= requiredTime && !completedLessons.has(lessonId) && !isUpdatingProgress) {
+            updateLessonProgress();
+          }
+          
+          // Save to JWT token every 15 seconds
+          if (delta >= 15 || Math.floor(newTime / 15) > Math.floor(prevTime / 15)) {
+            saveTimerState(newTime);
+          }
+          return newTime;
+        });
+      }
       
       lastTickRef.current = now;
     };
@@ -566,20 +793,17 @@ const LessonDetailPage: React.FC = () => {
         if (timerRef.current) {
           clearInterval(timerRef.current);
           timerRef.current = null;
-          // Update elapsed time one last time before pausing
           tick();
-          // Save state when user leaves the page
           saveTimerState(elapsedTime);
         }
       } else {
         if (!timerRef.current) {
-          lastTickRef.current = Date.now(); // Reset last tick time on resume
+          lastTickRef.current = Date.now();
           timerRef.current = setInterval(tick, 1000);
         }
       }
     };
 
-    // Start timer immediately if visible
     if (document.visibilityState === 'visible') {
       lastTickRef.current = Date.now();
       timerRef.current = setInterval(tick, 1000);
@@ -587,16 +811,68 @@ const LessonDetailPage: React.FC = () => {
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
-    // Cleanup
     return () => {
       if (timerRef.current) {
         clearInterval(timerRef.current);
       }
-      // Save timer state when component unmounts
       saveTimerState(elapsedTime);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [lesson, isLoading, elapsedTime, lessonId, courseId]); // Added dependencies
+  }, [lesson, isLoading, completedLessons, lessonId, elapsedTime]);
+
+  // Add function to update lesson progress automatically using the API from the screenshot
+  const updateLessonProgress = async () => {
+    if (!lesson || completedLessons.has(lessonId) || isUpdatingProgress) return;
+    
+    setIsUpdatingProgress(true);
+    try {
+      // API shown in the screenshot
+      const response = await fetch(`${API_BASE_URL}/enrollments/update-progress?courseId=${courseId}&itemId=${lessonId}`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update lesson progress');
+      }
+
+      const data = await response.json();
+      console.log('Progress update response:', data);
+      
+      // If update was successful, update local state
+      if (data.statusCode === "OK" || data.body === "Cập nhật tiến độ thành công") {
+        // Add to completed lessons locally
+        const newCompleted = new Set(completedLessons);
+        newCompleted.add(lessonId);
+        setCompletedLessons(newCompleted);
+        
+        // Update the orderedContent to mark this lesson as complete
+        const updatedContent = orderedContent.map(item => {
+          if (item.type === 'lesson' && item._id === lessonId) {
+            return { ...item, complete: true };
+          }
+          return item;
+        });
+        setOrderedContent(updatedContent);
+        
+        // Clear the timer cookie as this lesson is now complete
+        setJwtToken('');
+        
+        toast.success('Bài học đã được đánh dấu hoàn thành tự động');
+        
+        // Fetch updated course content to refresh the learned/notLearned data
+        await fetchCourseContent();
+      }
+    } catch (err) {
+      console.error('Error updating progress automatically:', err);
+      // Don't show error toast to user for automatic update
+    } finally {
+      setIsUpdatingProgress(false);
+    }
+  };
 
   // Get combined course content (lessons and quizzes) in order
   const getCourseContent = (): ContentItem[] => {
@@ -687,8 +963,10 @@ const LessonDetailPage: React.FC = () => {
 
   // Check if the current lesson meets the time requirement
   const meetsTimeRequirement = () => {
-    if (!lesson || !lesson.timeLimit) return false;
-    const requiredSeconds = lesson.timeLimit * 60 * 0.01;
+    if (!lesson) return false;
+    
+    // If no time limit, use a default of 5 minutes (300 seconds)
+    const requiredSeconds = (lesson.timeLimit || 5) * 60 * 0.75; // 75% of the total time
     return elapsedTime >= requiredSeconds;
   };
 
@@ -699,7 +977,7 @@ const LessonDetailPage: React.FC = () => {
 
   // Handle marking lesson as complete - updated to clean up saved timer
   const handleMarkComplete = async () => {
-    if (!lesson || !course || !lesson.timeLimit) return;
+    if (!lesson || !course) return;
     
     if (!isAuthenticated) {
       toast.error('Bạn cần đăng nhập để đánh dấu hoàn thành bài học');
@@ -707,8 +985,21 @@ const LessonDetailPage: React.FC = () => {
       return;
     }
 
+    // If lesson is already completed, just navigate to next content
+    if (completedLessons.has(lessonId)) {
+      if (nextContent) {
+        if (nextContent.type === 'lesson') {
+          router.push(`/courses/${courseId}/lesson/${nextContent.id}`);
+        } else {
+          router.push(`/courses/${courseId}/quiz/${nextContent.id}`);
+        }
+      }
+      return;
+    }
+
     // Check time requirement (75% of lesson time limit)
-    const requiredSeconds = lesson.timeLimit * 60 * 0.01;
+    const timeLimit = lesson.timeLimit || 5; // Use 5 minutes as default if no time limit
+    const requiredSeconds = timeLimit * 60 * 0.75;
     if (elapsedTime < requiredSeconds) {
       const remainingMinutes = Math.ceil((requiredSeconds - elapsedTime) / 60);
       toast.error(`Bạn cần xem bài học thêm khoảng ${remainingMinutes} phút để hoàn thành.`);
@@ -717,14 +1008,21 @@ const LessonDetailPage: React.FC = () => {
 
     setIsUpdatingProgress(true);
     try {
-      // Mark the lesson as complete via API
-      await fetch(`${API_BASE_URL}/course/lesson/complete/${lessonId}`, {
-        method: 'POST',
+      // Use the API from the screenshot instead of the previous endpoint
+      const response = await fetch(`${API_BASE_URL}/enrollments/update-progress?courseId=${courseId}&itemId=${lessonId}`, {
+        method: 'PUT',
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json'
         }
       });
+      
+      if (!response.ok) {
+        throw new Error('Failed to update lesson progress');
+      }
+      
+      const data = await response.json();
+      console.log('Progress update response:', data);
       
       // Add to completed lessons locally
       const newCompleted = new Set(completedLessons);
@@ -741,7 +1039,7 @@ const LessonDetailPage: React.FC = () => {
       setOrderedContent(updatedContent);
       
       // Clear the timer cookie as this lesson is now complete
-      setCookie(`lesson_timer_${lessonId}`, '', -1);
+      setJwtToken('');
       
       toast.success('Đã đánh dấu hoàn thành bài học');
       
@@ -842,10 +1140,16 @@ const LessonDetailPage: React.FC = () => {
               <Clock className="w-4 h-4 mr-1" />
               {lesson.timeLimit ? `${lesson.timeLimit} phút` : "Không giới hạn thời gian"}
             </span>
+            {completedLessons.has(lessonId) && (
+              <span className="flex items-center ml-4 bg-green-500 text-white px-2 py-1 rounded-full text-xs">
+                <Check className="w-3 h-3 mr-1" />
+                Đã hoàn thành
+              </span>
+            )}
           </div>
           
-          {/* Time Progress Circle */}
-          {lesson.timeLimit && (
+          {/* Time Progress Circle - Only show when lesson is not completed */}
+          {lesson.timeLimit && !completedLessons.has(lessonId) && (
             <div className="mt-4 flex items-center">
               <div className="relative h-20 w-20 mr-3">
                 <svg className="h-full w-full" viewBox="0 0 100 100">
@@ -872,7 +1176,7 @@ const LessonDetailPage: React.FC = () => {
                     // Calculate stroke-dashoffset based on elapsed time vs required time
                     style={{
                       strokeDasharray: `${2 * Math.PI * 42}`,
-                      strokeDashoffset: `${2 * Math.PI * 42 * (1 - Math.min(elapsedTime / (lesson.timeLimit * 60 * 0.01), 1))}`,
+                      strokeDashoffset: `${2 * Math.PI * 42 * (1 - Math.min(elapsedTime / (lesson.timeLimit * 60 * 0.75), 1))}`,
                       transformOrigin: 'center',
                       transform: 'rotate(-90deg)',
                     }}
@@ -886,9 +1190,22 @@ const LessonDetailPage: React.FC = () => {
                 <span className="font-medium">Thời gian xem bài học</span>
                 <span className="opacity-80">
                   {Math.floor(elapsedTime / 60)}:{(elapsedTime % 60).toString().padStart(2, '0')} / 
-                  {Math.floor(lesson.timeLimit * 60 * 0.01 / 60)}:{Math.floor(lesson.timeLimit * 60 * 0.01 % 60).toString().padStart(2, '0')} 
-                  ({Math.min(Math.round(elapsedTime / (lesson.timeLimit * 60 * 0.01) * 100), 100)}%)
+                  {Math.floor(lesson.timeLimit * 60 * 0.75 / 60)}:{Math.floor(lesson.timeLimit * 60 * 0.75 % 60).toString().padStart(2, '0')} 
+                  ({Math.min(Math.round(elapsedTime / (lesson.timeLimit * 60 * 0.75) * 100), 100)}%)
                 </span>
+              </div>
+            </div>
+          )}
+          
+          {/* Completion message when lesson is already completed */}
+          {completedLessons.has(lessonId) && (
+            <div className="mt-4 flex items-center bg-green-500/20 p-3 rounded-lg">
+              <div className="bg-green-500 text-white rounded-full p-2 mr-3">
+                <Check className="w-5 h-5" />
+              </div>
+              <div className="text-white">
+                <p className="font-medium">Bài học đã hoàn thành</p>
+                <p className="text-sm opacity-80">Bạn có thể xem lại nội dung bài học hoặc chuyển sang bài tiếp theo</p>
               </div>
             </div>
           )}
@@ -987,26 +1304,60 @@ const LessonDetailPage: React.FC = () => {
 
           {/* Main content area */}
           <div className="md:col-span-2 order-1 md:order-2">
-            {/* Video player with improved styling */}
+            {/* Video player with YouTube-like styling */}
             {lesson.videoUrl && (
-              <div className="bg-white rounded-lg shadow-md overflow-hidden mb-6">
-                <div className="bg-gray-800 relative" style={{ paddingTop: '56.25%' }}>
-                  <iframe
-                    src={lesson.videoUrl}
-                    className="absolute top-0 left-0 w-full h-full"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                    title={lesson.title}
-                  />
-                </div>
-                <div className="p-4 bg-gradient-to-r from-gray-900 to-gray-800 text-white">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <PlayCircle className="w-5 h-5 mr-2 text-primary-400" />
-                      <h2 className="font-semibold">{lesson.title}</h2>
+              <div className="bg-black rounded-lg shadow-md overflow-hidden mb-6">
+                <div className="relative">
+                  {/* Video Container with 16:9 aspect ratio */}
+                  <div className="relative pt-[56.25%] bg-black">
+                    <iframe
+                      src={getYoutubeEmbedUrl(lesson.videoUrl)}
+                      className="absolute top-0 left-0 w-full h-full"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                      allowFullScreen
+                      title={lesson.title}
+                    />
+                  </div>
+                  
+                  {/* Video Info Section - YouTube-like */}
+                  <div className="p-4">
+                    {/* Title and Info Section */}
+                    <div className="border-b border-gray-700 pb-4 mb-4">
+                      <h1 className="text-lg md:text-xl font-semibold text-white mb-2">
+                        {lesson.title}
+                      </h1>
+                      <div className="flex flex-wrap items-center gap-4 text-gray-400 text-sm">
+                        <div className="flex items-center">
+                          <BookOpen className="w-4 h-4 mr-1" />
+                          <span>Bài {currentLessonOrder}/{totalLessons}</span>
+                        </div>
+                        {completedLessons.has(lessonId) && (
+                          <div className="flex items-center text-green-400">
+                            <Check className="w-4 h-4 mr-1" />
+                            <span>Đã hoàn thành</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <div className="text-xs bg-white/20 rounded-full px-3 py-1">
-                      Bài {currentLessonOrder}/{totalLessons}
+
+                    {/* Action Buttons */}
+                    <div className="flex flex-wrap gap-3">
+                      {/* Open in YouTube button */}
+                      <a
+                        href={lesson.videoUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center px-4 py-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors text-white text-sm"
+                      >
+                        <ExternalLink className="w-4 h-4 mr-2" />
+                        Mở trên YouTube
+                      </a>
+
+                      {/* Course Title */}
+                      <div className="inline-flex items-center px-4 py-2 bg-white/5 rounded-full text-white text-sm">
+                        <BookOpen className="w-4 h-4 mr-2" />
+                        {course.title}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1160,6 +1511,34 @@ const LessonDetailPage: React.FC = () => {
                 <div className="mb-4 sm:mb-0 w-full sm:w-auto"></div>
               )}
 
+              {completedLessons.has(lessonId) ? (
+                // Button for completed lessons
+                <button
+                  onClick={() => {
+                    if (nextContent) {
+                      if (nextContent.type === 'lesson') {
+                        router.push(`/courses/${courseId}/lesson/${nextContent.id}`);
+                      } else {
+                        router.push(`/courses/${courseId}/quiz/${nextContent.id}`);
+                      }
+                    }
+                  }}
+                  className="w-full sm:w-auto px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg shadow transition flex items-center justify-center"
+                >
+                  {nextContent ? (
+                    <>
+                      <span>Tiếp tục học</span>
+                      <ChevronRight className="w-5 h-5 ml-2" />
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-5 h-5 mr-2" />
+                      <span>Đã hoàn thành khóa học</span>
+                    </>
+                  )}
+                </button>
+              ) : (
+                // Button for incomplete lessons
               <button
                 onClick={handleMarkComplete}
                 disabled={isUpdatingProgress}
@@ -1182,9 +1561,10 @@ const LessonDetailPage: React.FC = () => {
                   </>
                 )}
               </button>
+              )}
 
               {nextContent ? (
-                meetsTimeRequirement() ? (
+                completedLessons.has(lessonId) || meetsTimeRequirement() ? (
                   <Link
                     href={nextContent.type === 'lesson' ? 
                       `/courses/${courseId}/lesson/${nextContent.id}` : 
@@ -1197,7 +1577,7 @@ const LessonDetailPage: React.FC = () => {
                 ) : (
                   <button
                     onClick={() => {
-                      const requiredSeconds = lesson?.timeLimit ? lesson.timeLimit * 60 * 0.01 : 0;
+                      const requiredSeconds = lesson?.timeLimit ? lesson.timeLimit * 60 * 0.75 : 0;
                       const remainingMinutes = Math.ceil((requiredSeconds - elapsedTime) / 60);
                       toast.error(`Bạn cần xem bài học thêm khoảng ${remainingMinutes} phút để mở khóa ${nextContent.type === 'lesson' ? 'bài' : 'quiz'} tiếp theo.`);
                     }}

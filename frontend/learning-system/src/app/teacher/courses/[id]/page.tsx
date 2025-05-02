@@ -4,14 +4,15 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { 
   Edit, Eye, Plus, ArrowLeft, BookOpen, Users, 
-  Calendar, Clock, Trash2, AlertTriangle, UserMinus, 
+  Clock, Trash2, AlertTriangle, UserMinus, 
   UserPlus, DollarSign, Star, FileText, BarChart2, ArrowUpDown, MoveUp, MoveDown,
   Loader2, CheckCircle2
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-
+import dotenv from 'dotenv';
+dotenv.config();
 // API Base URL
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8082/api';
+const API_BASE_URL = process.env.BASE_URL || 'http://localhost:8082/api';
 
 // Define interfaces to match API response format
 interface User {
@@ -31,6 +32,7 @@ interface Quiz {
   orderQuiz: number;
   questionCount: number;
   passingScore: number;
+  status?: string;
 }
 
 interface Lesson {
@@ -40,6 +42,7 @@ interface Lesson {
   lessonShortTitle: string;
   orderLesson: number;
   description?: string;
+  status?: string;
 }
 
 interface Course {
@@ -62,6 +65,7 @@ interface Course {
   studentsEnrolled?: User[];
   createdAt?: string;
   updatedAt?: string;
+  averageRating?: number;
 }
 
 // Add a new interface for combined course content items
@@ -72,6 +76,7 @@ interface CourseContentItem {
   description?: string;
   order?: number;
   type: 'lesson' | 'quiz';
+  status?: string;
   [key: string]: string | number | boolean | undefined;
 }
 
@@ -83,6 +88,98 @@ interface EnrollmentRequest {
   email?: string;
   courseId?: string;
 }
+
+// CourseAnalytics component to display completion rate and average progress
+const CourseAnalytics = ({ students, course }: { students: User[], course: Course | null }) => {
+  // Calculate completion rate and average progress
+  const calculateAnalytics = () => {
+    if (!students || students.length === 0) {
+      return {
+        registrations: 0,
+        completionRate: 0,
+        averageProgress: 0,
+        completedLessons: 0,
+        totalLessons: 0,
+        revenue: 0
+      };
+    }
+
+    const registrations = students.length;
+    
+    // Count completed students (progress = 100%)
+    const completedCount = students.filter(student => 
+      typeof student.progress === 'number' && student.progress >= 100
+    ).length;
+    
+    // Calculate completion rate
+    const completionRate = registrations > 0 
+      ? Math.round((completedCount / registrations) * 100) 
+      : 0;
+    
+    // Calculate average progress, ensuring each progress value is valid
+    const totalProgress = students.reduce((sum, student) => {
+      const progress = typeof student.progress === 'number' ? student.progress : 0;
+      return sum + Math.min(Math.max(progress, 0), 100);
+    }, 0);
+    
+    const averageProgress = registrations > 0 
+      ? Math.round(totalProgress / registrations) 
+      : 0;
+    
+    // Calculate total number of lessons and quizzes
+    const totalLessons = (course?.lessons?.length || 0) + (course?.quizzes?.length || 0);
+    
+    // Estimate completed lessons based on average progress
+    const completedLessons = Math.round((averageProgress / 100) * totalLessons);
+    
+    return {
+      registrations,
+      completionRate,
+      averageProgress,
+      completedLessons,
+      totalLessons,
+      revenue: course?.price || 0 // Will be multiplied by registrations in the render function
+    };
+  };
+
+  const analytics = calculateAnalytics();
+
+  return (
+    <div className="bg-white rounded-lg shadow-md p-6 mt-6">
+      <h2 className="text-xl font-semibold mb-4 flex items-center">
+        <BarChart2 className="mr-2" /> 
+        Phân tích khóa học
+      </h2>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="p-4 bg-gray-50 rounded-lg">
+          <div className="text-sm text-gray-500">Lượt đăng ký</div>
+          <div className="text-2xl font-bold mt-1">{analytics.registrations}</div>
+        </div>
+        <div className="p-4 bg-gray-50 rounded-lg">
+          <div className="text-sm text-gray-500">Tỷ lệ hoàn thành</div>
+          <div className="text-2xl font-bold mt-1">{analytics.completionRate}%</div>
+          {/* <div className="text-xs text-gray-500 mt-1">
+            {analytics.completedLessons}/{analytics.totalLessons} mục hoàn thành
+          </div> */}
+        </div>
+        <div className="p-4 bg-gray-50 rounded-lg">
+          <div className="text-sm text-gray-500">Tiến độ trung bình</div>
+          <div className="text-2xl font-bold mt-1">{analytics.averageProgress}%</div>
+          <div className="w-full bg-gray-200 rounded-full h-1.5 mt-2">
+            <div 
+              className="bg-green-500 h-1.5 rounded-full" 
+              style={{ width: `${analytics.averageProgress}%` }}
+            ></div>
+          </div>
+        </div>
+        <div className="p-4 bg-gray-50 rounded-lg">
+          <div className="text-sm text-gray-500">Doanh thu</div>
+          <div className="text-2xl font-bold mt-1">{(analytics.registrations * analytics.revenue).toLocaleString()} VNĐ</div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export default function TeacherCourseDetailPage() {
   const params = useParams();
@@ -99,12 +196,6 @@ export default function TeacherCourseDetailPage() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [isReorderingContent, setIsReorderingContent] = useState(false);
   const [contentOrderSaving, setContentOrderSaving] = useState(false);
-  const [analyticsData, setAnalyticsData] = useState<{
-    totalViews: number;
-    completionRate: number;
-    averageProgress: number;
-    revenueGenerated: string;
-  } | null>(null);
   const [studentToDelete, setStudentToDelete] = useState<{id: string, name: string, email?: string} | null>(null);
   const [studentDeleteModalOpen, setStudentDeleteModalOpen] = useState(false);
   const [studentDeleteError, setStudentDeleteError] = useState<string | null>(null);
@@ -173,7 +264,7 @@ export default function TeacherCourseDetailPage() {
     try {
       // Fetch course information
       console.log(`Fetching course details for ID: ${courseId}`);
-      const response = await fetch(`${API_BASE_URL}/course/info/${courseId}`, {
+      const response = await fetch(`${API_BASE_URL}/course/info-course/${courseId}`, {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -194,6 +285,7 @@ export default function TeacherCourseDetailPage() {
       if (courseData.body) {
         // Handle nested response structure
         parsedCourse = {
+          
           id: courseData.body.id || courseId,
           teacherId: courseData.body.teacherId || '',
           teacherFullName: courseData.body.teacherFullName || courseData.body.teacherName || '',
@@ -208,7 +300,8 @@ export default function TeacherCourseDetailPage() {
           studentsCount: courseData.body.studentsCount || 0,
           categories: courseData.body.categories || [],
           createdAt: courseData.body.createdAt || new Date().toISOString(),
-          updatedAt: courseData.body.updatedAt || new Date().toISOString()
+          updatedAt: courseData.body.updatedAt || new Date().toISOString(),
+          averageRating: courseData.body.averageRating
         };
       } else {
         // Handle direct response structure
@@ -227,7 +320,8 @@ export default function TeacherCourseDetailPage() {
           studentsCount: courseData.studentsCount || 0,
           categories: courseData.categories || [],
           createdAt: courseData.createdAt || new Date().toISOString(),
-          updatedAt: courseData.updatedAt || new Date().toISOString()
+          updatedAt: courseData.updatedAt || new Date().toISOString(),
+          averageRating: courseData.averageRating
         };
       }
       
@@ -238,14 +332,6 @@ export default function TeacherCourseDetailPage() {
       await fetchStudents(parsedCourse);
       
       setCourse(parsedCourse);
-      
-      // Add analytics data
-      setAnalyticsData({
-        totalViews: parsedCourse.studentsCount * 10 || 100,
-        completionRate: Math.floor(Math.random() * 60) + 20,
-        averageProgress: Math.floor(Math.random() * 70) + 10,
-        revenueGenerated: (parsedCourse.price * parsedCourse.studentsCount).toFixed(2)
-      });
     } catch (error) {
       console.error("Error fetching course:", error);
       setError("Không thể tải khóa học. Vui lòng thử lại sau.");
@@ -257,7 +343,7 @@ export default function TeacherCourseDetailPage() {
   const fetchLessonsAndQuizzes = async (parsedCourse: Course) => {
     try {
       // Fetch lessons and quizzes
-      const lessonsQuizResponse = await fetch(`${API_BASE_URL}/course/lesson_quiz/${courseId}`, {
+      const lessonsQuizResponse = await fetch(`${API_BASE_URL}/course/getlessonquiz/${courseId}`, {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -341,7 +427,8 @@ export default function TeacherCourseDetailPage() {
             title: lesson.lessonTitle || lesson.lessonShortTitle || 'Bài học',
             description: lesson.lessonShortTitle || '',
             order: lesson.orderLesson || 0,
-            type: 'lesson'
+            type: 'lesson',
+            status: lesson.status
           });
         });
       }
@@ -352,12 +439,13 @@ export default function TeacherCourseDetailPage() {
           content.push({
             id: quiz.quizId,
             courseId: courseId,
-            title: `Bài kiểm tra ${quiz.orderQuiz || ''}`,
+            title: quiz.title || `Bài kiểm tra ${quiz.orderQuiz || ''}`,
             description: `${quiz.questionCount || 0} câu hỏi • Điểm đạt: ${quiz.passingScore || 60}%`,
             order: quiz.orderQuiz || 999,
             type: 'quiz',
             questionCount: quiz.questionCount || 0,
-            passingScore: quiz.passingScore || 60
+            passingScore: quiz.passingScore || 60,
+            status: quiz.status
           });
         });
       }
@@ -593,57 +681,30 @@ export default function TeacherCourseDetailPage() {
     setContentOrderSaving(true);
     
     try {
-      // Separate lesson IDs and quiz IDs while preserving the overall order
-      const lessons = courseContent
-        .filter(item => item.type === 'lesson')
-        .map((item, index) => ({
-          lessonId: item.id,
-          orderLesson: index + 1
-        }));
+      // Create order object according to the API format
+      const orderData: Record<string, string> = {};
       
-      const quizzes = courseContent
-        .filter(item => item.type === 'quiz')
-        .map((item, index) => ({
-          quizId: item.id,
-          orderQuiz: index + 1
-        }));
-      
-      // Update lessons order
-      if (lessons.length > 0) {
-        const lessonResponse = await fetch(`${API_BASE_URL}/lesson/reorder`, {
-          method: 'PUT',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            courseId: course.id,
-            lessons: lessons
-          })
-        });
-        
-        if (!lessonResponse.ok) {
-          throw new Error('Không thể cập nhật thứ tự bài học');
+      // Add all content items to order object
+      courseContent.forEach((item, index) => {
+        if (item.id) {
+          orderData[item.id] = String(index + 1); // Convert order to string as shown in Postman
         }
-      }
+      });
       
-      // Update quizzes order
-      if (quizzes.length > 0) {
-        const quizResponse = await fetch(`${API_BASE_URL}/quiz/reorder`, {
-          method: 'PUT',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            courseId: course.id,
-            quizzes: quizzes
-          })
-        });
-        
-        if (!quizResponse.ok) {
-          throw new Error('Không thể cập nhật thứ tự bài kiểm tra');
-        }
+      console.log("Order data to send:", orderData);
+      
+      // Call the API to update the order list
+      const response = await fetch(`${API_BASE_URL}/course/update-order-list`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(orderData)
+      });
+      
+      if (!response.ok) {
+        throw new Error('Không thể cập nhật thứ tự nội dung khóa học');
       }
       
       // Exit reordering mode
@@ -651,6 +712,16 @@ export default function TeacherCourseDetailPage() {
       
       // Show success message
       toast.success('Thứ tự nội dung khóa học đã được cập nhật thành công');
+      
+      // Fetch complete course data and reload content in the correct order
+      await fetchCourse();
+      
+      // Fetch lessons and quizzes data, then reload course content with updated order
+      if (course) {
+        await fetchLessonsAndQuizzes(course);
+        await fetchStudents(course);
+        await loadCourseContent();
+      }
     } catch (error) {
       console.error('Failed to save content order:', error);
       toast.error('Không thể cập nhật thứ tự nội dung khóa học. Vui lòng thử lại sau.');
@@ -665,7 +736,9 @@ export default function TeacherCourseDetailPage() {
   };
 
   const getProgress = (student: User) => {
-    return student.progress || 0;
+    // Make sure we have a valid progress value between 0-100
+    const rawProgress = typeof student.progress === 'number' ? student.progress : 0;
+    return Math.min(Math.max(Math.round(rawProgress), 0), 100);
   };
 
   const getDate = (student: User) => {
@@ -927,32 +1000,8 @@ export default function TeacherCourseDetailPage() {
             </div>
             
             {/* Analytics Section */}
-            {analyticsData && (
-              <div className="bg-white rounded-lg shadow-md p-6 mt-6">
-                <div className="flex items-center mb-4">
-                  <BarChart2 className="w-5 h-5 mr-2 text-indigo-600" />
-                  <h3 className="text-lg font-bold">Phân tích khóa học</h3>
-                </div>
-                
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <div className="text-sm text-gray-500 mb-1">Lượt đăng ký</div>
-                    <div className="text-xl font-bold">{course.studentsCount || (course.studentsEnrolled ? course.studentsEnrolled.length : 0)}</div>
-                  </div>
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <div className="text-sm text-gray-500 mb-1">Tỷ lệ hoàn thành</div>
-                    <div className="text-xl font-bold">{analyticsData.completionRate}%</div>
-                  </div>
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <div className="text-sm text-gray-500 mb-1">Tiến độ trung bình</div>
-                    <div className="text-xl font-bold">{analyticsData.averageProgress}%</div>
-                  </div>
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <div className="text-sm text-gray-500 mb-1">Doanh thu</div>
-                    <div className="text-xl font-bold">${analyticsData.revenueGenerated}</div>
-                  </div>
-                </div>
-              </div>
+            {course && course.studentsEnrolled && (
+              <CourseAnalytics students={course.studentsEnrolled} course={course} />
             )}
           </div>
 
@@ -966,16 +1015,16 @@ export default function TeacherCourseDetailPage() {
                     <DollarSign className="w-5 h-5 mr-2 text-gray-400" />
                     Giá
                   </div>
-                  <div className="font-medium">${course.price}</div>
+                  <div className="font-medium">{course.price.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ".")} VNĐ</div>
                 </div>
                 <div className="flex justify-between items-center pb-2 border-b">
                   <div className="flex items-center text-gray-600">
                     <Star className="w-5 h-5 mr-2 text-gray-400" />
                     Đánh giá
                   </div>
-                  <div className="font-medium">4.7 / 5</div>
+                  <div className="font-medium">{course.averageRating}</div>
                 </div>
-                <div className="flex justify-between items-center pb-2 border-b">
+                {/* <div className="flex justify-between items-center pb-2 border-b">
                   <div className="flex items-center text-gray-600">
                     <Calendar className="w-5 h-5 mr-2 text-gray-400" />
                     Ngày tạo
@@ -983,7 +1032,7 @@ export default function TeacherCourseDetailPage() {
                   <div className="font-medium">
                     {course.createdAt ? new Date(course.createdAt).toLocaleDateString() : 'N/A'}
                   </div>
-                </div>
+                </div> */}
                 <div className="flex items-center text-gray-600">
                   <div className="flex-1">Danh mục</div>
                   <div className="flex flex-wrap justify-end">
@@ -1103,7 +1152,18 @@ export default function TeacherCourseDetailPage() {
                           {index + 1}
                         </div>
                         <div className="flex-grow">
+                          <div className="flex items-center gap-2">
                           <h4 className="font-medium text-gray-900">{lessonTitle}</h4>
+                            {/* Hiển thị badge trạng thái */}
+                            {typeof lesson === 'object' && (
+                              <span className={`px-2 py-0.5 text-xs rounded-full ${
+                                lesson.status === 'ACTIVE' ? 'bg-green-100 text-green-800' : 
+                                'bg-gray-100 text-gray-800'
+                              }`}>
+                                {lesson.status === 'ACTIVE' ? 'Hoạt động' : 'Không hoạt động'}
+                              </span>
+                            )}
+                          </div>
                           {lessonDescription && <p className="text-sm text-gray-500">{lessonDescription}</p>}
                         </div>
                         <div className="flex items-center ml-4">
@@ -1143,6 +1203,13 @@ export default function TeacherCourseDetailPage() {
                 <h3 className="text-lg font-medium">Danh sách bài kiểm tra</h3>
                 <div className="flex space-x-2">
                   <Link 
+                    href={`/teacher/courses/${course?.id || courseId}/quizzes/create-ai`}
+                    className="bg-purple-600 text-white px-3 py-1.5 rounded-md text-sm flex items-center"
+                  >
+                    <span className="w-4 h-4 mr-1">✨</span>
+                    Tạo bằng AI
+                  </Link>
+                  <Link 
                     href={`/teacher/courses/${course?.id || courseId}/quizzes/create`}
                     className="bg-indigo-600 text-white px-3 py-1.5 rounded-md text-sm flex items-center"
                   >
@@ -1157,13 +1224,22 @@ export default function TeacherCourseDetailPage() {
                   <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg">
                     <FileText className="w-12 h-12 mx-auto text-gray-400 mb-2" />
                     <p>Khóa học chưa có bài kiểm tra nào</p>
+                    <div className="flex justify-center mt-4 space-x-4">
+                      <Link 
+                        href={`/teacher/courses/${course?.id || courseId}/quizzes/create-ai`}
+                        className="inline-flex items-center text-indigo-600 hover:text-indigo-800"
+                      >
+                        <span className="w-4 h-4 mr-1">✨</span>
+                        Tạo bằng AI
+                      </Link>
                     <Link 
                       href={`/teacher/courses/${course?.id || courseId}/quizzes/create`}
-                      className="mt-4 inline-flex items-center text-indigo-600 hover:text-indigo-800"
+                        className="inline-flex items-center text-indigo-600 hover:text-indigo-800"
                     >
                       <Plus className="w-4 h-4 mr-1" />
                       Thêm bài kiểm tra đầu tiên
                     </Link>
+                    </div>
                   </div>
                 ) : (
                   course.quizzes.map((quiz, index) => {
@@ -1175,7 +1251,18 @@ export default function TeacherCourseDetailPage() {
                           {index + 1}
                         </div>
                         <div className="flex-grow">
+                          <div className="flex items-center gap-2">
                           <h4 className="font-medium text-gray-900">{quizTitle}</h4>
+                            {/* Hiển thị badge trạng thái */}
+                            {typeof quiz === 'object' && (
+                              <span className={`px-2 py-0.5 text-xs rounded-full ${
+                                quiz.status === 'ACTIVE' ? 'bg-green-100 text-green-800' : 
+                                'bg-gray-100 text-gray-800'
+                              }`}>
+                                {quiz.status === 'ACTIVE' ? 'Hoạt động' : 'Không hoạt động'}
+                              </span>
+                            )}
+                          </div>
                           <p className="text-sm text-gray-500">
                             {typeof quiz === 'object' && quiz.questionCount ? `${quiz.questionCount} câu hỏi` : 'Không có thông tin chi tiết'}
                           </p>
@@ -1314,6 +1401,13 @@ export default function TeacherCourseDetailPage() {
                               {isLesson ? 'Bài học' : 'Bài kiểm tra'}
                             </span>
                             <h4 className="font-medium text-gray-900">{itemTitle}</h4>
+                            {/* Hiển thị trạng thái */}
+                            <span className={`ml-2 px-2 py-0.5 text-xs rounded-full ${
+                              item.status === 'ACTIVE' ? 'bg-green-100 text-green-800' : 
+                              'bg-gray-100 text-gray-800'
+                            }`}>
+                              {item.status === 'ACTIVE' ? 'Hoạt động' : 'Không hoạt động'}
+                            </span>
                           </div>
                           {itemDescription && <p className="text-sm text-gray-500 mt-1">{itemDescription}</p>}
                           <div className="text-xs text-gray-400 mt-1">Thứ tự: {order}</div>
@@ -1364,7 +1458,7 @@ export default function TeacherCourseDetailPage() {
                     >
                       <option value="progress">Tiến độ</option>
                       <option value="name">Tên</option>
-                      <option value="date">Ngày đăng ký</option>
+                      {/* <option value="date">Ngày đăng ký</option> */}
                     </select>
                     
                     <button
@@ -1425,8 +1519,14 @@ export default function TeacherCourseDetailPage() {
                         
                         // Lấy dữ liệu tiến độ học tập
                         const progress = getProgress(student);
-                        const lastActive = getDate(student);
-                        const enrolledAt = getDate(student);
+                        // const lastActive = getDate(student);
+                        // const enrolledAt = getDate(student);
+
+                        // Calculate completion stats
+                        const totalLessons = (course?.lessons?.length || 0);
+                        const totalQuizzes = (course?.quizzes?.length || 0);
+                        // const totalContent = totalLessons + totalQuizzes;
+                        // const completedItems = Math.round((progress / 100) * totalContent);
 
                         return (
                           <div key={studentId} className="bg-white p-4 rounded-lg shadow">
@@ -1438,11 +1538,11 @@ export default function TeacherCourseDetailPage() {
                                 <div>
                                   <h4 className="font-medium">{studentName}</h4>
                                   <p className="text-sm text-gray-500">{studentEmail}</p>
-                                  <div className="mt-1 text-xs text-gray-400">
+                                  {/* <div className="mt-1 text-xs text-gray-400">
                                     Đăng ký: {new Date(enrolledAt).toLocaleDateString('vi-VN')}
                                     <span className="mx-2">•</span>
                                     Hoạt động gần đây: {new Date(lastActive).toLocaleDateString('vi-VN')}
-                                  </div>
+                                  </div> */}
                                 </div>
                               </div>
                               <button 
@@ -1470,7 +1570,7 @@ export default function TeacherCourseDetailPage() {
                                   style={{ width: `${progress}%` }}
                                 ></div>
                               </div>
-                              <div className="mt-2">
+                              <div className="mt-2 flex justify-between">
                                 <span className={`text-xs px-2 py-1 rounded-full ${
                                   progress === 100 
                                     ? 'bg-green-100 text-green-800' 
@@ -1485,6 +1585,17 @@ export default function TeacherCourseDetailPage() {
                                       : 'Chưa bắt đầu'
                                   }
                                 </span>
+                               
+                              </div>
+                              <div className="grid grid-cols-2 gap-2 mt-3">
+                                <div className="p-2 bg-gray-50 rounded border border-gray-100">
+                                  <div className="text-xs text-gray-500">Bài học</div>
+                                  <div className="text-sm font-medium">{Math.round((progress / 100) * totalLessons)}/{totalLessons}</div>
+                                </div>
+                                <div className="p-2 bg-gray-50 rounded border border-gray-100">
+                                  <div className="text-xs text-gray-500">Bài kiểm tra</div>
+                                  <div className="text-sm font-medium">{Math.round((progress / 100) * totalQuizzes)}/{totalQuizzes}</div>
+                                </div>
                               </div>
                             </div>
                           </div>

@@ -1,116 +1,168 @@
-import React, { useState, useEffect } from "react";
-import SidebarSection from "./SidebarSection";
-import CategoryList from "./CategoryList";
-import { CategoryItem, InstructorItem, PriceItem, ReviewItem, FilterState } from "@/app/types";
+import React from "react";
+import Select, { MultiValue } from "react-select";
+import { StarIcon } from "@heroicons/react/24/solid"; // Icon ngôi sao
+
+interface CategoryItem {
+  id: string;
+  name: string; // categoryName, ví dụ: "DEVELOPMENT"
+  displayName: string; // categoryDisplayName, ví dụ: "Lập Trình"
+  count: number; // Số lượng khóa học
+  url: string;
+  isActive: boolean;
+}
+
+interface InstructorItem {
+  id: string;
+  name: string; // fullName của giảng viên
+  isActive: boolean;
+}
+
+interface ReviewItem {
+  range: string; // Ví dụ: "4 -> 5"
+  min: number; // Điểm tối thiểu
+  max: number; // Điểm tối đa
+}
+
+interface FilterState {
+  categories: string[]; // Lưu categoryName
+  instructors: string[]; // Lưu User.id của giảng viên (ObjectId)
+  reviews: string; // Lưu range được chọn (ví dụ: "4 -> 5")
+}
 
 interface SidebarProps {
   categories: CategoryItem[];
   instructors: InstructorItem[];
-  prices: PriceItem[];
   reviews: ReviewItem[];
-  onFiltersChange: (filters: FilterState) => void;
+  onFiltersChange: (newFilters: FilterState) => void;
   isCollapsed: boolean;
   onToggleCollapse: () => void;
   selectedFilters: FilterState;
 }
 
+// Define the select option type
+interface SelectOption {
+  value: string;
+  label: string;
+}
+
 const Sidebar: React.FC<SidebarProps> = ({
   categories,
   instructors,
-  prices,
   reviews,
   onFiltersChange,
   isCollapsed,
   onToggleCollapse,
   selectedFilters,
 }) => {
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const handleCategorySelect = (selectedCategories: string[]) => {
-    onFiltersChange({
-      ...selectedFilters,
-      categories: selectedCategories,
-    });
+  const handleCategoryToggle = (categoryName: string) => {
+    const newCategories = selectedFilters.categories.includes(categoryName)
+      ? selectedFilters.categories.filter((name) => name !== categoryName)
+      : [...selectedFilters.categories, categoryName];
+    onFiltersChange({ ...selectedFilters, categories: newCategories });
   };
 
-  const handleInstructorSelect = (selectedInstructors: string[]) => {
-    onFiltersChange({
-      ...selectedFilters,
-      instructors: selectedInstructors,
-    });
+  const handleInstructorChange = (selected: MultiValue<SelectOption>) => {
+    const newInstructors = selected.map((option) => option.value);
+    onFiltersChange({ ...selectedFilters, instructors: newInstructors });
   };
 
-  const handlePriceSelect = (selectedPrices: string[]) => {
-    onFiltersChange({
-      ...selectedFilters,
-      prices: selectedPrices,
-    });
+  const handleReviewChange = (range: string) => {
+    onFiltersChange({ ...selectedFilters, reviews: range });
   };
-
-  const handleReviewSelect = (selectedReviews: string[]) => {
-    onFiltersChange({
-      ...selectedFilters,
-      reviews: selectedReviews.map(r => parseInt(r.split(' ')[0])),
-    });
-  };
-
-  if (!mounted) {
-    return null; // or a loading skeleton
-  }
 
   return (
     <aside
-      className={`w-[300px] bg-white p-6 rounded-lg shadow-md transition-all duration-300 ${
-        isCollapsed ? "w-0 p-0 overflow-hidden" : ""
+      className={`${
+        isCollapsed ? "w-0" : "w-64"
+      } transition-all duration-300 bg-white p-4 shadow-md md:block ${
+        isCollapsed ? "hidden" : ""
       }`}
     >
-      <SidebarSection title="Categories">
-        <CategoryList
-          categories={categories}
-          onCategorySelect={handleCategorySelect}
-          selectedCategories={selectedFilters.categories}
-        />
-      </SidebarSection>
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-lg font-semibold text-gray-800">Bộ lọc</h2>
+        <button
+          onClick={onToggleCollapse}
+          className="md:hidden text-gray-600 hover:text-gray-800"
+        >
+          {isCollapsed ? "Mở" : "Đóng"}
+        </button>
+      </div>
 
-      <SidebarSection title="Instructors">
-        <CategoryList
-          categories={instructors.map(instructor => ({
-            name: instructor.name,
-            count: instructor.count,
-            isActive: false
-          }))}
-          onCategorySelect={handleInstructorSelect}
-          selectedCategories={selectedFilters.instructors}
-        />
-      </SidebarSection>
+      <div className="mb-6">
+        <h3 className="text-sm font-medium text-gray-700 mb-2">Danh mục</h3>
+        <ul>
+          {categories.map((category) => (
+            <li
+              key={category.id}
+              className="flex items-center justify-between mb-2"
+            >
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={selectedFilters.categories.includes(category.name)}
+                  onChange={() => handleCategoryToggle(category.name)}
+                  className="mr-2 h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                />
+                <span className="text-gray-700">{category.displayName}</span>
+              </div>
+              <span className="text-gray-500 text-sm">{category.count}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
 
-      <SidebarSection title="Price">
-        <CategoryList
-          categories={prices.map(price => ({
-            name: price.name,
-            count: price.count,
-            isActive: false
+      <div className="mb-6">
+        <h3 className="text-sm font-medium text-gray-700 mb-2">Giảng viên</h3>
+        <Select<SelectOption, true>
+          isMulti
+          options={instructors.map((instructor) => ({
+            value: instructor.id, // Lưu User.id
+            label: instructor.name, // Hiển thị fullName
           }))}
-          onCategorySelect={handlePriceSelect}
-          selectedCategories={selectedFilters.prices}
+          onChange={handleInstructorChange}
+          value={selectedFilters.instructors.map((id) => ({
+            value: id,
+            label: instructors.find((i) => i.id === id)?.name || id,
+          }))}
+          placeholder="Chọn giảng viên..."
+          className="basic-multi-select"
+          classNamePrefix="select"
+          styles={{
+            control: (provided) => ({
+              ...provided,
+              borderColor: "#e2e8f0",
+              padding: "2px",
+              borderRadius: "6px",
+            }),
+            option: (provided) => ({
+              ...provided,
+              color: "#374151",
+            }),
+          }}
         />
-      </SidebarSection>
+      </div>
 
-      <SidebarSection title="Rating">
-        <CategoryList
-          categories={reviews.map(review => ({
-            name: `${review.stars} stars`,
-            count: review.count,
-            isActive: false
-          }))}
-          onCategorySelect={handleReviewSelect}
-          selectedCategories={selectedFilters.reviews.map(r => `${r} stars`)}
-        />
-      </SidebarSection>
+      <div>
+        <h3 className="text-sm font-medium text-gray-700 mb-2">Đánh giá</h3>
+        <ul>
+          {reviews.map((review) => (
+            <li key={review.range} className="flex items-center mb-3">
+              <label className="flex items-center cursor-pointer w-full hover:bg-gray-100 p-1 rounded">
+                <input
+                  type="radio"
+                  name="review"
+                  checked={selectedFilters.reviews === review.range}
+                  onChange={() => handleReviewChange(review.range)}
+                  className="mr-2 h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300"
+                />
+                <span className="flex items-center text-gray-700 text-sm">
+                  {review.range} <StarIcon className="h-4 w-4 text-yellow-400 ml-1" />
+                </span>
+              </label>
+            </li>
+          ))}
+        </ul>
+      </div>
     </aside>
   );
 };

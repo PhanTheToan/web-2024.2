@@ -6,9 +6,10 @@ import { ArrowLeft, AlertCircle, CheckCircle, Loader2, X, FileText } from 'lucid
 import { Course, LessonMaterial } from '@/app/types';
 import Image from 'next/image';
 import { toast } from 'react-hot-toast';
-
+import dotenv from 'dotenv';
+dotenv.config();
 // API Base URL
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8082/api';
+const API_BASE_URL = process.env.BASE_URL || 'http://localhost:8082/api';
 
 export default function CreateLessonPage() {
   const params = useParams();
@@ -29,9 +30,10 @@ export default function CreateLessonPage() {
     description: '',
     content: '',
     videoUrl: '',
-    orderLesson: 1, // Default to 1, will be updated based on API response
-    timeLimit: 30, // Default to 30 minutes
+    orderLesson: 0, // Sẽ được cập nhật từ API
+    timeLimit: 30, // Mặc định 30 phút
     materials: [] as LessonMaterial[],
+    status: 'INACTIVE',
   });
 
   // Additional state for file upload
@@ -88,7 +90,7 @@ export default function CreateLessonPage() {
     try {
       setLoading(true);
       console.log("Fetching course:", courseId);
-      const response = await fetch(`${API_BASE_URL}/course/info/${courseId}`, {
+      const response = await fetch(`${API_BASE_URL}/course/info-course/${courseId}`, {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -125,7 +127,8 @@ export default function CreateLessonPage() {
   // Hàm để lấy danh sách bài học và xác định orderLesson tiếp theo
   const fetchLessons = async (courseId: string) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/course/lesson_quiz/${courseId}`, {
+      // Gọi API để lấy giá trị maxOrder
+      const response = await fetch(`${API_BASE_URL}/course/get-max-order?courseId=${courseId}`, {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -134,36 +137,18 @@ export default function CreateLessonPage() {
       });
 
       if (!response.ok) {
-        throw new Error("Failed to fetch lessons");
+        throw new Error("Failed to fetch max order");
       }
 
       const data = await response.json();
-      console.log("Lessons and quizzes data:", data);
+      console.log("Max order data:", data);
       
+      // Lấy maxOrder từ API response
       let maxOrder = 0;
-      let maxLessonOrder = 0;
-      let maxQuizOrder = 0;
-      
-      // Xử lý mảng lessons từ API
-      const lessons = data.body?.lessons || [];
-      if (Array.isArray(lessons)) {
-        lessons.forEach(lesson => {
-          if (lesson.orderLesson && lesson.orderLesson > maxLessonOrder) {
-            maxLessonOrder = lesson.orderLesson;
-            maxOrder = Math.max(maxOrder, lesson.orderLesson);
-          }
-        });
-      }
-      
-      // Xử lý mảng quizzes từ API
-      const quizzes = data.body?.quizzes || [];
-      if (Array.isArray(quizzes)) {
-        quizzes.forEach(quiz => {
-          if (quiz.orderQuiz && quiz.orderQuiz > maxQuizOrder) {
-            maxQuizOrder = quiz.orderQuiz;
-            maxOrder = Math.max(maxOrder, quiz.orderQuiz);
-          }
-        });
+      if (data && data.maxOrder !== undefined) {
+        maxOrder = data.maxOrder;
+      } else if (data.body && data.body.maxOrder !== undefined) {
+        maxOrder = data.body.maxOrder;
       }
       
       // Đặt orderLesson mới là maxOrder + 1
@@ -175,18 +160,75 @@ export default function CreateLessonPage() {
         orderLesson: nextOrder
       }));
       
-      console.log("Max order values:", { maxOrder, maxLessonOrder, maxQuizOrder, nextOrder });
+      console.log("Max order value:", maxOrder, "Next order:", nextOrder);
       
       // Lưu thông tin để hiển thị UI
       setOrderInfo({
         maxOrder,
-        maxLessonOrder,
-        maxQuizOrder,
+        maxLessonOrder: 0, // Không cần thiết khi dùng API trực tiếp
+        maxQuizOrder: 0,   // Không cần thiết khi dùng API trực tiếp
         nextOrder
       });
     } catch (err) {
-      console.error("Error fetching lessons:", err);
-      // Keep default order value
+      console.error("Error fetching max order:", err);
+      // Fallback: gọi API cũ nếu API mới không hoạt động
+      try {
+        const response = await fetch(`${API_BASE_URL}/course/lesson_quiz/${courseId}`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch lessons");
+        }
+
+        const data = await response.json();
+        console.log("Lessons and quizzes data:", data);
+        
+        let maxOrder = 0;
+        
+        // Xử lý mảng lessons từ API
+        const lessons = data.body?.lessons || [];
+        if (Array.isArray(lessons)) {
+          lessons.forEach(lesson => {
+            const lessonOrder = lesson.order || lesson.orderLesson || 0;
+            if (lessonOrder > maxOrder) {
+              maxOrder = lessonOrder;
+            }
+          });
+        }
+        
+        // Xử lý mảng quizzes từ API
+        const quizzes = data.body?.quizzes || [];
+        if (Array.isArray(quizzes)) {
+          quizzes.forEach(quiz => {
+            const quizOrder = quiz.order || quiz.orderQuiz || 0;
+            if (quizOrder > maxOrder) {
+              maxOrder = quizOrder;
+            }
+          });
+        }
+        
+        // Đặt orderLesson mới là maxOrder + 1
+        const nextOrder = maxOrder + 1;
+        
+        setFormData(prev => ({
+          ...prev,
+          orderLesson: nextOrder
+        }));
+        
+        setOrderInfo({
+          maxOrder,
+          maxLessonOrder: 0,
+          maxQuizOrder: 0,
+          nextOrder
+        });
+      } catch (fallbackErr) {
+        console.error("Fallback also failed:", fallbackErr);
+      }
     }
   };
   
@@ -353,6 +395,7 @@ export default function CreateLessonPage() {
         timeLimit: formData.timeLimit, // Send as number like teacher implementation
         videoUrl: formData.videoUrl.toString(),
         materials: formData.materials.map(m => m.path), // Send as array like teacher implementation
+        status: formData.status // Thêm trạng thái
       };
       console.log('courseId:', courseId);
       console.log('title:', formData.title);
@@ -555,13 +598,13 @@ export default function CreateLessonPage() {
               name="orderLesson"
               type="number"
               min="1"
-              className="w-full px-3 py-2 border rounded-md"
-              value={formData.orderLesson}
-              onChange={handleChange}
+              className="w-full px-3 py-2 border rounded-md bg-gray-100 cursor-not-allowed"
+              value={formData.orderLesson || orderInfo.nextOrder || 1}
+              readOnly
             />
             {orderInfo.maxOrder > 0 && (
               <p className="text-sm text-gray-500 mt-1">
-                Thứ tự bài học cuối cùng: {orderInfo.maxLessonOrder}. Thứ tự quiz cuối cùng: {orderInfo.maxQuizOrder}.
+                Thứ tự tự động: {orderInfo.nextOrder} (tiếp theo của bài học/quiz cuối cùng)
               </p>
             )}
           </div>
@@ -582,6 +625,28 @@ export default function CreateLessonPage() {
               placeholder="Nhập thời gian học (phút)"
             />
             <p className="text-gray-500 text-sm mt-1">Thời gian ước tính để hoàn thành bài học này</p>
+          </div>
+          
+          <div className="mb-6">
+            <label className="block text-gray-700 font-medium mb-2" htmlFor="status">
+              Trạng thái bài học <span className="text-red-500">*</span>
+            </label>
+            <select
+              id="status"
+              name="status"
+              required
+              className="w-full px-3 py-2 border rounded-md"
+              value={formData.status}
+              onChange={handleChange}
+            >
+              <option value="ACTIVE">Hoạt động (học viên có thể truy cập)</option>
+              <option value="INACTIVE">Không hoạt động (học viên không thể truy cập)</option>
+            </select>
+            <p className="text-gray-500 text-sm mt-1">
+              {formData.status === 'ACTIVE' 
+                ? "Bài học sẽ được kích hoạt, học viên có thể truy cập ngay lập tức." 
+                : "Bài học sẽ bị vô hiệu hóa, học viên không thể truy cập cho đến khi được kích hoạt."}
+            </p>
           </div>
           
           <div className="mb-6">

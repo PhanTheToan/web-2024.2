@@ -1,26 +1,29 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Course, LessonMaterial } from "@/app/types";
 import { toast } from "react-hot-toast";
-
+import dotenv from 'dotenv';
+dotenv.config();
 // API Base URL
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8082/api';
+const API_BASE_URL = process.env.BASE_URL || 'http://localhost:8082/api';
 
 export default function CreateLessonPage() {
   const params = useParams();
   const router = useRouter();
   const courseId = params.id as string;
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [course, setCourse] = useState<Course | null>(null);
   const [title, setTitle] = useState("");
   const [shortTitle, setShortTitle] = useState("");
   const [content, setContent] = useState("");
   const [videoUrl, setVideoUrl] = useState("");
-  const [timeLimit, setTimeLimit] = useState(45);
+  const [timeLimit, setTimeLimit] = useState(30);
+  const [status, setStatus] = useState('INACTIVE');
   const [materials, setMaterials] = useState<LessonMaterial[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -41,7 +44,7 @@ export default function CreateLessonPage() {
       try {
         setLoading(true);
         console.log("Fetching course:", courseId);
-        const response = await fetch(`${API_BASE_URL}/course/info/${courseId}`, {
+        const response = await fetch(`${API_BASE_URL}/course/info-course/${courseId}`, {
           method: 'GET',
           credentials: 'include',
           headers: {
@@ -235,8 +238,9 @@ export default function CreateLessonPage() {
         };
       }).filter(material => material.path !== ''); // Loại bỏ các material không có path
 
-      setMaterials([...materials, ...newMaterials]);
+      setMaterials(prev => [...prev, ...newMaterials]);
       
+      // Hiển thị thông báo
       if (newMaterials.length === 1) {
         toast.success(`Tài liệu "${newMaterials[0].name}" đã được tải lên thành công`);
       } else {
@@ -247,7 +251,10 @@ export default function CreateLessonPage() {
       setFileError("Lỗi khi tải tập tin lên máy chủ. Vui lòng thử lại.");
     } finally {
       setUploadingFiles(false);
-      e.target.value = ''; // Reset input
+      // Reset input file để người dùng có thể chọn lại file đã upload
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 
@@ -259,70 +266,65 @@ export default function CreateLessonPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!title || !content) {
-      setError("Vui lòng điền tiêu đề và nội dung bài học");
-      return;
-    }
-
-    if (timeLimit <= 0) {
-      setError("Thời gian học phải lớn hơn 0 phút");
-      return;
-    }
+    setSubmitting(true);
 
     try {
-      setError(null);
-      setSubmitting(true);
+      // Validate form inputs
+      if (!title.trim() || !content.trim()) {
+        throw new Error("Vui lòng điền đầy đủ các trường bắt buộc");
+    }
 
-      // Chuẩn bị danh sách URL tài liệu
+      // Prepare lesson data
       const materialPaths = materials.map(m => m.path);
-      console.log("title", title);
-      console.log("shortTitle", shortTitle);
-      console.log("content", content);
-      console.log("videoUrl", videoUrl);
-      console.log("materialPaths", materialPaths);
-      console.log("orderLesson", orderLesson);
-      console.log("timeLimit", timeLimit);
-      console.log("courseId", courseId);
+      
+      // Prepare the request body
+      console.log('Preparing lesson data with the following values:');
+      console.log('courseId:', courseId);
+      console.log('title:', title);
+      console.log('shortTile:', shortTitle || title);
+      console.log('content:', content);
+      console.log('order:', orderLesson);
+      console.log('timeLimit:', timeLimit);
+      console.log('videoUrl:', videoUrl);
+      console.log('materials:', materialPaths);
+      console.log('status:', status);
 
-      // Gửi yêu cầu tạo bài học
+      // Create lesson
       const response = await fetch(`${API_BASE_URL}/course/create-lesson?courseId=${courseId}`, {
         method: 'POST',
         credentials: 'include',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          title: title,
-          shortTile: shortTitle || title,
-          content: content,
-          videoUrl: videoUrl,
+          title: title.toString(),
+          shortTile: (shortTitle || title).toString(),
+          content: content.toString(),
+          videoUrl: videoUrl.toString(),
           materials: materialPaths,
           order: orderLesson, // Sử dụng orderLesson đã được tính toán
-          timeLimit: timeLimit
+          timeLimit: timeLimit,
+          status: status
         })
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Server error:", errorText);
-        throw new Error("Không thể tạo bài học");
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || "Không thể tạo bài học");
       }
 
-      const data = await response.json();
-      console.log("Lesson created successfully:", data);
-
-      setSuccess(true);
       toast.success("Bài học đã được tạo thành công!");
+      setSuccess(true);
       
-      // Redirect after successful submission
+      // Redirect back to course page after a short delay
       setTimeout(() => {
         router.push(`/teacher/courses/${courseId}`);
-      }, 2000);
-    } catch (err) {
-      console.error("Error creating lesson:", err);
-      setError("Không thể tạo bài học. Vui lòng thử lại sau.");
-    } finally {
+      }, 1500);
+    } catch (error) {
+      console.error("Error creating lesson:", error);
+      const errorMessage = error instanceof Error ? error.message : "Đã xảy ra lỗi khi tạo bài học";
+      toast.error(errorMessage);
+      setError(errorMessage);
       setSubmitting(false);
     }
   };
@@ -523,6 +525,27 @@ export default function CreateLessonPage() {
             />
           </div>
 
+          <div className="mb-4">
+            <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">
+              Trạng thái bài học <span className="text-red-500">*</span>
+            </label>
+            <select
+              id="status"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+              required
+            >
+              <option value="ACTIVE">Hoạt động (học viên có thể truy cập)</option>
+              <option value="INACTIVE">Không hoạt động (học viên không thể truy cập)</option>
+            </select>
+            <p className="text-sm text-gray-500 mt-1">
+              {status === 'ACTIVE' 
+                ? "Bài học sẽ được kích hoạt, học viên có thể truy cập ngay lập tức." 
+                : "Bài học sẽ bị vô hiệu hóa, học viên không thể truy cập cho đến khi được kích hoạt."}
+            </p>
+          </div>
+
           <div className="mb-6">
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Tài liệu học tập
@@ -547,6 +570,7 @@ export default function CreateLessonPage() {
                       accept=".pdf,.docx,.jpeg,.jpg,.png"
                       disabled={uploadingFiles}
                       multiple
+                      ref={fileInputRef}
                     />
                   </label>
                   <span className="mt-1 block text-xs text-gray-500">

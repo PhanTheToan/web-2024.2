@@ -2,7 +2,7 @@
 import React from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { mockCourses } from "@/data/mockCourses";
+import { mockCourses } from "../../../data/mockCourses";
 import { ChevronRight } from "lucide-react";
 
 const BreadcrumbContainer = () => {

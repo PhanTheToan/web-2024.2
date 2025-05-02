@@ -51,12 +51,12 @@ export interface CourseData {
     _id: string;
     courseId: string;
     title: string;
-    content: string;
-    videoUrl: string;
-    materials: string[];
-    order: number;
+    content?: string;
+    videoUrl?: string;
+    materials?: string[] | LessonMaterial[];
+    order?: number;
     timeLimit?: number; // in minutes, optional
-    createdAt: Date;
+    createdAt?: Date;
     description?: string;
   }
 
@@ -95,6 +95,8 @@ export interface CourseData {
     isPopular?: boolean;
     totalDuration?: number;
     registrations?: number;
+    duration: string | number;
+    rating: number;
     
     // Add new properties from API responses
     teacherFullName?: string;
@@ -121,14 +123,22 @@ export interface CourseData {
     passingScore: number;
     timeLimit?: number;
     order?: number;
+    status?: QuizStatus;
     createdAt: Date;
   }
 
   export interface QuizQuestion {
     question: string;
-    options: string[];
-    correctAnswer: string;
     material?: string | null;
+    equestion: EQuestion;
+    options: string[];
+    correctAnswer: string[];
+  }
+
+  export enum EQuestion {
+    SINGLE_CHOICE = 'SINGLE_CHOICE',
+    MULTIPLE_CHOICE = 'MULTIPLE_CHOICE',
+    SHORT_ANSWER = 'SHORT_ANSWER'
   }
 
   export interface Category {
@@ -165,4 +175,9 @@ export interface CourseData {
     rating: number;
     comment: string;
     createdAt: Date;
+  }
+
+  export enum QuizStatus {
+    ACTIVE = 'ACTIVE',
+    INACTIVE = 'INACTIVE'
   }

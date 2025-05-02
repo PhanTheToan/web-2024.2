@@ -7,12 +7,18 @@ import {
   FileText, AlertCircle, Loader2, Play,
   Eye, Download, ExternalLink, File
 } from 'lucide-react';
-import { Course, Lesson } from '@/app/types';
+import { Course, Lesson, LessonMaterial } from '@/app/types';
 import { formatDate } from '@/lib/utils';
 import { toast } from 'react-hot-toast';
-
+import dotenv from 'dotenv';
+dotenv.config();
 // API Base URL
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8082/api';
+const API_BASE_URL = process.env.BASE_URL || 'http://localhost:8082/api';
+
+// Nếu Lesson interface không có trường status, thêm interface mở rộng
+interface ExtendedLesson extends Lesson {
+  status?: string;
+}
 
 export default function LessonDetailPage() {
   const params = useParams();
@@ -21,7 +27,7 @@ export default function LessonDetailPage() {
   const lessonId = params.lessonId as string;
   
   const [course, setCourse] = useState<Course | null>(null);
-  const [lesson, setLesson] = useState<Lesson | null>(null);
+  const [lesson, setLesson] = useState<ExtendedLesson | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -35,7 +41,7 @@ export default function LessonDetailPage() {
         
         // Fetch course data directly using API
         console.log("Fetching course:", courseId);
-        const courseResponse = await fetch(`${API_BASE_URL}/course/info/${courseId}`, {
+        const courseResponse = await fetch(`${API_BASE_URL}/course/info-course/${courseId}`, {
           method: 'GET',
           credentials: 'include',
           headers: {
@@ -147,14 +153,52 @@ export default function LessonDetailPage() {
     }
   };
   
-  // Function to get file name from path
-  const getFileName = (path: string) => {
-    return path.split('/').pop() || path;
+  // Add helper functions to handle material types
+  const getMaterialPath = (material: string | LessonMaterial): string => {
+    if (typeof material === 'string') {
+      return material;
+    }
+    return material.path;
   };
   
   // Function to check if file is a PDF
-  const isPdf = (path: string) => {
+  const isPdf = (material: string | LessonMaterial): boolean => {
+    const path = typeof material === 'string' ? material : material.path;
     return path.toLowerCase().endsWith('.pdf');
+  };
+  
+  // Function to get file name from path
+  const getFileName = (material: string | LessonMaterial): string => {
+    const path = typeof material === 'string' ? material : material.path;
+    return path.split('/').pop() || path;
+  };
+  
+  // Function to convert YouTube URL to embed URL
+  const getYoutubeEmbedUrl = (url: string): string => {
+    if (!url) return '';
+    
+    // Handle different YouTube URL formats
+    let videoId = '';
+    
+    // Handle youtu.be format
+    if (url.includes('youtu.be')) {
+      videoId = url.split('youtu.be/')[1]?.split('?')[0];
+    }
+    // Handle youtube.com format
+    else if (url.includes('youtube.com')) {
+      // Handle watch URL
+      if (url.includes('watch')) {
+        const urlParams = new URLSearchParams(new URL(url).search);
+        videoId = urlParams.get('v') || '';
+      }
+      // Handle embed URL
+      else if (url.includes('embed')) {
+        videoId = url.split('embed/')[1]?.split('?')[0];
+      }
+    }
+    
+    if (!videoId) return url; // Return original URL if not a valid YouTube URL
+    return `https://www.youtube.com/embed/${videoId}`;
   };
   
   if (loading) {
@@ -270,7 +314,7 @@ export default function LessonDetailPage() {
                 <Calendar className="text-gray-400 w-5 h-5 mr-2" />
                 <div>
                   <p className="text-sm text-gray-500">Ngày tạo</p>
-                  <p className="font-medium">{formatDate(lesson.createdAt.toString())}</p>
+                  <p className="font-medium">{lesson.createdAt ? formatDate(lesson.createdAt.toString()) : 'N/A'}</p>
                 </div>
               </div>
               
@@ -290,6 +334,26 @@ export default function LessonDetailPage() {
                 </div>
               </div>
             </div>
+            
+            {/* Thêm phần hiển thị trạng thái */}
+            <div className="p-4 border-t">
+              <h3 className="text-sm font-medium mb-2">Trạng thái bài học:</h3>
+              <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm ${
+                lesson.status === 'ACTIVE' 
+                  ? 'bg-green-100 text-green-800' 
+                  : 'bg-gray-100 text-gray-800'
+              }`}>
+                <div className={`w-2 h-2 rounded-full mr-2 ${
+                  lesson.status === 'ACTIVE' ? 'bg-green-500' : 'bg-gray-500'
+                }`}></div>
+                {lesson.status === 'ACTIVE' ? 'Hoạt động' : 'Không hoạt động'}
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                {lesson.status === 'ACTIVE'
+                  ? "Bài học đang được kích hoạt. Học viên có thể truy cập bài học này."
+                  : "Bài học đang bị vô hiệu hóa. Học viên không thể truy cập bài học này."}
+              </p>
+            </div>
           </div>
           
           {/* Lesson content */}
@@ -300,7 +364,7 @@ export default function LessonDetailPage() {
             <div className="p-4">
               <div 
                 className="prose max-w-none"
-                dangerouslySetInnerHTML={{ __html: lesson.content }}
+                dangerouslySetInnerHTML={{ __html: lesson.content || '' }}
               />
             </div>
           </div>
@@ -308,20 +372,32 @@ export default function LessonDetailPage() {
           {/* Video preview if available */}
           {lesson.videoUrl && (
             <div className="mb-6 bg-white rounded-lg shadow">
-              <div className="p-4 border-b">
+              <div className="p-4 border-b flex justify-between items-center">
                 <h3 className="text-lg font-bold">Video bài học</h3>
+                <div className="flex items-center space-x-2">
+                  <a
+                    href={lesson.videoUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary-600 hover:text-primary-800 flex items-center"
+                  >
+                    <ExternalLink className="w-4 h-4 mr-1" />
+                    Mở trên YouTube
+                  </a>
+                </div>
               </div>
               <div className="p-4">
-                {/* For demo only. In a real app, this would be a proper video player component */}
-                <div className="relative aspect-video">
+                <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
                   <iframe
-                    className="absolute w-full h-full rounded-md"
-                    src={lesson.videoUrl}
+                    className="absolute w-full h-full"
+                    src={`${getYoutubeEmbedUrl(lesson.videoUrl)}?autoplay=0&rel=0&modestbranding=1&showinfo=0`}
                     title={`Video for ${lesson.title}`}
-                    frameBorder="0"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                     allowFullScreen
                   ></iframe>
+                </div>
+                <div className="mt-3 text-sm text-gray-500">
+                  <p>Video URL: <a href={lesson.videoUrl} target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:text-primary-800">{lesson.videoUrl}</a></p>
                 </div>
               </div>
             </div>
@@ -391,13 +467,15 @@ export default function LessonDetailPage() {
             <div className="p-4">
               {lesson.materials && lesson.materials.length > 0 ? (
                 <ul className="space-y-3">
-                  {lesson.materials.map((material, idx) => (
+                  {lesson.materials.map((material, idx) => {
+                    const materialPath = getMaterialPath(material);
+                    return (
                     <li 
                       key={idx} 
                       className={`flex items-start p-3 rounded-md ${
                         isPdf(material) ? 'cursor-pointer hover:bg-gray-50' : ''
-                      } ${selectedPdf === material ? 'bg-gray-100' : ''}`}
-                      onClick={() => isPdf(material) && setSelectedPdf(material)}
+                      } ${selectedPdf === materialPath ? 'bg-gray-100' : ''}`}
+                      onClick={() => isPdf(material) && setSelectedPdf(materialPath)}
                     >
                       {isPdf(material) ? (
                         <FileText className="w-5 h-5 text-red-500 mr-3 flex-shrink-0 mt-0.5" />
@@ -415,7 +493,7 @@ export default function LessonDetailPage() {
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setSelectedPdf(material);
+                                setSelectedPdf(materialPath);
                               }}
                               className="text-xs px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded flex items-center"
                             >
@@ -425,7 +503,7 @@ export default function LessonDetailPage() {
                           )}
                           
                           <a
-                            href={material}
+                            href={materialPath}
                             download
                             onClick={(e) => e.stopPropagation()}
                             className="text-xs px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded flex items-center"
@@ -435,7 +513,7 @@ export default function LessonDetailPage() {
                           </a>
                           
                           <a
-                            href={material}
+                            href={materialPath}
                             target="_blank"
                             rel="noopener noreferrer"
                             onClick={(e) => e.stopPropagation()}
@@ -447,7 +525,8 @@ export default function LessonDetailPage() {
                         </div>
                       </div>
                     </li>
-                  ))}
+                    );
+                  })}
                 </ul>
               ) : (
                 <p className="text-gray-500">Không có tài liệu bổ sung</p>

@@ -3,17 +3,54 @@ import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "react-hot-toast";
-import { Clock, AlertTriangle, AlertCircle, CheckCircle, ChevronRight, BookOpen, Lock, PlayCircle } from "lucide-react";
+import { Clock, AlertTriangle, AlertCircle, CheckCircle, ChevronRight, BookOpen, Lock, PlayCircle, Check } from "lucide-react";
 import BreadcrumbContainer from "@/app/components/breadcrumb/BreadcrumbContainer";
+import * as dotenv from "dotenv";
+
+dotenv.config();
 
 // API Base URL
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8082/api';
+const API_BASE_URL = process.env.BASE_URL || 'http://localhost:8082/api';
 
 // Types for quiz data
 interface QuizQuestion {
   question: string;
-  options: string[];
-  correctAnswer?: string;
+  material?: string; // Tài liệu tham khảo (nếu có)
+  eQuestion: EQuestion; // Loại câu hỏi
+  options: string[]; // Danh sách đáp án
+  correctAnswer: string[] | string; // Đáp án đúng - có thể là array cho MULTIPLE_CHOICE hoặc string cho các loại khác
+  equestion?: EQuestion; // Added field from API
+}
+
+// Enum for question types
+enum EQuestion {
+  SINGLE_CHOICE = 'SINGLE_CHOICE', 
+  MULTIPLE_CHOICE = 'MULTIPLE_CHOICE', 
+  SHORT_ANSWER = 'SHORT_ANSWER'
+}
+
+// Enum for quiz display modes
+enum EQuiz {
+  QUIZ_FORM_FULL = 'QUIZ_FORM_FULL',
+  QUIZ_FILL = 'QUIZ_FILL'
+}
+
+// Add type definitions for API response items
+interface LessonApiItem {
+  lessonId: string;
+  lessonTitle?: string;
+  lessonShortTitle?: string;
+  orderLesson: number;
+}
+
+interface QuizApiItem {
+  quizId: string;
+  title: string;
+  questionCount?: number;
+  orderQuiz: number;
+  timeLimit?: number;
+  passingScore?: number;
+  status?: string | null;
 }
 
 interface Quiz {
@@ -28,6 +65,8 @@ interface Quiz {
   order?: number;
   orderQuiz?: number;
   createdAt: Date;
+  type?: EQuiz; // Field matching API response
+  material?: string;
 }
 
 interface Course {
@@ -47,6 +86,7 @@ interface QuizResult {
     isCorrect: boolean;
     correctAnswer?: string;
   }[];
+  passingScore: number;
 }
 
 // Interface for content items (lessons and quizzes)
@@ -108,10 +148,14 @@ interface QuizQuestionProps {
   question: string;
   options: string[];
   questionIndex: number;
-  selectedAnswer: string | null;
-  onSelectAnswer: (answer: string) => void;
+  selectedAnswer: string | string[] | null;
+  onSelectAnswer: (answer: string | string[]) => void;
   isSubmitted: boolean;
-  correctAnswer?: string;
+  correctAnswer?: string | string[];
+  questionType: EQuestion;
+  material?: string;
+  quizData?: Quiz | null;
+  feedback?: { questionIndex?: number; isCorrect: boolean; correctAnswer?: string } | null;
 }
 
 const QuizQuestion: React.FC<QuizQuestionProps> = ({
@@ -121,63 +165,190 @@ const QuizQuestion: React.FC<QuizQuestionProps> = ({
   selectedAnswer,
   onSelectAnswer,
   isSubmitted,
-  correctAnswer
+  correctAnswer,
+  questionType,
+  material,
+  quizData,
+  feedback
 }) => {
+  // Function to check if an option is selected for multiple choice
+  const isOptionSelected = (option: string): boolean => {
+    if (!selectedAnswer) return false;
+    
+    if (Array.isArray(selectedAnswer)) {
+      return selectedAnswer.includes(option);
+    } else {
+      return option === selectedAnswer;
+    }
+  };
+  
+  // Function to handle option selection based on question type
+  const handleOptionSelect = (option: string) => {
+    if (!isSubmitted) {
+      if (questionType === EQuestion.MULTIPLE_CHOICE) {
+        // For multiple choice, toggle selection
+        const currentSelections = Array.isArray(selectedAnswer) ? [...selectedAnswer] : [];
+        
+        if (currentSelections.includes(option)) {
+          // Remove if already selected
+          onSelectAnswer(currentSelections.filter(item => item !== option));
+        } else {
+          // Add to selections
+          onSelectAnswer([...currentSelections, option]);
+        }
+      } else {
+        // For single choice, just select the option
+        onSelectAnswer(option);
+      }
+    }
+  };
+  
+  // Function to check if answer is correct
+  const isCorrectAnswer = (option: string): boolean => {
+    if (!correctAnswer || !isSubmitted) return false;
+    
+    if (Array.isArray(correctAnswer)) {
+      return correctAnswer.includes(option);
+    } else {
+      return option === correctAnswer;
+    }
+  };
+
+  // Function to get option label (A, B, C, D, etc.)
+  const getOptionLabel = (index: number): string => {
+    return String.fromCharCode(65 + index); // A = 65 in ASCII
+  };
+  
+  // Get the quiz display mode from the props
+  const quizDisplayMode = quizData?.type || EQuiz.QUIZ_FORM_FULL;
+  const isQuizFillMode = quizDisplayMode === EQuiz.QUIZ_FILL;
+  
+  // Check if this question has feedback and if it's correct
+  const isQuestionCorrect = feedback ? feedback.isCorrect : undefined;
+  
   return (
-    <div id={`question-${questionIndex}`} className="bg-white rounded-lg shadow-md p-6 mb-4">
-      <h3 className="text-lg font-bold mb-4">
-        Câu hỏi {questionIndex + 1}: {question}
+    <div id={`question-${questionIndex}`} className={`bg-white rounded-lg shadow-md p-6 mb-4 ${
+      isSubmitted && isQuestionCorrect !== undefined ? (isQuestionCorrect ? 'border-l-4 border-green-500' : 'border-l-4 border-red-500') : ''
+    }`}>
+      <h3 className={`text-lg font-bold mb-4 ${
+        isSubmitted && isQuestionCorrect !== undefined ? (isQuestionCorrect ? 'text-green-700' : 'text-red-700') : ''
+      }`}>
+        Câu hỏi {questionIndex + 1}{!isQuizFillMode && `: ${question}`}
       </h3>
-      <div className="space-y-3">
-        {options.map((option, index) => {
-          const isSelected = option === selectedAnswer;
-          let optionClassName = "p-4 border rounded-lg flex items-center";
-          
-          if (isSubmitted) {
-            if (option === correctAnswer) {
-              optionClassName += " bg-green-50 border-green-300";
-            } else if (isSelected && option !== correctAnswer) {
-              optionClassName += " bg-red-50 border-red-300";
+      
+      {material && (
+        <div className="mb-4 p-3 bg-gray-50 rounded-lg text-gray-700 border border-gray-200">
+          <div className="mt-2">
+            <img 
+              src={material} 
+              alt="Tài liệu tham khảo" 
+              className="max-w-full rounded-md object-contain bg-center"
+              style={{ maxHeight: "300px", display: "block", margin: "0 auto" }} 
+            />
+          </div>
+        </div>
+      )}
+      
+      {isSubmitted && isQuestionCorrect === false && (
+        <div className="mb-4 p-3 bg-red-50 rounded-lg text-red-700 border border-red-200">
+          <p className="font-medium">Câu trả lời chưa chính xác</p>
+        </div>
+      )}
+      
+      {questionType === EQuestion.SHORT_ANSWER ? (
+        // Short answer input
+        <div className="mb-4">
+          <input
+            type="text"
+            className={`w-full p-3 border rounded-lg ${
+              isSubmitted ? (isQuestionCorrect ? 'bg-green-50 border-green-300' : 'bg-red-50 border-red-300') : ''
+            }`}
+            placeholder="Nhập câu trả lời của bạn"
+            value={selectedAnswer as string || ''}
+            onChange={(e) => !isSubmitted && onSelectAnswer(e.target.value)}
+            disabled={isSubmitted}
+          />
+          {isSubmitted && !isQuizFillMode && (
+            <div className={`mt-2 p-3 rounded-lg ${isQuestionCorrect ? 'bg-green-50' : 'bg-blue-50'}`}>
+              <p className="font-medium">Đáp án đúng:</p>
+              <p>{Array.isArray(correctAnswer) ? correctAnswer.join(', ') : correctAnswer}</p>
+            </div>
+          )}
+        </div>
+      ) : (
+        // Multiple choice or single choice options
+        <div className="space-y-3">
+          {options.map((option, index) => {
+            const isSelected = isOptionSelected(option);
+            const optionLabel = getOptionLabel(index);
+            let optionClassName = "p-4 border rounded-lg flex items-center";
+            
+            if (isSubmitted) {
+              if (isCorrectAnswer(option)) {
+                optionClassName += " bg-green-50 border-green-300";
+              } else if (isSelected && !isCorrectAnswer(option)) {
+                optionClassName += " bg-red-50 border-red-300";
+              } else if (isSelected && isCorrectAnswer(option)) {
+                // For MULTIPLE_CHOICE questions that are partially correct
+                optionClassName += " bg-green-50 border-green-300";
+              }
+            } else if (isSelected) {
+              optionClassName += " bg-blue-50 border-blue-300";
+            } else {
+              optionClassName += " hover:bg-gray-50";
             }
-          } else if (isSelected) {
-            optionClassName += " bg-blue-50 border-blue-300";
-          } else {
-            optionClassName += " hover:bg-gray-50";
-          }
-          
-          return (
-            <div 
-              key={index} 
-              className={optionClassName}
-              onClick={() => !isSubmitted && onSelectAnswer(option)}
-            >
-              <div className={`w-5 h-5 flex-shrink-0 rounded-full border mr-3 ${
-                isSelected ? 'bg-blue-500 border-blue-500' : 'border-gray-300'
-              }`}>
-                {isSelected && (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <div className="w-2 h-2 bg-white rounded-full"></div>
+            
+            return (
+              <div 
+                key={index} 
+                className={optionClassName}
+                onClick={() => handleOptionSelect(option)}
+              >
+                <div className={`w-5 h-5 flex-shrink-0 ${questionType === EQuestion.MULTIPLE_CHOICE ? 'rounded' : 'rounded-full'} border mr-3 ${
+                  isSelected ? (isSubmitted && isCorrectAnswer(option) ? 'bg-green-500 border-green-500' : 
+                               isSubmitted && !isCorrectAnswer(option) ? 'bg-red-500 border-red-500' : 
+                               'bg-blue-500 border-blue-500') : 'border-gray-300'
+                }`}>
+                  {isSelected && (
+                    <div className="w-full h-full flex items-center justify-center">
+                      {questionType === EQuestion.MULTIPLE_CHOICE ? (
+                        <CheckCircle className="text-white w-3 h-3" />
+                      ) : (
+                        <div className="w-2 h-2 bg-white rounded-full"></div>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <span className="font-semibold mr-2">{optionLabel}.</span>
+                {!isQuizFillMode && <span>{option}</span>}
+                
+                {isSubmitted && !isQuizFillMode && (
+                  <div className="ml-auto">
+                    {isCorrectAnswer(option) ? (
+                      <CheckCircle className="text-green-500 w-5 h-5" />
+                    ) : (isSelected && !isCorrectAnswer(option)) ? (
+                      <AlertCircle className="text-red-500 w-5 h-5" />
+                    ) : null}
                   </div>
                 )}
               </div>
-              <span>{option}</span>
-              
-              {isSubmitted && (
-                <div className="ml-auto">
-                  {option === correctAnswer ? (
-                    <CheckCircle className="text-green-500 w-5 h-5" />
-                  ) : (isSelected && option !== correctAnswer) ? (
-                    <AlertCircle className="text-red-500 w-5 h-5" />
-                  ) : null}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };
+
+// Interface for API question data
+interface ApiQuizQuestion {
+  question: string;
+  options?: string[];
+  correctAnswer?: string[];
+  eQuestion?: EQuestion; // API can provide either eQuestion or equestion
+  equestion?: EQuestion; // Use equestion as fallback if eQuestion is not available
+  material?: string | null;
+}
 
 // Main Quiz Page component
 const QuizPage: React.FC = () => {
@@ -188,7 +359,7 @@ const QuizPage: React.FC = () => {
   
   const [quiz, setQuiz] = useState<Quiz | null>(null);
   const [course, setCourse] = useState<Course | null>(null);
-  const [selectedAnswers, setSelectedAnswers] = useState<Record<number, string>>({});
+  const [selectedAnswers, setSelectedAnswers] = useState<Record<number, string | string[]>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -288,7 +459,7 @@ const QuizPage: React.FC = () => {
       
       // Process lessons from the order API
       if (orderData.body && orderData.body.lessons) {
-        orderData.body.lessons.forEach((lesson: any) => {
+        orderData.body.lessons.forEach((lesson: LessonApiItem) => {
           initialItems.push({
             _id: lesson.lessonId,
             title: lesson.lessonTitle || '',
@@ -305,10 +476,10 @@ const QuizPage: React.FC = () => {
       
       // Process quizzes from the order API
       if (orderData.body && orderData.body.quizzes) {
-        orderData.body.quizzes.forEach((quiz: any) => {
+        orderData.body.quizzes.forEach((quiz: QuizApiItem) => {
           initialItems.push({
             _id: quiz.quizId,
-            title: 'Quiz',
+            title: quiz.title || 'Quiz',
             order: quiz.orderQuiz,
             orderQuiz: quiz.orderQuiz,
             type: 'quiz',
@@ -413,11 +584,29 @@ const QuizPage: React.FC = () => {
         courseId: quizData.body.courseId,
         title: quizData.body.title,
         description: quizData.body.description,
-        questions: quizData.body.questions || [],
+        questions: (quizData.body.questions || []).map((q: ApiQuizQuestion) => {
+          // Determine the question type, preferring eQuestion if available, falling back to equestion
+          const questionType = q.eQuestion || q.equestion || EQuestion.SINGLE_CHOICE;
+          
+          // Format the correct answer based on question type
+          const formattedCorrectAnswer = q.correctAnswer || [];
+         
+          
+          return {
+            question: q.question,
+            options: q.options || [],
+            correctAnswer: formattedCorrectAnswer,
+            eQuestion: questionType,
+            material: q.material || null
+          };
+        }),
         passingScore: quizData.body.passingScore || 70,
         timeLimit: quizData.body.timeLimit || 30,
         order: quizData.body.order || quizData.body.orderQuiz,
-        createdAt: new Date(quizData.body.createdAt)
+        createdAt: new Date(quizData.body.createdAt),
+        // Use type from the API response
+        type: quizData.body.type || EQuiz.QUIZ_FORM_FULL,
+        material: quizData.body.material || ''
       };
       
       setQuiz(parsedQuiz);
@@ -536,7 +725,7 @@ const QuizPage: React.FC = () => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [remainingTime, quizResult, isTimeWarning, isConfirmed]);
+  }, [remainingTime, quizResult, isTimeWarning, isConfirmed,]);
 
   const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
@@ -544,21 +733,79 @@ const QuizPage: React.FC = () => {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const handleSelectAnswer = (questionIndex: number, answer: string) => {
-    setSelectedAnswers(prev => ({
-      ...prev,
-      [questionIndex]: answer
-    }));
+  const handleSelectAnswer = (questionIndex: number, answer: string | string[]) => {
+    // For QUIZ_FILL mode, we need to handle single selections differently
+    if (quiz?.type === EQuiz.QUIZ_FILL) {
+      // For QUIZ_FILL, always use single selection mode
+      setSelectedAnswers(prev => {
+        // Start with previous answers
+        const newAnswers = { ...prev };
+        
+        // Replace the answer for this question
+        newAnswers[questionIndex] = answer;
+        
+        return newAnswers;
+      });
+    } else {
+      // For regular quizzes, just use the normal behavior
+      setSelectedAnswers(prev => ({
+        ...prev,
+        [questionIndex]: answer
+      }));
+    }
   };
 
   const getQuestionStats = () => {
     if (!quiz) return { total: 0, answered: 0, unanswered: 0 };
     
     const total = quiz.questions.length;
-    const answered = Object.keys(selectedAnswers).length;
+    
+    // Count answered questions based on selected answers
+    // For multiple choice, an answer is considered "answered" if the array is not empty
+    // For short answer, an answer is considered "answered" if the string is not empty
+    const answered = Object.entries(selectedAnswers).reduce((count, [, answer]) => {
+      if (
+        (Array.isArray(answer) && answer.length > 0) || // Multiple choice with selections
+        (typeof answer === 'string' && answer.trim() !== '') || // Short answer or single choice with text
+        (answer !== null && answer !== undefined) // Any other valid answer
+      ) {
+        return count + 1;
+      }
+      
+      return count;
+    }, 0);
+    
     const unanswered = total - answered;
     
     return { total, answered, unanswered };
+  };
+
+  // Add function to update quiz progress using the API from the screenshot
+  const updateQuizProgress = async (newScore: number) => {
+    try {
+      // API shown in the screenshot
+      const response = await fetch(`${API_BASE_URL}/enrollments/update-quiz-progress?courseId=${courseId}&itemId=${quizId}&newScore=${newScore}`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        console.error('Failed to update quiz progress:', await response.text());
+        return false;
+      }
+
+      const data = await response.json();
+      console.log('Quiz progress update response:', data);
+      
+      // Return true if the update was successful
+      return data.statusCode === "OK" || data.body === "Cập nhật tiến độ thành công";
+    } catch (err) {
+      console.error('Error updating quiz progress:', err);
+      return false;
+    }
   };
 
   const handleSubmit = async () => {
@@ -566,21 +813,37 @@ const QuizPage: React.FC = () => {
     
     // Check if all questions are answered
     const stats = getQuestionStats();
-    if (stats.unanswered > 0 && remainingTime > 10) {
+    if (stats.unanswered > 0) {
       const confirm = window.confirm(`Bạn còn ${stats.unanswered} câu hỏi chưa trả lời. Bạn có chắc chắn muốn nộp bài?`);
       if (!confirm) return;
     }
     
     setIsSubmitting(true);
     try {
-      // Format answers for the API
-      const answers = Object.entries(selectedAnswers).map(([questionIndex, selectedAnswer]) => {
-        const question = quiz.questions[parseInt(questionIndex)];
+      // Format answers for all questions, including those not answered
+      const answers = quiz.questions.map((question, index) => {
+        // Get the selected answer if it exists, otherwise use empty array/string
+        const selectedAnswer = selectedAnswers[index];
+        
+        // Ensure selectedAnswer is always an array as shown in the screenshot
+        const formattedAnswer = Array.isArray(selectedAnswer) 
+          ? selectedAnswer 
+          : selectedAnswer !== null && selectedAnswer !== undefined 
+            ? [selectedAnswer.toString()] 
+            : ['']; // Default empty string for unanswered questions
+        
         return {
           question: question.question,
-          selectedAnswer
+          selectedAnswer: formattedAnswer
         };
       });
+      
+      // Format request body according to the screenshot
+      const requestBody = {
+        answers: answers
+      };
+      
+      console.log("Submitting quiz with answers:", requestBody);
       
       // Call the submit API with the formatted answers
       const response = await fetch(`${API_BASE_URL}/course/quiz/${quizId}/submit`, {
@@ -589,7 +852,7 @@ const QuizPage: React.FC = () => {
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ answers })
+        body: JSON.stringify(requestBody)
       });
       
       if (!response.ok) {
@@ -599,11 +862,34 @@ const QuizPage: React.FC = () => {
       const data = await response.json();
       console.log('Quiz submission response:', data);
       
-      // Process API response to match our QuizResult interface
-      const correctAnswers = data.body?.correctAnswers || 0;
+      // Process API response based on the format from the screenshot
+      const score = data.score || 0;
+      const passingScore = data.passingScore || quiz.passingScore;
+      const passed = data.passed === true;
+      const message = data.message || '';
+      
+      // Get the incorrectQuestions array from the response
+      const incorrectQuestions = data.incorrectQuestions || [];
+      console.log("Incorrect questions:", incorrectQuestions);
+      
+      // Create a list of feedback items from the incorrectQuestions array
+      const feedback = quiz.questions.map((question, index) => {
+        // Check if this question is in the incorrectQuestions array
+        const isIncorrect = incorrectQuestions.includes(index) || 
+                            incorrectQuestions.includes(question.question);
+        
+        return {
+          questionIndex: index,
+          isCorrect: !isIncorrect,
+          correctAnswer: Array.isArray(question.correctAnswer) 
+            ? question.correctAnswer.join(', ') 
+            : question.correctAnswer as string
+        };
+      });
+      
+      // Calculate correct answers based on total and incorrect count
       const totalQuestions = quiz.questions.length;
-      const score = Math.round((correctAnswers / totalQuestions) * 100);
-      const passed = score >= (quiz.passingScore || 70);
+      const correctAnswers = totalQuestions - incorrectQuestions.length;
       
       // Create a QuizResult object
       const result: QuizResult = {
@@ -611,15 +897,25 @@ const QuizPage: React.FC = () => {
         totalQuestions,
         correctAnswers,
         passed,
-        feedback: data.body?.feedback || []
+        feedback,
+        passingScore
       };
       
       setQuizResult(result);
       
+      // If the quiz is passed, update the progress
+      if (passed) {
+        const progressUpdated = await updateQuizProgress(score);
+        if (progressUpdated) {
+          console.log('Quiz progress updated successfully');
+        }
+      }
+      
       // Refresh course content to update completed items
       await fetchCourseContent(true);
       
-      toast.success('Đã hoàn thành bài kiểm tra!');
+      // Use the message from the response if available
+      toast.success(message || (passed ? 'Chúc mừng! Bạn đã hoàn thành bài kiểm tra!' : 'Bạn đã hoàn thành bài kiểm tra!'));
     } catch (err) {
       console.error('Error submitting quiz:', err);
       toast.error('Không thể nộp bài kiểm tra');
@@ -794,123 +1090,57 @@ const QuizPage: React.FC = () => {
             {/* Left sidebar with course content */}
             <div className="lg:col-span-1 order-2 lg:order-1">
               <div className="bg-white rounded-lg shadow-md p-4 sticky top-6">
-                <h3 className="text-xl font-medium mb-4 flex items-center border-b pb-3">
+                <h3 className="text-lg font-medium mb-4 flex items-center border-b pb-3">
                   <BookOpen className="mr-2 w-5 h-5" />
                   Nội dung khóa học
                 </h3>
                 
                 <div className="space-y-1 max-h-[calc(100vh-240px)] overflow-y-auto pr-2">
                   {courseContent.length > 0 ? (
-                    <>
-                      {/* Group and sort content by type and order */}
-                      {(() => {
-                        // First separate lessons and quizzes
-                        const lessons = courseContent.filter(item => item.type === 'lesson');
-                        const quizzes = courseContent.filter(item => item.type === 'quiz');
-                        
-                        // Group by lesson or order
-                        const grouped = [];
-                        
-                        // First add main lessons
-                        for (const lesson of lessons) {
-                          const lessonGroup = {
-                            header: lesson,
-                            items: quizzes.filter(quiz => {
-                              // Find quizzes that belong to this lesson based on order
-                              // Assuming quizzes come after their respective lessons
-                              const quizOrder = quiz.order || quiz.orderQuiz || 0;
-                              const thisLessonOrder = lesson.order || lesson.orderLesson || 0;
-                              const nextLessonOrder = lessons.find(l => 
-                                (l.order || l.orderLesson || 0) > thisLessonOrder
-                              )?.order || 999999;
-                              
-                              return quizOrder > thisLessonOrder && quizOrder < nextLessonOrder;
-                            })
-                          };
+                    <div className="flex flex-col gap-1">
+                      {courseContent.map((item, index) => (
+                        <Link
+                          key={`content-${item._id}-${index}`}
+                          href={isContentItemAccessible(item) 
+                            ? item.type === 'lesson' 
+                              ? `/courses/${courseId}/lesson/${item._id}` 
+                              : `/courses/${courseId}/quiz/${item._id}` 
+                            : '#'}
+                          className={`py-2 px-3 rounded flex items-center ${
+                            !isContentItemAccessible(item) && item._id !== quizId
+                              ? 'text-gray-400 cursor-not-allowed' 
+                              : item._id === quizId
+                                ? 'bg-blue-50 text-blue-700 font-medium'
+                                : 'hover:bg-gray-50'
+                          }`}
+                          onClick={(e) => !isContentItemAccessible(item) && item._id !== quizId && handleContentItemClick(e, item)}
+                        >
+                          {item.type === 'lesson' ? (
+                            <BookOpen className={`w-4 h-4 mr-2 ${
+                              item._id === quizId ? 'text-blue-500' : 'text-gray-500'
+                            }`} />
+                          ) : (
+                            <Clock className={`w-4 h-4 mr-2 ${
+                              item._id === quizId ? 'text-blue-500' : 'text-gray-500'
+                            }`} />
+                          )}
                           
-                          grouped.push(lessonGroup);
-                        }
-                        
-                        // Return the rendered content
-                        return grouped.map((group, groupIndex) => (
-                          <div key={`lesson-group-${groupIndex}`} className="mb-4">
-                            {/* Section header */}
-                            <div className={`py-2 px-3 rounded mb-1 flex items-center ${
-                              group.header.complete 
-                                ? 'text-gray-800 font-medium' 
-                                : (!isContentItemAccessible(group.header) && group.header._id !== quizId)
-                                  ? 'text-gray-400'
-                                  : 'text-gray-800 font-medium'
-                            }`}>
-                              <BookOpen className="mr-2 w-4 h-4" />
-                              <span className="truncate">{group.header.title}</span>
-                              {!isContentItemAccessible(group.header) && group.header._id !== quizId && (
-                                <Lock className="ml-auto w-3 h-3 text-gray-400" />
-                              )}
+                          <span className="truncate flex-1">
+                            {item.title || (item.type === 'lesson' ? 'Bài học' : 'Bài kiểm tra')}
+                          </span>
+                          
+                          {item.complete ? (
+                            <CheckCircle className="ml-1 w-4 h-4 text-green-500" />
+                          ) : item._id === quizId ? (
+                            <div className="ml-1 p-0.5 bg-blue-500 text-white rounded-full">
+                              <PlayCircle className="w-3 h-3" />
                             </div>
-                            
-                            {/* Main lesson (if it's not just a header) */}
-                            <Link
-                              href={isContentItemAccessible(group.header) 
-                                ? `/courses/${courseId}/lesson/${group.header._id}` 
-                                : '#'}
-                              className={`py-2 px-3 ml-4 rounded flex items-center ${
-                                !isContentItemAccessible(group.header) 
-                                  ? 'text-gray-400 cursor-not-allowed' 
-                                  : group.header._id === quizId
-                                    ? 'bg-blue-50 text-blue-700'
-                                    : 'hover:bg-gray-50'
-                              }`}
-                              onClick={(e) => !isContentItemAccessible(group.header) && handleContentItemClick(e, group.header)}
-                            >
-                              <BookOpen className={`mr-2 w-4 h-4 ${
-                                group.header._id === quizId ? 'text-blue-500' : 'text-gray-500'
-                              }`} />
-                              <span className="truncate flex-1">{group.header.title}</span>
-                              {group.header.complete ? (
-                                <CheckCircle className="ml-1 w-4 h-4 text-green-500" />
-                              ) : !isContentItemAccessible(group.header) && group.header._id !== quizId ? (
-                                <Lock className="ml-1 w-4 h-4 text-gray-400" />
-                              ) : null}
-                            </Link>
-                            
-                            {/* Quizzes for this section */}
-                            {group.items.map((quiz, idx) => (
-                              <Link
-                                key={`quiz-${quiz._id}-${idx}`}
-                                href={isContentItemAccessible(quiz) 
-                                  ? `/courses/${courseId}/quiz/${quiz._id}` 
-                                  : '#'}
-                                className={`py-2 px-3 ml-4 rounded flex items-center ${
-                                  !isContentItemAccessible(quiz) && quiz._id !== quizId
-                                    ? 'text-gray-400 cursor-not-allowed' 
-                                    : quiz._id === quizId
-                                      ? 'bg-blue-50 text-blue-700'
-                                      : 'hover:bg-gray-50'
-                                }`}
-                                onClick={(e) => !isContentItemAccessible(quiz) && quiz._id !== quizId && handleContentItemClick(e, quiz)}
-                              >
-                                <Clock className={`mr-2 w-4 h-4 ${
-                                  quiz._id === quizId ? 'text-blue-500' : 'text-gray-500'
-                                }`} />
-                                <span className="truncate flex-1">Quiz</span>
-                                {quiz.complete ? (
-                                  <div className="ml-1 p-0.5 bg-blue-500 text-white rounded-full">
-                                    <CheckCircle className="w-3 h-3" />
-                                  </div>
-                                ) : quiz._id === quizId ? (
-                                  <div className="ml-1 p-0.5 bg-blue-500 text-white rounded-full">
-                                    <PlayCircle className="w-3 h-3" />
-                                  </div>
-                                ) : !isContentItemAccessible(quiz) ? (
-                                  <Lock className="ml-1 w-4 h-4 text-gray-400" />
-                                ) : null}
-                              </Link>
-                            ))}
-                          </div>
-                        ));
-                      })()}
-                    </>
+                          ) : !isContentItemAccessible(item) ? (
+                            <Lock className="ml-1 w-4 h-4 text-gray-400" />
+                          ) : null}
+                        </Link>
+                      ))}
+                    </div>
                   ) : (
                     <div className="text-center py-6 text-gray-500">
                       <p>Đang tải nội dung khóa học...</p>
@@ -956,13 +1186,51 @@ const QuizPage: React.FC = () => {
                         Điểm số: <span className="font-bold">{quizResult.score.toFixed(1)}%</span> 
                         (Đúng {quizResult.correctAnswers}/{quizResult.totalQuestions} câu)
                       </p>
-                      <div className="mt-4 flex">
+                      
+                      {/* Score progress bar */}
+                      <div className="mt-3 mb-4">
+                        <div className="flex justify-between text-sm mb-1">
+                          <span>Điểm đạt: {quiz.passingScore}%</span>
+                          <span>Điểm của bạn: {quizResult.score}%</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2.5">
+                          <div 
+                            className={`h-2.5 rounded-full ${quizResult.passed ? 'bg-green-500' : 'bg-red-500'}`}
+                            style={{ width: `${Math.min(quizResult.score, 100)}%` }}
+                          ></div>
+                          <div 
+                            className="relative h-0"
+                            style={{ 
+                              marginTop: '-10px', 
+                              marginLeft: `${quiz.passingScore}%`, 
+                              borderLeft: '2px dashed #666',
+                              height: '20px' 
+                            }}
+                          ></div>
+                        </div>
+                      </div>
+                      
+                      {/* Status indicator */}
+                      {quizResult.passed && (
+                        <div className="mb-4 p-3 bg-green-100 rounded-lg flex items-center">
+                          <div className="bg-green-500 text-white rounded-full p-1 mr-2">
+                            <Check className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <p className="text-green-800 font-medium">Bài kiểm tra đã được đánh dấu hoàn thành</p>
+                            <p className="text-green-700 text-sm">Bạn có thể tiếp tục học các nội dung tiếp theo</p>
+                          </div>
+                        </div>
+                      )}
+                      
+                      <div className="mt-4 flex flex-wrap gap-3">
                         <Link
                           href={`/courses/${courseId}`}
-                          className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-primary-700 mr-3"
+                          className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-primary-700"
                         >
                           Quay lại khóa học
                         </Link>
+                        
                         {!quizResult.passed && (
                           <button
                             onClick={() => {
@@ -976,6 +1244,33 @@ const QuizPage: React.FC = () => {
                           >
                             Làm lại bài kiểm tra
                           </button>
+                        )}
+                        
+                        {quizResult.passed && courseContent.length > 0 && (
+                          <>
+                            {/* Find the next item after this quiz */}
+                            {(() => {
+                              const currentIndex = courseContent.findIndex(item => 
+                                item.type === 'quiz' && item._id === quizId
+                              );
+                              
+                              if (currentIndex !== -1 && currentIndex < courseContent.length - 1) {
+                                const nextItem = courseContent[currentIndex + 1];
+                                return (
+                                  <Link
+                                    href={nextItem.type === 'lesson' 
+                                      ? `/courses/${courseId}/lesson/${nextItem._id}` 
+                                      : `/courses/${courseId}/quiz/${nextItem._id}`}
+                                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center"
+                                  >
+                                    <span>Tiếp tục học</span>
+                                    <ChevronRight className="w-5 h-5 ml-1" />
+                                  </Link>
+                                );
+                              }
+                              return null;
+                            })()}
+                          </>
                         )}
                       </div>
                     </div>
@@ -1030,18 +1325,113 @@ const QuizPage: React.FC = () => {
               {/* Quiz questions */}
               {!quizResult && (
                 <div className="space-y-6">
-                  {quiz.questions.map((question, index) => (
-                    <div key={index} className="quiz-question">
-                      <QuizQuestion
-                        question={question.question}
-                        options={question.options}
-                        questionIndex={index}
-                        selectedAnswer={selectedAnswers[index] || null}
-                        onSelectAnswer={(answer) => handleSelectAnswer(index, answer)}
-                        isSubmitted={false}
-                      />
+                  {quiz.type === EQuiz.QUIZ_FILL ? (
+                    // Render special answer sheet format for QUIZ_FILL type
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                      {/* PDF Material Display - Left column (2/3 width) */}
+                      <div className="lg:col-span-2 bg-white rounded-lg shadow-md p-6">
+                        <h3 className="text-lg font-bold mb-4">Đề bài</h3>
+                        {quiz.material ? (
+                          <div className="w-full rounded-lg overflow-hidden border border-gray-200 h-[calc(100vh-250px)] min-h-[600px]">
+                            <iframe
+                              src={`${quiz.material}#toolbar=0&navpanes=0&scrollbar=0`}
+                              width="100%"
+                              height="100%"
+                              className="border-0"
+                              title="Tài liệu bài kiểm tra"
+                              allowFullScreen
+                            ></iframe>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-center h-[500px] bg-gray-50 rounded-lg border border-gray-200">
+                            <p className="text-gray-500">Không có tài liệu đính kèm</p>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Answer Sheet Display - Right column (1/3 width) */}
+                      <div className="bg-white rounded-lg shadow-md p-6">
+                        <h3 className="text-lg font-bold mb-4">Phiếu trả lời</h3>
+                        
+                        {/* Answer section with single question per row layout */}
+                        <div className="space-y-2 mb-6 max-h-[calc(100vh-100px)] overflow-y-auto pr-1">
+                          {quiz.questions.map((question, index) => {
+                            const optionLetters = ['A', 'B', 'C', 'D'];
+                            const selectedOption = selectedAnswers[index];
+                            
+                            return (
+                              <div key={index} className="border border-red-200 rounded-md p-2 flex items-center">
+                                <div className="text-red-600 font-medium min-w-[40px] text-center">
+                                  {index + 1}.
+                                </div>
+                                <div className="flex space-x-4 ml-2">
+                                  {optionLetters.slice(0, question.options.length).map((letter, letterIdx) => (
+                                    <div 
+                                      key={letter}
+                                      onClick={() => !isSubmitting && handleSelectAnswer(index, question.options[letterIdx])}
+                                      className={`w-7 h-7 rounded-full flex items-center justify-center text-sm cursor-pointer border ${
+                                        selectedOption === question.options[letterIdx]
+                                          ? 'bg-blue-500 text-white border-blue-500' 
+                                          : 'border-gray-300 hover:border-blue-400'
+                                      }`}
+                                    >
+                                      {letter}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        
+                        {/* Question Material References */}
+                        {quiz.questions.some(q => q.material) && (
+                          <div className="mt-8">
+                            <h4 className="text-md font-medium mb-4">Tài liệu tham khảo cho câu hỏi:</h4>
+                            <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
+                              {quiz.questions.map((question, index) => (
+                                question.material && (
+                                  <div key={index} className="border rounded-lg overflow-hidden">
+                                    <div className="border-b px-3 py-2 bg-gray-50 flex items-center">
+                                      <span className="bg-primary-100 text-primary-800 rounded-full w-6 h-6 flex items-center justify-center mr-2">
+                                        {index + 1}
+                                      </span>
+                                      <span className="text-sm font-medium">Tài liệu cho câu hỏi {index + 1}</span>
+                                    </div>
+                                    <div className="p-4 flex justify-center">
+                                      <img 
+                                        src={question.material} 
+                                        alt={`Tài liệu cho câu hỏi ${index + 1}`}
+                                        className="max-h-64 rounded"
+                                      />
+                                    </div>
+                                  </div>
+                                )
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  ))}
+                  ) : (
+                    // Regular quiz display with individual questions
+                    quiz.questions.map((question, index) => (
+                      <div key={index} className="quiz-question">
+                        <QuizQuestion
+                          question={question.question}
+                          options={question.options}
+                          questionIndex={index}
+                          selectedAnswer={selectedAnswers[index] || null}
+                          onSelectAnswer={(answer) => handleSelectAnswer(index, answer)}
+                          isSubmitted={false}
+                          questionType={question.eQuestion || EQuestion.SINGLE_CHOICE}
+                          material={question.material}
+                          quizData={quiz}
+                          feedback={null}
+                        />
+                      </div>
+                    ))
+                  )}
                   
                   {/* Submit button - now at the bottom of the page, not sticky */}
                   <div className="py-4 mt-10">
@@ -1095,18 +1485,145 @@ const QuizPage: React.FC = () => {
               {quizResult && (
                 <div className="bg-white rounded-lg shadow-md p-6 mt-6">
                   <h2 className="text-xl font-bold mb-4">Chi tiết kết quả</h2>
-                  {quiz.questions.map((question, index) => (
-                    <QuizQuestion
-                      key={index}
-                      question={question.question}
-                      options={question.options}
-                      questionIndex={index}
-                      selectedAnswer={selectedAnswers[index] || null}
-                      onSelectAnswer={() => {}}
-                      isSubmitted={true}
-                      correctAnswer={question.correctAnswer}
-                    />
-                  ))}
+                  
+                  {quiz.type === EQuiz.QUIZ_FILL ? (
+                    // Special display for QUIZ_FILL mode results
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                      {/* Display quiz material - Left column (2/3 width) */}
+                      <div className="lg:col-span-2">
+                        <h3 className="text-lg font-medium mb-3">Đề bài</h3>
+                        {quiz.material ? (
+                          <div className="w-full rounded-lg overflow-hidden border border-gray-200 h-[calc(100vh-250px)] min-h-[600px]">
+                            <iframe
+                              src={`${quiz.material}#toolbar=0&navpanes=0&scrollbar=0`}
+                              width="100%" 
+                              height="100%"
+                              className="border-0"
+                              title="Tài liệu bài kiểm tra"
+                              allowFullScreen
+                            ></iframe>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-center h-[500px] bg-gray-50 rounded-lg border border-gray-200">
+                            <p className="text-gray-500">Không có tài liệu đính kèm</p>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Answer sheet with correct/incorrect indicators - Right column (1/3 width) */}
+                      <div>
+                        <h3 className="text-lg font-medium mb-3">Kết quả bài làm</h3>
+                        
+                        {/* Answer section with single question per row layout */}
+                        <div className="space-y-2 mb-6">
+                          {quiz.questions.map((question, index) => {
+                            const optionLetters = ['A', 'B', 'C', 'D'];
+                            const selectedOption = selectedAnswers[index];
+                            const feedback = quizResult.feedback[index];
+                            const isCorrect = feedback ? feedback.isCorrect : false;
+                            
+                            // Find the correct answer option index
+                            const correctAnswers = Array.isArray(question.correctAnswer) 
+                              ? question.correctAnswer 
+                              : [question.correctAnswer];
+                            
+                            return (
+                              <div key={index} className={`border rounded-md p-2 flex items-center ${
+                                isCorrect ? 'border-green-500 bg-green-50' : 'border-red-500 bg-red-50'
+                              }`}>
+                                <div className={`font-medium min-w-[40px] text-center ${
+                                  isCorrect ? 'text-green-600' : 'text-red-600'
+                                }`}>
+                                  {index + 1}.
+                                </div>
+                                <div className="flex space-x-4 ml-2">
+                                  {optionLetters.slice(0, question.options.length).map((letter, letterIdx) => {
+                                    const option = question.options[letterIdx];
+                                    const isSelected = selectedOption === option;
+                                    const isCorrectOption = correctAnswers.includes(option);
+                                    
+                                    let buttonClass = "w-7 h-7 rounded-full flex items-center justify-center text-sm border ";
+                                    
+                                    if (isCorrectOption) {
+                                      buttonClass += "bg-green-500 text-white border-green-500";
+                                    } else if (isSelected) {
+                                      buttonClass += "bg-red-500 text-white border-red-500";
+                                    } else {
+                                      buttonClass += "border-gray-300 text-gray-700";
+                                    }
+                                    
+                                    // If it's correctly selected, always use green
+                                    if (isSelected && isCorrectOption) {
+                                      buttonClass = "w-7 h-7 rounded-full flex items-center justify-center text-sm bg-green-500 text-white border-green-500";
+                                    }
+                                    
+                                    return (
+                                      <div 
+                                        key={letter}
+                                        className={buttonClass}
+                                      >
+                                        {letter}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        
+                        {/* Question materials for reference */}
+                        {quiz.questions.some(q => q.material) && (
+                          <div className="mt-6">
+                            <h4 className="text-md font-medium mb-3">Tài liệu tham khảo:</h4>
+                            <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
+                              {quiz.questions.map((question, index) => (
+                                question.material && (
+                                  <div key={index} className="border rounded-lg overflow-hidden">
+                                    <div className="border-b px-3 py-2 bg-gray-50 flex items-center">
+                                      <span className="bg-primary-100 text-primary-800 rounded-full w-6 h-6 flex items-center justify-center mr-2">
+                                        {index + 1}
+                                      </span>
+                                      <span className="text-sm font-medium">Tài liệu cho câu hỏi {index + 1}</span>
+                                    </div>
+                                    <div className="p-4 flex justify-center">
+                                      <img 
+                                        src={question.material} 
+                                        alt={`Tài liệu cho câu hỏi ${index + 1}`}
+                                        className="max-h-64 rounded"
+                                      />
+                                    </div>
+                                  </div>
+                                )
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    // Regular quiz result display
+                    quiz.questions.map((question, index) => (
+                      <QuizQuestion
+                        key={index}
+                        question={question.question}
+                        options={question.options}
+                        questionIndex={index}
+                        selectedAnswer={selectedAnswers[index] || null}
+                        onSelectAnswer={() => {}}
+                        isSubmitted={true}
+                        correctAnswer={question.correctAnswer}
+                        questionType={question.eQuestion || EQuestion.SINGLE_CHOICE}
+                        material={question.material}
+                        quizData={quiz}
+                        feedback={quizResult && quizResult.feedback ? { 
+                          questionIndex: index,
+                          isCorrect: quizResult.feedback[index]?.isCorrect || false,
+                          correctAnswer: quizResult.feedback[index]?.correctAnswer
+                        } : null}
+                      />
+                    ))
+                  )}
                 </div>
               )}
             </div>

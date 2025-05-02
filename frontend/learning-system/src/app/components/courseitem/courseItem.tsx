@@ -1,4 +1,4 @@
-import { Star, CheckCircle } from "lucide-react";
+import {  CheckCircle } from "lucide-react";
 import { Course } from "@/app/types";
 import Link from "next/link";
 
@@ -111,11 +111,11 @@ export default function CourseItem({ course }: CourseItemProps) {
           </div>
           <div>
             <h3 className="font-semibold">Giá</h3>
-            <p className="text-gray-600 text-sm">${course.price || 0}</p>
+            <p className="text-gray-600 text-sm">{course.price || 0}VNĐ</p>
           </div>
           <div className="flex items-center justify-center md:justify-start space-x-2">
             <CheckCircle className="text-orange-500" />
-            <p className="font-semibold">{Math.floor(Math.random() * 100)}% hài lòng</p>
+            <p className="font-semibold">{100}% hài lòng</p>
           </div>
         </CardContent>
       </Card>
