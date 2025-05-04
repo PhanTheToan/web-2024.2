@@ -239,12 +239,37 @@ export default function EditQuizPage() {
   // Handler for quiz info changes
   const handleQuizInfoChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setQuizInfo({
-      ...quizInfo,
-      [name]: name === 'passingScore' || name === 'timeLimit' || name === 'order'
-        ? parseInt(value) || 0 
-        : value,
-    });
+    
+    if (name === 'timeLimit') {
+      // Xử lý đặc biệt cho timeLimit
+      // Chỉ cho phép số nguyên dương
+      const rawValue = value.replace(/[^0-9]/g, '');
+      
+      // Nếu input rỗng, giữ nguyên giá trị cũ
+      if (rawValue === '') {
+        return;
+      }
+      
+      // Chuyển thành số và đảm bảo tối thiểu là 1
+      const numericValue = Math.max(1, Number(rawValue));
+      console.log('TimeLimit raw input:', value);
+      console.log('TimeLimit after processing:', numericValue);
+      
+      setQuizInfo(prev => ({
+        ...prev,
+        timeLimit: numericValue
+      }));
+    } else if (name === 'passingScore' || name === 'order') {
+      setQuizInfo(prev => ({
+        ...prev,
+        [name]: parseInt(value) || 0
+      }));
+    } else {
+      setQuizInfo(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }
   };
 
   // Handler for current question changes
@@ -984,17 +1009,28 @@ export default function EditQuizPage() {
               
               <div>
                 <label htmlFor="timeLimit" className="block text-sm font-medium text-gray-700 mb-1">
-                  Thời gian làm bài (phút)
+                  Thời gian làm bài (phút) <span className="text-red-500">*</span>
                 </label>
                 <input
-                  type="number"
+                  type="text"
                   id="timeLimit"
                   name="timeLimit"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   value={quizInfo.timeLimit}
                   onChange={handleQuizInfoChange}
-                  min="1"
+                  onKeyPress={(e) => {
+                    // Chỉ cho phép nhập số
+                    if (!/[0-9]/.test(e.key)) {
+                      e.preventDefault();
+                    }
+                  }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                  placeholder="Nhập thời gian làm bài (phút)"
                 />
+                <p className="text-xs text-gray-500 mt-1">
+                  Thời gian tối đa cho phép để hoàn thành bài kiểm tra
+                </p>
               </div>
               
               <div>

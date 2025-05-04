@@ -137,10 +137,37 @@ export default function EditLessonPage() {
   // Handle form input changes
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: name === 'orderLesson' || name === 'timeLimit' ? Number(value) : value
-    }));
+    
+    if (name === 'timeLimit') {
+      // Xử lý đặc biệt cho timeLimit
+      // Chỉ cho phép số nguyên dương
+      const rawValue = value.replace(/[^0-9]/g, '');
+      
+      // Nếu input rỗng, giữ nguyên giá trị cũ
+      if (rawValue === '') {
+        return;
+      }
+      
+      // Chuyển thành số và đảm bảo tối thiểu là 1
+      const numericValue = Math.max(1, Number(rawValue));
+      console.log('TimeLimit raw input:', value);
+      console.log('TimeLimit after processing:', numericValue);
+      
+      setFormData(prev => ({
+        ...prev,
+        timeLimit: numericValue
+      }));
+    } else if (name === 'orderLesson') {
+      setFormData(prev => ({
+        ...prev,
+        orderLesson: Number(value)
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }
   };
   
   // Video preview setup
@@ -526,13 +553,20 @@ export default function EditLessonPage() {
             <input
               id="timeLimit"
               name="timeLimit"
-              type="number"
-              min="1"
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
               required
               placeholder="Nhập thời gian hoàn thành bài học (phút)"
               className="w-full px-3 py-2 border rounded-md"
               value={formData.timeLimit}
               onChange={handleChange}
+              onKeyPress={(e) => {
+                // Chỉ cho phép nhập số
+                if (!/[0-9]/.test(e.key)) {
+                  e.preventDefault();
+                }
+              }}
             />
             <p className="text-gray-500 text-sm mt-1">Thời gian ước tính để hoàn thành bài học</p>
           </div>

@@ -234,12 +234,38 @@ export default function EditQuizPage() {
   // Handler for quiz info changes
   const handleQuizInfoChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setQuizInfo({
-      ...quizInfo,
-      [name]: name === 'passingScore' || name === 'timeLimit' 
-        ? parseInt(value) || 0 
-        : value,
-    });
+    
+    if (name === 'timeLimit') {
+      // Xử lý đặc biệt cho timeLimit
+      // Chỉ cho phép số nguyên dương
+      const rawValue = value.replace(/[^0-9]/g, '');
+      
+      // Nếu input rỗng, giữ nguyên giá trị cũ
+      if (rawValue === '') {
+        return;
+      }
+      
+      // Chuyển thành số và đảm bảo tối thiểu là 1
+      const numericValue = Math.max(1, Number(rawValue));
+      console.log('TimeLimit raw input:', value);
+      console.log('TimeLimit after processing:', numericValue);
+      
+      setQuizInfo(prev => ({
+        ...prev,
+        timeLimit: numericValue
+      }));
+    } else if (name === 'passingScore') {
+      const parsedValue = parseInt(value);
+      setQuizInfo(prev => ({
+        ...prev,
+        passingScore: !isNaN(parsedValue) ? parsedValue : 70
+      }));
+    } else {
+      setQuizInfo(prev => ({
+        ...prev,
+        [name]: value,
+      }));
+    }
   };
 
   // Handler for current question changes
@@ -598,9 +624,16 @@ export default function EditQuizPage() {
     setSuccess(null);
 
     try {
+      console.log('TimeLimit at form submission start:', quizInfo.timeLimit, 'type:', typeof quizInfo.timeLimit);
+      
       // Validate form data
       if (!quizInfo.title.trim()) {
         throw new Error('Vui lòng nhập tiêu đề bài kiểm tra');
+      }
+
+      // Validate timeLimit
+      if (!quizInfo.timeLimit || quizInfo.timeLimit < 1) {
+        throw new Error('Thời gian làm bài phải lớn hơn hoặc bằng 1 phút');
       }
 
       // Kiểm tra nếu đang có câu hỏi đang soạn chưa thêm vào danh sách
@@ -653,7 +686,8 @@ export default function EditQuizPage() {
         description: quizInfo.description || '',
         order: quizInfo.order,
         passingScore: quizInfo.passingScore,
-        timeLimit: quizInfo.timeLimit,
+        // Đảm bảo timeLimit là số nguyên dương chính xác
+        timeLimit: Math.max(1, Math.floor(Number(quizInfo.timeLimit))),
         status: quizInfo.status,
         type: quizInfo.type,
         questions: finalQuestions.map((q, index) => {
@@ -677,6 +711,7 @@ export default function EditQuizPage() {
         })
       };
 
+      console.log('TimeLimit in requestData before API call:', requestData.timeLimit, 'type:', typeof requestData.timeLimit);
       console.log("Dữ liệu gửi đi:", JSON.stringify(requestData, null, 2));
       
       // Use the update-quiz API from screenshot
@@ -908,13 +943,20 @@ export default function EditQuizPage() {
                   Thời gian làm bài (phút)
                 </label>
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   id="timeLimit"
                   name="timeLimit"
                   value={quizInfo.timeLimit}
                   onChange={handleQuizInfoChange}
-                  min="1"
+                  onKeyPress={(e) => {
+                    if (!/[0-9]/.test(e.key)) {
+                      e.preventDefault();
+                    }
+                  }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                  placeholder="Nhập thời gian làm bài (phút)"
                 />
               </div>
               
