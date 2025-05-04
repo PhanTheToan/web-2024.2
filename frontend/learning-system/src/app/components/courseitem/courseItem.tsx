@@ -78,7 +78,7 @@ export default function CourseItem({ course }: CourseItemProps) {
       <div className="flex w-full md:w-1/3">
         <div className="relative z-10 bg-white bg-opacity-40 p-6 md:p-8 rounded-lg text-center md:text-left  mx-auto">
             <h1 className="text-2xl md:text-4xl font-bold text-black">{course.title}</h1>
-            <p className="text-black mt-2">Giảng viên: <span className="text-orange-950 font-semibold cursor:pointer hover:text-orange-500 cursor: pointer">{getTeacherName()}</span></p>
+            <p className="text-black mt-2">Giảng viên: <span className="text-orange-500 font-semibold text-lg cursor:pointer hover:text-orange-500 cursor: pointer">{getTeacherName()}</span></p>
             
             {firstLessonId ? (
               <Link 
@@ -88,12 +88,13 @@ export default function CourseItem({ course }: CourseItemProps) {
                 Bắt đầu học
               </Link>
             ) : (
-              <button className="mt-4 bg-orange-600 text-white px-6 py-2 rounded-lg hover:bg-orange-700 transition w-full md:w-auto">
-                Đăng ký
-              </button>
+              <div></div>
+              // <button >
+              //   {/* Hãy tham gia ngay lớp học */}
+              // </button>
             )}
             
-            <p className="mt-2 text-gray-700">{getStudentsCount()} đã đăng ký</p>
+            <p className="mt-2 text-gray-700">{getStudentsCount()} học viên đã đăng ký</p>
         </div>
       </div>
      
@@ -115,7 +116,7 @@ export default function CourseItem({ course }: CourseItemProps) {
           </div>
           <div className="flex items-center justify-center md:justify-start space-x-2">
             <CheckCircle className="text-orange-500" />
-            <p className="font-semibold">{100}% hài lòng</p>
+            <p className="font-semibold">Cam kết chất lượng</p>
           </div>
         </CardContent>
       </Card>
