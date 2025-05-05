@@ -6,6 +6,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import web20242.webcourse.model.*;
 import web20242.webcourse.model.constant.EQuestion;
+import web20242.webcourse.model.constant.EStatus;
 import web20242.webcourse.model.createRequest.Question;
 import web20242.webcourse.repository.*;
 
@@ -145,5 +146,45 @@ public class UpdateService {
             course.setUpdatedAt(LocalDateTime.now());
             courseRepository.save(course);
         });
+    }
+    public void updateEnrollment(){
+        List<Enrollment> enrollments = enrollmentRepository.findAll();
+        for (Enrollment enrollment : enrollments) {
+            Course course = courseRepository.findById(enrollment.getCourseId()).orElse(null);
+            if(course == null) {
+                enrollmentRepository.delete(enrollment);
+                continue;
+            }
+            ArrayList<ObjectId> lessonAndQuiz = enrollment.getLessonAndQuizId();
+            Integer timelimit = course.getTotalTimeLimit();
+            Integer timeCurrent = 0;
+            if(lessonAndQuiz != null) {
+                for (ObjectId id : lessonAndQuiz) {
+                    Lesson lesson = lessonRepository.findById(id).orElse(null);
+                    if (lesson != null) {
+                        timeCurrent += lesson.getTimeLimit();
+                    } else {
+                        Quizzes quizzes = quizzesRepository.findById(id).orElse(null);
+                        if (quizzes != null) {
+                            timeCurrent += quizzes.getTimeLimit();
+                        } else {
+                            lessonAndQuiz.remove(id);
+                        }
+                    }
+                }
+            }
+            Double percent = (double) timeCurrent / timelimit * 100;
+            enrollment.setTimeCurrent(timeCurrent);
+            enrollment.setProgress(percent);
+            if (percent >=99.90) {
+                enrollment.setStatus(EStatus.DONE);
+                enrollment.setCompletedAt(LocalDateTime.now());
+            } else if (percent > 0.0) {
+                enrollment.setStatus(EStatus.INPROGRESS);
+            } else {
+                enrollment.setStatus(EStatus.NOTSTARTED);
+            }
+            enrollmentRepository.save(enrollment);
+        }
     }
 }

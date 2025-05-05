@@ -40,6 +40,12 @@ public class UpdateController {
         quizMigrationService.update_time();
     }
 
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @PutMapping("/progress-status")
+    public void updateProgressAndStatus(){
+        quizMigrationService.updateEnrollment();
+    }
+
 
 
 }

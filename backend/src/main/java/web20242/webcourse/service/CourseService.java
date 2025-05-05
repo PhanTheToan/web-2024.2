@@ -1232,11 +1232,23 @@ public class CourseService {
         List<Enrollment> enrollmentOptional = enrollmentRepository.findByCourseId(course.getId());
         enrollmentOptional.forEach(enrollment -> {
             ArrayList<ObjectId> lessonAndQuizIds = enrollment.getLessonAndQuizId();
+            ArrayList<Enrollment.QuizScore> quizScores = enrollment.getQuizScores();
             if (lessonAndQuizIds != null && lessonAndQuizIds.contains(quiz.getId())) {
                 lessonAndQuizIds.remove(quiz.getId());
+                Integer timeCurrent = enrollment.getTimeCurrent();
+                Quizzes quizzes = quizzesRepository.findById(quiz.getId()).orElse(null);
+                if (quizzes != null && quizzes.getTimeLimit() != null) {
+                    timeCurrent -= quizzes.getTimeLimit();
+                }
+                enrollment.setTimeCurrent(Math.max(timeCurrent, 0)); // Đảm bảo không âm
+                enrollment.setProgress(((double) enrollment.getTimeCurrent() / course.getTotalTimeLimit() * 100));
                 enrollment.setLessonAndQuizId(lessonAndQuizIds);
-                enrollmentRepository.save(enrollment);
             }
+            if (quizScores != null) {
+                quizScores.removeIf(quizScore -> quizScore.getQuizId().equals(quiz.getId()));
+                enrollment.setQuizScores(quizScores);
+            }
+            enrollmentRepository.save(enrollment);
         });
         course.getQuizzes().remove(quiz.getId());
 
@@ -1259,6 +1271,13 @@ public class CourseService {
             ArrayList<ObjectId> lessonAndQuizIds = enrollment.getLessonAndQuizId();
             if (lessonAndQuizIds != null && lessonAndQuizIds.contains(lesson.getId())) {
                 lessonAndQuizIds.remove(lesson.getId());
+                Integer timeCurrent = enrollment.getTimeCurrent();
+                Lesson lesson1 = lessonRepository.findById(lesson.getId()).orElse(null);
+                if (lesson1 != null && lesson1.getTimeLimit() != null) {
+                    timeCurrent -= lesson1.getTimeLimit();
+                }
+                enrollment.setTimeCurrent(Math.max(timeCurrent, 0)); // Đảm bảo không âm
+                enrollment.setProgress(((double) enrollment.getTimeCurrent() / course.getTotalTimeLimit() * 100));
                 enrollment.setLessonAndQuizId(lessonAndQuizIds);
                 enrollmentRepository.save(enrollment);
             }
