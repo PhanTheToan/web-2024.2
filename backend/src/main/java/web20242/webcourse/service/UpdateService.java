@@ -4,15 +4,10 @@ import org.bson.types.ObjectId;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import web20242.webcourse.model.Enrollment;
-import web20242.webcourse.model.Quizzes;
-import web20242.webcourse.model.User;
+import web20242.webcourse.model.*;
 import web20242.webcourse.model.constant.EQuestion;
 import web20242.webcourse.model.createRequest.Question;
-import web20242.webcourse.repository.EnrollmentRepository;
-import web20242.webcourse.repository.PopularCategoryRepository;
-import web20242.webcourse.repository.QuizzesRepository;
-import web20242.webcourse.repository.UserRepository;
+import web20242.webcourse.repository.*;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -25,6 +20,18 @@ public class UpdateService {
     private final QuizzesRepository quizRepository;
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private CourseRepository courseRepository;
+
+    @Autowired
+    private LessonRepository lessonRepository;
+
+    @Autowired
+    private QuizzesRepository quizzesRepository;
+
+    @Autowired
+    private ReviewRepository reviewRepository;
 
     @Autowired
     private EnrollmentRepository enrollmentRepository;
@@ -91,5 +98,52 @@ public class UpdateService {
             userRepository.save(user);
         });
         return ResponseEntity.ok("Done !");
+    }
+
+    public void update_time() {
+        List<Course> courses = courseRepository.findAll();
+        courses.forEach(course -> {
+            Integer timelimit = 0;
+
+            ArrayList<ObjectId> arrayListLesson = course.getLessons();
+            ArrayList<ObjectId> arrayListQuiz = course.getQuizzes();
+
+            // Xử lý lessons
+            if (arrayListLesson != null) {
+                for (ObjectId lessonId : arrayListLesson) {
+                    if (lessonId == null) {
+                        continue; // Bỏ qua lessonId null
+                    }
+                    Lesson lesson = lessonRepository.findById(lessonId).orElse(null);
+                    if (lesson == null) {
+                        continue; // Bỏ qua lesson không tồn tại
+                    }
+                    if (lesson.getTimeLimit() != null) {
+                        timelimit += lesson.getTimeLimit();
+                    }
+                }
+            }
+
+            // Xử lý quizzes
+            if (arrayListQuiz != null) {
+                for (ObjectId quizId : arrayListQuiz) {
+                    if (quizId == null) {
+                        continue; // Bỏ qua quizId null
+                    }
+                    Quizzes quiz = quizzesRepository.findById(quizId).orElse(null);
+                    if (quiz == null) {
+                        continue; // Bỏ qua quiz không tồn tại
+                    }
+                    if (quiz.getTimeLimit() != null) {
+                        timelimit += quiz.getTimeLimit();
+                    }
+                }
+            }
+
+            // Cập nhật course
+            course.setTotalTimeLimit(timelimit);
+            course.setUpdatedAt(LocalDateTime.now());
+            courseRepository.save(course);
+        });
     }
 }

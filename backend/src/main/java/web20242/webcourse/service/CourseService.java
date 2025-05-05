@@ -9,7 +9,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import web20242.webcourse.model.*;
-import web20242.webcourse.model.constant.EQuestion;
 import web20242.webcourse.model.constant.ERole;
 import web20242.webcourse.model.constant.EStatus;
 import web20242.webcourse.model.createRequest.*;
@@ -20,6 +19,7 @@ import org.springframework.data.mongodb.core.MongoTemplate;
 import java.security.Principal;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 
@@ -864,7 +864,7 @@ public class CourseService {
             overview.put("contentCount",
                     (course.getLessons() != null ? course.getLessons().size() : 0) +
                             (course.getQuizzes() != null ? course.getQuizzes().size() : 0));
-            overview.put("averageRating", course.getAverageRating());
+            overview.put("averageRating", avgRating(course.getId()));
             String getTeacherName;
             Optional<User> userTeacher = userService.findById(String.valueOf(course.getTeacherId()));
             getTeacherName = userTeacher.map(value -> value.getFirstName() + " " + value.getLastName())
@@ -877,6 +877,18 @@ public class CourseService {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Course not found");
         }
 
+    }
+    public Double avgRating(ObjectId id){
+        AtomicReference<Double> avg= new AtomicReference<Double>(0.0);
+        List<Review> reviews = reviewRepository.findByCourseId(id);
+        if(reviews.isEmpty()){
+            return 0.0;
+        }
+        reviews.forEach(review -> {
+            avg.updateAndGet(v -> v + review.getRating());
+        });
+
+        return avg.get()/reviews.size();
     }
     public ResponseEntity<?> getInformationCourseForAdminTeacher(String id, Principal principal) {
         Optional<Course> courseOptional = courseRepository.findById(new ObjectId(id));
@@ -896,7 +908,7 @@ public class CourseService {
             overview.put("contentCount",
                     (course.getLessons() != null ? course.getLessons().size() : 0) +
                             (course.getQuizzes() != null ? course.getQuizzes().size() : 0));
-            overview.put("averageRating", course.getAverageRating());
+            overview.put("averageRating", avgRating(course.getId()));
             String getTeacherName;
             Optional<User> userTeacher = userService.findById(String.valueOf(course.getTeacherId()));
             getTeacherName = userTeacher.map(value -> value.getFirstName() + " " + value.getLastName())
@@ -923,7 +935,7 @@ public class CourseService {
             overview.put("contentCount",
                     (course.getLessons() != null ? course.getLessons().size() : 0) +
                             (course.getQuizzes() != null ? course.getQuizzes().size() : 0));
-            overview.put("averageRating", course.getAverageRating());
+            overview.put("averageRating", avgRating(course.getId()));
             String getTeacherName;
             Optional<User> userTeacher = userService.findById(String.valueOf(course.getTeacherId()));
             getTeacherName = userTeacher.map(value -> value.getFirstName() + " " + value.getLastName())

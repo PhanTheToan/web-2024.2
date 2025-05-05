@@ -34,6 +34,12 @@ public class UpdateController {
         return ResponseEntity.ok(quizMigrationService.update_course_enroll());
     }
 
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @PutMapping("/timelimit")
+    public void updateTimelimit(){
+        quizMigrationService.update_time();
+    }
+
 
 
 }
