@@ -76,12 +76,10 @@ export const Header = () => {
         method: "POST",
         credentials: "include",
       })
-
+  
       if (response.ok) {
-        setUser(null)
-        setIsLoggedIn(false)
-        setDropdownOpen(false)
-        router.push("/")
+        // Gửi sự kiện logout để các component khác cùng biết
+        window.dispatchEvent(new Event("user-logged-out"))
       } else {
         console.error("Logout failed")
       }
@@ -89,6 +87,23 @@ export const Header = () => {
       console.error("Error during logout:", error)
     }
   }
+  
+
+  useEffect(() => {
+    const handleUserLoggedOut = () => {
+      setUser(null)
+      setIsLoggedIn(false)
+      setDropdownOpen(false)
+      router.push("/")
+    }
+  
+    window.addEventListener("user-logged-out", handleUserLoggedOut)
+  
+    return () => {
+      window.removeEventListener("user-logged-out", handleUserLoggedOut)
+    }
+  }, [])
+  
 
   const toggleMenu = () => {
     setIsOpen(!isOpen)
@@ -99,22 +114,7 @@ export const Header = () => {
   }
 
   const getMenuItems = () => {
-    if (pathusername.startsWith("/admin")) {
-      return [
-        { href: "/admin/couserscontrol", label: "Khóa học" },
-        { href: "/admin/usercontrol", label: "Học viên" },
-        { href: "/admin/blogs", label: "Quản lý Blog" },
-        { href: "/admin/registercontrol", label: "Cài đặt" },
-        { href: "/admin/imagecontrol", label: "Hình ảnh" },
-      ]
-    } else if (pathusername.startsWith("/teacher")) {
-      return [
-        { href: "/teacher/courses", label: "Khóa học" },
-        { href: "/teacher/students", label: "Học viên" },
-        { href: "/teacher/assignments", label: "Bài tập" },
-        { href: "/teacher/reports", label: "Thống kê" },
-      ]
-    } else {
+    if (!user) {
       return [
         { href: "/", label: "Trang chủ" },
         { href: "/courses", label: "Các khóa học" },
@@ -123,7 +123,34 @@ export const Header = () => {
         { href: "/contact", label: "Liên hệ" },
       ]
     }
+  
+    switch (user.role) {
+      case "ROLE_ADMIN":
+        return [
+          { href: "/admin/couserscontrol", label: "Khóa học" },
+          { href: "/admin/usercontrol", label: "Học viên" },
+          { href: "/admin/blogs", label: "Quản lý Blog" },
+          { href: "/admin/registercontrol", label: "Cài đặt" },
+          { href: "/admin/imagecontrol", label: "Hình ảnh" },
+        ]
+      case "ROLE_TEACHER":
+        return [
+          { href: "/teacher/courses", label: "Khóa học" },
+          { href: "/teacher/students", label: "Học viên" },
+          { href: "/teacher/assignments", label: "Bài tập" },
+          { href: "/teacher/reports", label: "Thống kê" },
+        ]
+      default:
+        return [
+          { href: "/", label: "Trang chủ" },
+          { href: "/courses", label: "Các khóa học" },
+          { href: "/dashboard", label: "Dashboard" },
+          { href: "/blog", label: "Blog" },
+          { href: "/contact", label: "Liên hệ" },
+        ]
+    }
   }
+  
 
   const isActive = (href: string) => {
     if (href === "/") {

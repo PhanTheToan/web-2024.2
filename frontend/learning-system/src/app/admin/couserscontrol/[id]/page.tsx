@@ -68,19 +68,14 @@ interface LessonQuizApiResponse {
 
 // Extend the User interface to include properties for student progress
 interface ExtendedUser {
-  _id: string;
-  username?: string;
-  email?: string;
-  enrolledAt?: string | Date;
-  progress?: number;
-  status?: string;
-  avatar?: string;
-  fullName?: string;
-  name?: string;
-  firstName?: string;
-  lastName?: string;
-  role?: string;
-  // Add any other properties that might be needed
+  _id?: string;
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  username: string;
+  progress: number;
+  status: string; // Changed from literal type to string to handle different status values
 }
 
 interface ContentItem {
@@ -159,7 +154,7 @@ interface Course {
 }
 
 // CourseAnalytics component to display completion rate and average progress
-const CourseAnalytics = ({ students }: { students: ExtendedUser[] }) => {
+const CourseAnalytics = ({ students, coursePrice }: { students: ExtendedUser[], coursePrice: number }) => {
   // Calculate completion rate and average progress
   const calculateAnalytics = () => {
     if (!students || students.length === 0) {
@@ -173,25 +168,22 @@ const CourseAnalytics = ({ students }: { students: ExtendedUser[] }) => {
 
     const registrations = students.length;
     
-    // Count completed students (progress = 100%)
-    const completedCount = students.filter(student => 
-      student.progress && student.progress >= 100
-    ).length;
+    // Count completed students (status = DONE)
+    const completedCount = students.filter(student => student.status === 'DONE').length;
     
     // Calculate completion rate
     const completionRate = registrations > 0 
       ? Math.round((completedCount / registrations) * 100) 
       : 0;
     
-    // Calculate average progress
-    const totalProgress = students.reduce((sum, student) => 
-      sum + (student.progress || 0), 0);
+    // Calculate average progress using actual progress values
+    const totalProgress = students.reduce((sum, student) => sum + (student.progress || 0), 0);
     const averageProgress = registrations > 0 
       ? Math.round(totalProgress / registrations) 
       : 0;
     
-    // Calculate revenue (assuming there's a price field in the course data)
-    const revenue = registrations * 699000; // Example fixed price, replace with actual price
+    // Calculate revenue based on course price and number of students
+    const revenue = registrations * coursePrice;
 
     return {
       registrations,
@@ -260,7 +252,7 @@ export default function CourseDetailPage() {
   const [enrollmentRequests, setEnrollmentRequests] = useState<EnrollmentRequest[]>([]);
   const [enrollmentRequestsModalOpen, setEnrollmentRequestsModalOpen] = useState(false);
   const [addStudentModalOpen, setAddStudentModalOpen] = useState(false);
-  const [newStudentName, setNewStudentName] = useState('');
+  // const [newStudentName, setNewStudentName] = useState('');
   const [newStudentEmail, setNewStudentEmail] = useState('');
   const [addStudentLoading, setAddStudentLoading] = useState(false);
   const [addStudentSuccess, setAddStudentSuccess] = useState(false);
@@ -984,7 +976,7 @@ export default function CourseDetailPage() {
     setStudentDeleteError(null);
 
     try {
-      const email = studentToDelete.email || '';
+      const email = studentToDelete.email;
       console.log(`Deleting student with email ${email} from course ${courseId}`);
       
       // API delete using query params for admin
@@ -1140,7 +1132,7 @@ export default function CourseDetailPage() {
       }
       
       // Update UI
-      setNewStudentName('');
+      // setNewStudentName('');
       setNewStudentEmail('');
       setAddStudentModalOpen(false);
       setAddStudentSuccess(true);
@@ -1417,7 +1409,10 @@ export default function CourseDetailPage() {
             
             {/* Analytics Section */}
             {course && course.studentsEnrolled && (
-              <CourseAnalytics students={course.studentsEnrolled} />
+              <CourseAnalytics 
+                students={course.studentsEnrolled} 
+                coursePrice={course.price || 0} 
+              />
             )}
           </div>
 
@@ -1935,14 +1930,12 @@ export default function CourseDetailPage() {
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <div className="flex items-center">
                                   <div className="flex-shrink-0 h-10 w-10 bg-gray-200 rounded-full flex items-center justify-center">
-                                    {student.avatar ? (
-                                      <img className="h-10 w-10 rounded-full" src={student.avatar} alt={student.fullName || "Student"} />
-                                    ) : (
-                                      <span className="text-gray-500">{(student.fullName || "").charAt(0).toUpperCase()}</span>
-                                    )}
+                                    <span className="text-gray-500">{student.firstName.charAt(0).toUpperCase()}</span>
                                   </div>
                                   <div className="ml-4">
-                                    <div className="text-sm font-medium text-gray-900">{student.fullName || student.name || "Unknown"}</div>
+                                    <div className="text-sm font-medium text-gray-900">
+                                      {`${student.firstName} ${student.lastName}`}
+                                    </div>
                                     <div className="text-sm text-gray-500">{student.email}</div>
                                   </div>
                                 </div>
@@ -1953,7 +1946,7 @@ export default function CourseDetailPage() {
                                     <span className="text-sm font-medium text-gray-700">
                                       {progress}%
                                     </span>
-                                    {progress === 100 && (
+                                    {student.status === 'DONE' && (
                                       <span className="text-xs text-green-600 flex items-center">
                                         <CheckCircle2 className="w-3 h-3 mr-1" />
                                         Hoàn thành
@@ -1963,40 +1956,37 @@ export default function CourseDetailPage() {
                                   <div className="w-full bg-gray-200 rounded-full h-2">
                                     <div
                                       className={`h-2 rounded-full ${
-                                        progress === 100 
+                                        student.status === 'DONE'
                                           ? 'bg-green-500' 
-                                          : progress >= 50 
+                                          : student.progress >= 50 
                                             ? 'bg-blue-500' 
-                                            : progress > 0
+                                            : student.progress > 0
                                               ? 'bg-orange-500'
                                               : 'bg-gray-300'
                                       }`}
-                                      style={{ width: `${progress}%` }}
+                                      style={{ width: `${student.progress}%` }}
                                     ></div>
                                   </div>
                                 </div>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                {student.enrolledAt 
-                                  ? new Date(student.enrolledAt).toLocaleDateString('vi-VN')
-                                  : 'N/A'
-                                }
+                                {new Date().toLocaleDateString('vi-VN')}
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                                  ${progress === 100 
+                                  ${student.status === 'DONE'
                                     ? 'bg-green-100 text-green-800' 
-                                    : progress >= 50 
+                                    : student.progress >= 50 
                                       ? 'bg-blue-100 text-blue-800' 
-                                      : progress > 0
+                                      : student.progress > 0
                                         ? 'bg-yellow-100 text-yellow-800'
                                         : 'bg-gray-100 text-gray-800'
                                   }`}>
-                                  {progress === 100 
+                                  {student.status === 'DONE'
                                     ? 'Đã hoàn thành' 
-                                    : progress >= 50 
+                                    : student.progress >= 50 
                                       ? 'Đang học tích cực' 
-                                      : progress > 0
+                                      : student.progress > 0
                                         ? 'Đang học'
                                         : 'Chưa bắt đầu'
                                   }
@@ -2004,7 +1994,11 @@ export default function CourseDetailPage() {
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                 <button
-                                  onClick={() => confirmStudentDelete(student._id || '', student.fullName || student.name || '', student.email || '')}
+                                  onClick={() => confirmStudentDelete(
+                                    student.id, 
+                                    `${student.firstName} ${student.lastName}`, 
+                                    student.email
+                                  )}
                                   className="text-red-600 hover:text-red-900 flex items-center justify-end"
                                 >
                                   <UserMinus className="w-4 h-4 mr-1" />
@@ -2085,7 +2079,7 @@ export default function CourseDetailPage() {
             <h3 className="text-xl font-bold mb-4">Thêm học viên mới</h3>
             
             <form onSubmit={handleAddStudent}>
-              <div className="mb-4">
+              {/* <div className="mb-4">
                 <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="studentName">
                   Tên học viên
                 </label>
@@ -2097,7 +2091,7 @@ export default function CourseDetailPage() {
                   className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
                   required
                 />
-              </div>
+              </div> */}
               
               <div className="mb-4">
                 <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="studentEmail">

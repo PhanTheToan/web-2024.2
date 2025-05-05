@@ -1,7 +1,6 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-// import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -43,6 +42,18 @@ export function ProfileDetails() {
     profileImage: "",
   });
 
+  const [originalProfile, setOriginalProfile] = useState<Profile>({
+    id: "",
+    username: "",
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    dateOfBirth: "",
+    gender: "",
+    profileImage: "",
+  });
+
   useEffect(() => {
     const fetchProfile = async () => {
       try {
@@ -58,7 +69,9 @@ export function ProfileDetails() {
             const formattedDateOfBirth = dateOfBirth
               ? `${dateOfBirth[0]}-${String(dateOfBirth[1]).padStart(2, "0")}-${String(dateOfBirth[2]).padStart(2, "0")}`
               : "";
-            setProfile({ ...rest, dateOfBirth: formattedDateOfBirth });
+            const profileData = { ...rest, dateOfBirth: formattedDateOfBirth };
+            setProfile(profileData);
+            setOriginalProfile(profileData);  // Lưu bản sao gốc để phục hồi
             setPreviewUrl(data.data.profileImage);
           }
         } else {
@@ -139,6 +152,7 @@ export function ProfileDetails() {
       if (response.ok) {
         alert("Profile updated successfully");
         setProfile(updatedProfile);
+        setOriginalProfile(updatedProfile);  // Cập nhật bản sao gốc khi lưu thay đổi
         setIsEditing(false);
         setSelectedFile(null);
         setPreviewUrl(imageUrl);
@@ -151,6 +165,13 @@ export function ProfileDetails() {
     }
   };
 
+  const handleCancel = () => {
+    setProfile({ ...originalProfile });  // Khôi phục trạng thái ban đầu
+    setIsEditing(false);
+    setSelectedFile(null);
+    setPreviewUrl(originalProfile.profileImage);
+  };
+
   return (
     <div className="space-y-6">
       {isEditing ? (
@@ -160,6 +181,7 @@ export function ProfileDetails() {
               <Label htmlFor="username">Username</Label>
               <input
                 id="username"
+                className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-orange-500"
                 value={profile.username || ""}
                 disabled
               />
@@ -169,6 +191,7 @@ export function ProfileDetails() {
               <input
                 id="email"
                 type="email"
+                className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-orange-500"
                 value={profile.email || ""}
                 disabled
               />
@@ -177,6 +200,7 @@ export function ProfileDetails() {
               <Label htmlFor="firstName">First Name</Label>
               <input
                 id="firstName"
+                className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-orange-500"
                 value={profile.firstName || ""}
                 onChange={(e) => handleChange("firstName", e.target.value)}
               />
@@ -185,6 +209,7 @@ export function ProfileDetails() {
               <Label htmlFor="lastName">Last Name</Label>
               <input
                 id="lastName"
+                className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-orange-500"
                 value={profile.lastName || ""}
                 onChange={(e) => handleChange("lastName", e.target.value)}
               />
@@ -193,6 +218,7 @@ export function ProfileDetails() {
               <Label htmlFor="phone">Phone Number</Label>
               <input
                 id="phone"
+                className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-orange-500"
                 value={profile.phone || ""}
                 onChange={(e) => handleChange("phone", e.target.value)}
               />
@@ -202,6 +228,7 @@ export function ProfileDetails() {
               <input
                 id="dob"
                 type="date"
+                className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-orange-500"
                 value={profile.dateOfBirth || ""}
                 onChange={(e) => handleChange("dateOfBirth", e.target.value)}
               />
@@ -212,7 +239,10 @@ export function ProfileDetails() {
                 value={profile.gender || ""}
                 onValueChange={(value) => handleChange("gender", value)}
               >
-                <SelectTrigger id="gender">
+                <SelectTrigger
+                  id="gender"
+                  className="w-full focus:outline-none focus:ring-2 focus:ring-orange-500"
+                >
                   <SelectValue placeholder="Select gender" />
                 </SelectTrigger>
                 <SelectContent>
@@ -228,6 +258,7 @@ export function ProfileDetails() {
                 id="profileImage"
                 type="file"
                 accept="image/*"
+                className="w-full"
                 onChange={handleFileChange}
               />
               {previewUrl && (
@@ -241,7 +272,7 @@ export function ProfileDetails() {
           </div>
           <div className="flex gap-2">
             <Button onClick={handleSave}>Save Changes</Button>
-            <Button variant="outline" onClick={() => setIsEditing(false)}>
+            <Button variant="outline" onClick={handleCancel}>
               Cancel
             </Button>
           </div>
@@ -279,10 +310,10 @@ export function ProfileDetails() {
                 {profile.gender === "Male"
                   ? "Male"
                   : profile.gender === "Female"
-                  ? "Female"
-                  : profile.gender === "Other"
-                  ? "Other"
-                  : "N/A"}
+                    ? "Female"
+                    : profile.gender === "Other"
+                      ? "Other"
+                      : "N/A"}
               </p>
             </div>
             <div>

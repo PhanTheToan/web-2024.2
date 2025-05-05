@@ -730,9 +730,9 @@ export default function QuizDetailPage() {
               >
                 {course.title}
               </Link>
-              <p className="text-gray-500 mt-1 text-sm">
+              {/* <p className="text-gray-500 mt-1 text-sm">
                 Số bài kiểm tra: {Array.isArray(course.quizzes) ? course.quizzes.length : 0}
-              </p>
+              </p> */}
             </div>
           </div>
           

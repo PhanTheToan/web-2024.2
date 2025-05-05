@@ -203,7 +203,7 @@ export default function TeacherCourseDetailPage() {
   const [enrollmentRequests, setEnrollmentRequests] = useState<EnrollmentRequest[]>([]);
   const [enrollmentRequestsModalOpen, setEnrollmentRequestsModalOpen] = useState(false);
   const [addStudentModalOpen, setAddStudentModalOpen] = useState(false);
-  const [newStudentName, setNewStudentName] = useState('');
+  // const [newStudentName, setNewStudentName] = useState('');
   const [newStudentEmail, setNewStudentEmail] = useState('');
   const [addStudentLoading, setAddStudentLoading] = useState(false);
   const [showErrorMessage, setShowErrorMessage] = useState(false);
@@ -633,7 +633,7 @@ export default function TeacherCourseDetailPage() {
       }
       
       // Cập nhật UI
-      setNewStudentName('');
+      // setNewStudentName('');
       setNewStudentEmail('');
       setAddStudentModalOpen(false);
       setSuccessMessage('Học viên đã được thêm thành công!');
@@ -1724,7 +1724,7 @@ export default function TeacherCourseDetailPage() {
             <h3 className="text-xl font-bold mb-4">Thêm học viên mới</h3>
             
             <form onSubmit={handleAddStudent}>
-              <div className="mb-4">
+              {/* <div className="mb-4">
                 <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="studentName">
                   Tên học viên
                 </label>
@@ -1736,7 +1736,7 @@ export default function TeacherCourseDetailPage() {
                   className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
                   required
                 />
-              </div>
+              </div> */}
               
               <div className="mb-4">
                 <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="studentEmail">

@@ -45,29 +45,33 @@ export default function BlogPage() {
       try {
         setLoading(true)
 
-        const searchUrl = searchTerm
-          ? `${BASE_URL}/search/${encodeURIComponent(searchTerm)}`
-          : `${BASE_URL}?page=${currentPage}&limit=${itemsPerPage}`
-
-        const response = await fetch(searchUrl)
-
-        if (!response.ok) {
-          throw new Error("Failed to fetch blog posts")
-        }
-
+        // Always fetch the first page of posts for client-side title filtering
+        const response = await fetch(`${BASE_URL}?page=1&limit=${itemsPerPage * totalPages}`)
+        if (!response.ok) throw new Error("Failed to fetch blog posts")
         const data = await response.json()
         const posts: BlogPost[] = Array.isArray(data) ? data : data.items || []
-        const total = posts.length
-        const totalPages = Math.ceil(total / itemsPerPage)
 
-        const formattedPosts = posts.map((post) => ({
+        // Format date
+        let formattedPosts = posts.map(post => ({
           ...post,
           formattedDate: formatDate(post.createdAt),
         }))
 
-        setBlogPosts(formattedPosts)
+        // If searching, only include those whose title contains the term (case-insensitive)
+        if (searchTerm.trim()) {
+          const term = searchTerm.toLowerCase()
+          formattedPosts = formattedPosts.filter(post => post.title?.toLowerCase().includes(term))
+        }
+
+        // Pagination for client-side filtered results
+        const total = formattedPosts.length
+        const totalPagesCalc = Math.ceil(total / itemsPerPage)
+        const startIdx = (currentPage - 1) * itemsPerPage
+        const paginated = formattedPosts.slice(startIdx, startIdx + itemsPerPage)
+
+        setBlogPosts(paginated)
         setTotalItems(total)
-        setTotalPages(totalPages)
+        setTotalPages(totalPagesCalc)
       } catch (error) {
         console.error("Error fetching blog posts:", error)
       } finally {
@@ -75,10 +79,7 @@ export default function BlogPage() {
       }
     }
 
-    const timeoutId = setTimeout(() => {
-      fetchBlogPosts()
-    }, 300)
-
+    const timeoutId = setTimeout(fetchBlogPosts, 300)
     return () => clearTimeout(timeoutId)
   }, [currentPage, searchTerm])
 
@@ -95,37 +96,25 @@ export default function BlogPage() {
   const generatePaginationItems = (): PaginationItem[] => {
     const items: PaginationItem[] = []
     const maxVisiblePages = 5
-
     items.push({ type: "page", value: 1 })
 
     if (totalPages <= maxVisiblePages) {
-      for (let i = 2; i <= totalPages; i++) {
-        items.push({ type: "page", value: i })
-      }
+      for (let i = 2; i <= totalPages; i++) items.push({ type: "page", value: i })
     } else {
       if (currentPage <= 3) {
-        for (let i = 2; i <= 4; i++) {
-          items.push({ type: "page", value: i })
-        }
+        for (let i = 2; i <= 4; i++) items.push({ type: "page", value: i })
         items.push({ type: "ellipsis" })
         items.push({ type: "page", value: totalPages })
       } else if (currentPage >= totalPages - 2) {
         items.push({ type: "ellipsis" })
-        for (let i = totalPages - 3; i <= totalPages; i++) {
-          if (i > 1) {
-            items.push({ type: "page", value: i })
-          }
-        }
+        for (let i = totalPages - 3; i <= totalPages; i++) if (i > 1) items.push({ type: "page", value: i })
       } else {
         items.push({ type: "ellipsis" })
-        for (let i = currentPage - 1; i <= currentPage + 1; i++) {
-          items.push({ type: "page", value: i })
-        }
+        for (let i = currentPage - 1; i <= currentPage + 1; i++) items.push({ type: "page", value: i })
         items.push({ type: "ellipsis" })
         items.push({ type: "page", value: totalPages })
       }
     }
-
     return items
   }
 
@@ -134,9 +123,7 @@ export default function BlogPage() {
       <div className="bg-gray-100 py-3">
         <div className="container mx-auto px-4">
           <div className="flex items-center text-sm">
-            <Link href="/" className="text-gray-500 hover:text-orange-500">
-              Homepage
-            </Link>
+            <Link href="/" className="text-gray-500 hover:text-orange-500">Homepage</Link>
             <span className="mx-2 text-gray-400">/</span>
             <span className="text-gray-700">Blog</span>
           </div>
@@ -154,7 +141,7 @@ export default function BlogPage() {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
               <Input
                 type="text"
-                placeholder="Search articles..."
+                placeholder="Search by title..."
                 className="pl-10"
                 value={searchTerm}
                 onChange={handleSearchChange}
@@ -181,9 +168,10 @@ export default function BlogPage() {
               {blogPosts.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {blogPosts.map((post, index) => (
-                    <article
+                    <Link
                       key={post.id || index}
-                      className="bg-white rounded-lg overflow-hidden border flex flex-col h-full"
+                      href={post.refer || '/'}
+                      className="bg-white rounded-lg overflow-hidden border flex flex-col h-full group"
                     >
                       <div className="relative h-48">
                         <img
@@ -193,33 +181,31 @@ export default function BlogPage() {
                         />
                       </div>
                       <div className="p-4 flex-grow flex flex-col">
-                        <h2 className="text-lg font-semibold mb-2 line-clamp-2">
-                          <Link href={`/blog/${post.slug || post.id || index}`} className="hover:text-orange-500">
-                            {post.title || "Tiêu đề bài viết"}
-                          </Link>
+                        <h2 className="text-lg font-semibold mb-2 line-clamp-2 group-hover:text-orange-500">
+                          {post.title}
                         </h2>
                         <div className="flex items-center text-sm text-gray-500 mb-3">
                           <CalendarIcon size={14} className="mr-1" />
-                          <span>{post.formattedDate || "Ngày chưa xác định"}</span>
+                          <span>{post.formattedDate}</span>
                         </div>
                         <p className="text-gray-600 text-sm line-clamp-3 flex-grow">
-                          {post.content || "Nội dung bài viết chưa có."}
+                          {post.content}
                         </p>
                         {post.refer && (
-                          <Link
-                            href={post.refer}
-                            className="mt-3 text-orange-500 hover:text-orange-600 text-sm font-medium"
-                          >
+                          <span className="mt-3 text-orange-500 group-hover:text-orange-600 text-sm font-medium">
                             Read More
-                          </Link>
+                          </span>
                         )}
                       </div>
-                    </article>
+                    </Link>
                   ))}
                 </div>
+              ) : searchTerm ? (
+                // Đang search mà không có kết quả → không hiển thị gì
+                null
               ) : (
                 <div className="text-center py-10">
-                  <p className="text-gray-500">No blog posts found. Try a different search term.</p>
+                  <p className="text-gray-500">No blog posts available.</p>
                 </div>
               )}
 

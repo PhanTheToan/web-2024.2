@@ -135,12 +135,12 @@ const DetailCoursePage: React.FC = () => {
       const parsedCourse = courseData.body || courseData;
       
       // Log the categories for debugging
-      console.log('Course categories:', parsedCourse.categories);
+      console.log('Course categories:', parsedCourse);
       
       setCourse({
         ...parsedCourse,
         requirements: ['Basic programming knowledge', 'Understanding of web concepts'],
-        averageRating: parsedCourse.averageRating || 4.5
+        // averageRating: parsedCourse.averageRating 
       });
 
       // Try to check user authentication, but don't block if it fails
@@ -1595,7 +1595,7 @@ const DetailCoursePage: React.FC = () => {
                 </div>
                 <div className="flex items-center">
                   <Star className="text-orange-500 mr-3" />
-                  <span>Đánh giá: {course.averageRating || 0}/5</span>
+                  <span>Đánh giá: {course.averageRating}/5</span>
                 </div>
               </div>
             </div>

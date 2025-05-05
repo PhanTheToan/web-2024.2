@@ -90,13 +90,13 @@ export const Footer = () => {
                         <div className="font-[400] text-[14px] text-black sm:mb-[0px] mb-[20px]">
                             Công nghệ Web 2025, All Rights Reserved
                         </div>
-                        <div className="inline-flex sm:gap-[12px] gap-[10px]">
+                        {/* <div className="inline-flex sm:gap-[12px] gap-[10px]">
                             <img src="#" className="h-[30px] w-[46px] py-[7px] px-[10px] rounded-[5px] bg-white object-contain" />
                             <img src="#" className="h-[30px] w-[46px] py-[7px] px-[10px] rounded-[5px] bg-white object-contain" />
                             <img src="#" className="h-[30px] w-[46px] py-[7px] px-[10px] rounded-[5px] bg-white object-contain" />
                             <img src="#" className="h-[30px] w-[46px] py-[7px] px-[10px] rounded-[5px] bg-white object-contain" />
                             <img src="#" className="h-[30px] w-[46px] py-[7px] px-[10px] rounded-[5px] bg-white object-contain" />
-                        </div>
+                        </div> */}
                     </div>
                 </div>
             </div>
