@@ -16,6 +16,10 @@ export const FormLogin = () => {
   const [otp, setOtp] = useState("")
   const [isOtpSent, setIsOtpSent] = useState(false) // Track if OTP is sent
   const [role, setRole] = useState("ROLE_USER") // Default role is user
+  const [dateOfBirth, setDateOfBirth] = useState("")
+  const [firstName, setFirstName] = useState("")
+  const [lastName, setLastName] = useState("")
+  const [phone, setPhone] = useState("")
   const BASE_URL = process.env.BASE_URL 
 
   const handleLoginSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -32,12 +36,12 @@ export const FormLogin = () => {
         credentials: "include",
       })
 
-      const data = await response.json()
+      // const data = await response.json()
 
       if (response.ok) {
         window.location.href = "/"
       } else {
-        setError(data.message || "Sai username hoặc mật khẩu!")
+        setError("Sai username hoặc mật khẩu!")
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Đã xảy ra lỗi không xác định!")
@@ -47,18 +51,23 @@ export const FormLogin = () => {
   }
 
   const handleRegisterSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    setError("")
-    setLoading(true)
-
-    if (password !== confirmPassword) {
-      setError("Mật khẩu xác nhận không khớp!")
-      setLoading(false)
-      return
+    event.preventDefault();
+    setError("");
+    setLoading(true);
+  
+    if (!dateOfBirth || !firstName || !lastName || !phone) {
+      setError("Vui lòng điền đầy đủ thông tin bắt buộc!");
+      setLoading(false);
+      return;
     }
-
+  
+    if (password !== confirmPassword) {
+      setError("Mật khẩu xác nhận không khớp!");
+      setLoading(false);
+      return;
+    }
+  
     try {
-      // Gửi yêu cầu đăng ký
       const signupResponse = await fetch(`${BASE_URL}/auth/signup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -66,31 +75,30 @@ export const FormLogin = () => {
           username,
           email,
           password,
-          firstName: "",
-          lastName: "",
-          phone: "",
-          dateOfBirth: "",
-          gender: "",
+          firstName,
+          lastName,
+          phone,
+          dateOfBirth,
+          role,
           profileImage: null,
           coursesEnrolled: [],
-          role, // Include the selected role
         }),
-      })
-
-      const signupData = await signupResponse.json()
-
+      });
+  
+      const signupData = await signupResponse.json();
+  
       if (signupResponse.ok) {
-        setError("OTP đã được gửi đến email. Vui lòng nhập OTP để xác minh.")
-        setIsOtpSent(true) // Show OTP input field
+        setError("OTP đã được gửi đến email. Vui lòng nhập OTP để xác minh.");
+        setIsOtpSent(true);
       } else {
-        setError(signupData.message || "Đăng ký thất bại!")
+        setError(signupData.message || "Đăng ký thất bại!");
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Đã xảy ra lỗi không xác định!")
+      setError(err instanceof Error ? err.message : "Đã xảy ra lỗi không xác định!");
     }
-
-    setLoading(false)
-  }
+  
+    setLoading(false);
+  };
 
   const handleVerifyOtp = async () => {
     setError("")
@@ -133,10 +141,25 @@ export const FormLogin = () => {
     }
   };
 
-  // const toggleForm = () => {
-  //   setIsLogin(!isLogin)
-  //   setError("")
-  // }
+  const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    if (/\s/.test(value)) {
+      setError("Username không được phép chứa khoảng trắng!");
+    } else {
+      setError("");
+      setUsername(value);
+    }
+  };
+
+  const toggleForm = (isLogin: boolean) => {
+    setIsLogin(isLogin);
+    setUsername("");
+    setPassword("");
+    setEmail("");
+    setConfirmPassword("");
+    setOtp("");
+    setError("");
+  };
 
   const formVariants = {
     hidden: { opacity: 0, x: isLogin ? -100 : 100 },
@@ -150,7 +173,7 @@ export const FormLogin = () => {
         <div className="relative w-full max-w-xs">
           <div className="flex">
             <button
-              onClick={() => setIsLogin(true)}
+              onClick={() => toggleForm(true)}
               className={`w-1/2 py-2 text-center font-semibold transition-all duration-300 ${
                 isLogin ? "text-[#FF782D]" : "text-gray-500"
               }`}
@@ -158,7 +181,7 @@ export const FormLogin = () => {
               Đăng Nhập
             </button>
             <button
-              onClick={() => setIsLogin(false)}
+              onClick={() => toggleForm(false)}
               className={`w-1/2 py-2 text-center font-semibold transition-all duration-300 ${
                 !isLogin ? "text-[#FF782D]" : "text-gray-500"
               }`}
@@ -242,40 +265,111 @@ export const FormLogin = () => {
         ) : (
           <motion.div key="register" variants={formVariants} initial="hidden" animate="visible" exit="exit">
             <form onSubmit={handleRegisterSubmit}>
-              <div className="mb-[15px]">
-                <label className="block mb-[5px] font-[600] text-[14px]" htmlFor="register-username">
-                  <span className="text-[#333333]">Username</span>
-                  <span className="text-[#FF782D] ml-[5px]">*</span>
-                </label>
-                <input
-                  type="text"
-                  name="register-username"
-                  id="register-username"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Username"
-                  className="h-[50px] w-full bg-white rounded-[6px] px-[16px] font-[600] text-[14px] border border-solid border-gray-400"
-                  required
-                />
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label className="block mb-2">Username *</label>
+                  <input
+                    id="register-username"
+                    type="text"
+                    value={username}
+                    onChange={handleUsernameChange}
+                    placeholder="Username"
+                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block mb-2">Email *</label>
+                  <input
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="Email"
+                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                    required
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label className="block mb-2">First Name *</label>
+                  <input
+                    id="first-name"
+                    type="text"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    placeholder="First Name"
+                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block mb-2">Last Name *</label>
+                  <input
+                    id="last-name"
+                    type="text"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    placeholder="Last Name"
+                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                    required
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label className="block mb-2">Phone *</label>
+                  <input
+                    id="phone"
+                    type="text"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="Phone"
+                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block mb-2">Date of Birth *</label>
+                  <input
+                    id="date-of-birth"
+                    type="date"
+                    value={dateOfBirth}
+                    onChange={(e) => setDateOfBirth(e.target.value)}
+                    placeholder="Date of Birth"
+                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                    required
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label className="block mb-2">Password *</label>
+                  <input
+                    id="register-password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Password"
+                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block mb-2">Confirm Password *</label>
+                  <input
+                    id="confirm-password"
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Confirm Password"
+                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                    required
+                  />
+                </div>
               </div>
 
-              <div className="mb-[15px]">
-                <label className="block mb-[5px] font-[600] text-[14px]" htmlFor="email">
-                  <span className="text-[#333333]">Email</span>
-                  <span className="text-[#FF782D] ml-[5px]">*</span>
-                </label>
-                <input
-                  type="email"
-                  name="email"
-                  id="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Email"
-                  className="h-[50px] w-full bg-white rounded-[6px] px-[16px] font-[600] text-[14px] border border-solid border-gray-400"
-                  required
-                />
-              </div>
-              
               <div className="mb-[15px]">
                 <label className="block mb-[5px] font-[600] text-[14px]" htmlFor="role">
                   <span className="text-[#333333]">Vai Trò</span>
@@ -292,40 +386,6 @@ export const FormLogin = () => {
                   <option value="ROLE_USER">USER</option>
                   <option value="ROLE_TEACHER">TEACHER</option>
                 </select>
-              </div>
-
-              <div className="mb-[15px]">
-                <label className="block mb-[5px] font-[600] text-[14px]" htmlFor="register-password">
-                  <span className="text-[#333333]">Mật Khẩu</span>
-                  <span className="text-[#FF782D] ml-[5px]">*</span>
-                </label>
-                <input
-                  type="password"
-                  name="register-password"
-                  id="register-password"
-                  value={password}
-                  placeholder="Password"
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="h-[50px] w-full bg-white rounded-[6px] px-[16px] font-[600] text-[14px] border border-solid border-gray-400"
-                  required
-                />
-              </div>
-
-              <div className="mb-[15px]">
-                <label className="block mb-[5px] font-[600] text-[14px]" htmlFor="confirm-password">
-                  <span className="text-[#333333]">Xác Nhận Mật Khẩu</span>
-                  <span className="text-[#FF782D] ml-[5px]">*</span>
-                </label>
-                <input
-                  type="password"
-                  name="confirm-password"
-                  id="confirm-password"
-                  value={confirmPassword}
-                  placeholder="Xác nhận mật khẩu"
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="h-[50px] w-full bg-white rounded-[6px] px-[16px] font-[600] text-[14px] border border-solid border-gray-400"
-                  required
-                />
               </div>
 
               {isOtpSent && (
