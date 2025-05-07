@@ -135,7 +135,6 @@ export const UserControl = () => {
       const lastName = (document.getElementById("lastName") as HTMLInputElement)?.value;
       const phone = (document.getElementById("phone") as HTMLInputElement)?.value;
       const dateOfBirth = (document.getElementById("dateOfBirth") as HTMLInputElement)?.value;
-      const gender = (document.getElementById("gender") as HTMLSelectElement)?.value;
 
       if (!username || !email || (!editingUser && !password) || (!editingUser && !confirmPasswordInput) || !firstName || !lastName || !phone || !dateOfBirth) {
         alert("Vui lòng điền đầy đủ thông tin bắt buộc!");
@@ -165,7 +164,6 @@ export const UserControl = () => {
         role: selectedRole,
         phone,
         dateOfBirth,
-        gender,
         profileImage: null,
         coursesEnrolled: [],
       };
@@ -393,7 +391,7 @@ export const UserControl = () => {
       <AnimatePresence>
         {isModalOpen && (
           <div className="fixed inset-0 bg-gray-500 bg-opacity-50 flex justify-center items-center z-50">
-            <div className="bg-white p-6 rounded-lg shadow-lg w-1/3">
+            <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md max-h-[90vh] overflow-y-auto">
               <motion.div
                 initial={{ scale: 0.9, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
@@ -476,17 +474,6 @@ export const UserControl = () => {
                     className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                     defaultValue={editingUser ? new Date(editingUser.DateOfBirth).toISOString().split("T")[0] : ""}
                   />
-                </div>
-                <div className="mb-4">
-                  <label className="block mb-2">Giới tính *</label>
-                  <select
-                    id="gender"
-                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                  >
-                    <option value="Male">Nam</option>
-                    <option value="Female">Nữ</option>
-                    <option value="Other">Khác</option>
-                  </select>
                 </div>
                 <div className="mb-4">
                   <label className="block mb-2">Vai trò *</label>

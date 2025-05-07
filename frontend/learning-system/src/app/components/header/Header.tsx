@@ -25,6 +25,7 @@ export const Header = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   type Role = "ROLE_USER" | "ROLE_TEACHER" | "ROLE_ADMIN" | string
   // Ánh xạ vai trò sang tiếng Việt
@@ -72,21 +73,28 @@ export const Header = () => {
 
   const handleLogout = async () => {
     try {
-      const response = await fetch(`${BASE_URL}/auth/signout`, {
-        method: "POST",
-        credentials: "include",
-      })
-  
-      if (response.ok) {
-        // Gửi sự kiện logout để các component khác cùng biết
-        window.dispatchEvent(new Event("user-logged-out"))
-      } else {
-        console.error("Logout failed")
-      }
+        const response = await fetch(`${BASE_URL}/auth/signout`, {
+            method: "POST",
+            credentials: "include",
+        });
+
+        if (response.ok) {
+            localStorage.clear(); 
+            sessionStorage.clear(); // Optional, if used
+
+            window.dispatchEvent(new Event("user-logged-out"));
+
+            // Redirect to login page
+            window.location.href = "/login";
+        } else {
+            // Parse error message from backend
+            const data = await response.json();
+            setError(data.message || "Đăng xuất thất bại. Vui lòng thử lại.");
+        }
     } catch (error) {
-      console.error("Error during logout:", error)
+        setError(error instanceof Error ? error.message : "Đã xảy ra lỗi không xác định!");
     }
-  }
+};
   
 
   useEffect(() => {
@@ -161,6 +169,14 @@ export const Header = () => {
 
   return (
     <header className="border-b border-gray-200 shadow-sm">
+      {error && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+          <span className="block sm:inline">{error}</span>
+          <span className="absolute top-0 bottom-0 right-0 px-4 py-3" onClick={() => setError(null)}>
+            <IoMdClose className="h-6 w-6 text-red-500" />
+          </span>
+        </div>
+      )}
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16 md:h-20">
           <div className="flex items-center">
