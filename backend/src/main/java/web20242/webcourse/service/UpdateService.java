@@ -4,6 +4,7 @@ import org.bson.types.ObjectId;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import web20242.webcourse.model.*;
 import web20242.webcourse.model.constant.EQuestion;
 import web20242.webcourse.model.constant.EStatus;
@@ -101,51 +102,50 @@ public class UpdateService {
         return ResponseEntity.ok("Done !");
     }
 
+    @Transactional
     public void update_time() {
         List<Course> courses = courseRepository.findAll();
-        courses.forEach(course -> {
-            Integer timelimit = 0;
 
-            ArrayList<ObjectId> arrayListLesson = course.getLessons();
-            ArrayList<ObjectId> arrayListQuiz = course.getQuizzes();
+        for (Course course : courses) {
+            int timelimit = 0;
 
-            // Xử lý lessons
-            if (arrayListLesson != null) {
-                for (ObjectId lessonId : arrayListLesson) {
-                    if (lessonId == null) {
-                        continue; // Bỏ qua lessonId null
-                    }
-                    Lesson lesson = lessonRepository.findById(lessonId).orElse(null);
-                    if (lesson == null) {
-                        continue; // Bỏ qua lesson không tồn tại
-                    }
-                    if (lesson.getTimeLimit() != null) {
+            // Handle lessons
+            List<ObjectId> lessonIds = course.getLessons() != null ? new ArrayList<>(course.getLessons()) : new ArrayList<>();
+            if (!lessonIds.isEmpty()) {
+                List<Lesson> lessons = lessonRepository.findAllById(lessonIds);
+                List<ObjectId> validLessonIds = new ArrayList<>();
+
+                for (Lesson lesson : lessons) {
+                    validLessonIds.add(lesson.getId());
+                    if (lesson.getTimeLimit() != null && lesson.getTimeLimit() >= 0) {
                         timelimit += lesson.getTimeLimit();
                     }
                 }
+                // Update lesson IDs to remove invalid ones
+                course.setLessons((ArrayList<ObjectId>) validLessonIds);
             }
 
-            // Xử lý quizzes
-            if (arrayListQuiz != null) {
-                for (ObjectId quizId : arrayListQuiz) {
-                    if (quizId == null) {
-                        continue; // Bỏ qua quizId null
-                    }
-                    Quizzes quiz = quizzesRepository.findById(quizId).orElse(null);
-                    if (quiz == null) {
-                        continue; // Bỏ qua quiz không tồn tại
-                    }
-                    if (quiz.getTimeLimit() != null) {
+            // Handle quizzes
+            List<ObjectId> quizIds = course.getQuizzes() != null ? new ArrayList<>(course.getQuizzes()) : new ArrayList<>();
+            if (!quizIds.isEmpty()) {
+                List<Quizzes> quizzes = quizzesRepository.findAllById(quizIds);
+                List<ObjectId> validQuizIds = new ArrayList<>();
+
+                for (Quizzes quiz : quizzes) {
+                    validQuizIds.add(quiz.getId());
+                    if (quiz.getTimeLimit() != null && quiz.getTimeLimit() >= 0) {
                         timelimit += quiz.getTimeLimit();
                     }
                 }
+                // Update quiz IDs to remove invalid ones
+                course.setQuizzes((ArrayList<ObjectId>) validQuizIds);
             }
 
-            // Cập nhật course
+            // Update course
             course.setTotalTimeLimit(timelimit);
             course.setUpdatedAt(LocalDateTime.now());
             courseRepository.save(course);
-        });
+        }
     }
     public void updateEnrollment(){
         List<Enrollment> enrollments = enrollmentRepository.findAll();

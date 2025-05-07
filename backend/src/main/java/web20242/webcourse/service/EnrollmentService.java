@@ -168,13 +168,13 @@ public class EnrollmentService {
                     }
                 }
 
-                if (!scoreUpdated && newScore != null) {
-                    Enrollment.QuizScore newQuizScore = Enrollment.QuizScore.builder()
-                            .quizId(quizId)
-                            .score(newScore)
-                            .build();
-                    quizScores.add(newQuizScore);
-                }
+//                if (!scoreUpdated && newScore != null) {
+//                    Enrollment.QuizScore newQuizScore = Enrollment.QuizScore.builder()
+//                            .quizId(quizId)
+//                            .score(newScore)
+//                            .build();
+//                    quizScores.add(newQuizScore);
+//                }
 
                 if (!lessonAndQuizId.contains(quizId)) {
                     Integer timeCurrent = existingEnrollment.getTimeCurrent() != null ? existingEnrollment.getTimeCurrent() : 0;

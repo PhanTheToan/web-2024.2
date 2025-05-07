@@ -40,6 +40,7 @@
 /home/ptt/PTT-Works/2024.2/web/backend/src/main/java/web20242/webcourse/model/createRequest/QuizSubmissionResponseDto.java
 /home/ptt/PTT-Works/2024.2/web/backend/src/main/java/web20242/webcourse/model/createRequest/RandomStringGenerator.java
 /home/ptt/PTT-Works/2024.2/web/backend/src/main/java/web20242/webcourse/model/createRequest/ReviewRequest.java
+/home/ptt/PTT-Works/2024.2/web/backend/src/main/java/web20242/webcourse/model/createRequest/Statistic.java
 /home/ptt/PTT-Works/2024.2/web/backend/src/main/java/web20242/webcourse/repository/BlogRepository.java
 /home/ptt/PTT-Works/2024.2/web/backend/src/main/java/web20242/webcourse/repository/CourseRepository.java
 /home/ptt/PTT-Works/2024.2/web/backend/src/main/java/web20242/webcourse/repository/EnrollmentRepository.java

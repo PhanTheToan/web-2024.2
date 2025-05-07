@@ -503,6 +503,22 @@ public class CourseController {
         return courseService.gradeQuiz(id, submission, userOptional.get());
     }
 
+    @PreAuthorize("hasRole('ROLE_ADMIN') || hasRole('ROLE_TEACHER')")
+    @GetMapping("/statistics/{id}")
+    public ResponseEntity<?> getStatistics(@PathVariable String id, Principal principal) {
+        Course course = courseRepository.findById(new ObjectId(id)).orElse(null);
+        User user = userRepository.findByUsername(principal.getName()).orElse(null);
+        if(course == null || user == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Course or User not found");
+        }
+        if (course.getTeacherId().equals(user.getId()) || user.getRole() == ERole.ROLE_ADMIN) {
+            return ResponseEntity.ok(courseService.getStatistics(course));
+        } else {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("You are not the teacher of this course");
+        }
+    }
+
+
 
 
 

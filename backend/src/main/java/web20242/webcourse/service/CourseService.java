@@ -1668,6 +1668,76 @@ public class CourseService {
         courseRepository.save(course1);
         return ResponseEntity.ok("Update succesfully");
     }
+    public ResponseEntity<List<Statistic>> getStatistics(Course course) {
+        if (course == null) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Collections.emptyList());
+        }
+
+        List<ObjectId> quizIds = course.getQuizzes();
+        List<Statistic> results = new ArrayList<>();
+
+        // Fetch all quizzes in one query
+        List<Quizzes> quizzes = quizzesRepository.findAllById(quizIds);
+        Map<ObjectId, Quizzes> quizMap = quizzes.stream()
+                .collect(Collectors.toMap(Quizzes::getId, quiz -> quiz));
+
+        for (ObjectId quizId : quizIds) {
+            Quizzes quiz = quizMap.get(quizId);
+            if (quiz == null) {
+                continue;
+            }
+
+            Statistic statistic = Statistic.builder()
+                    .courseId(course.getId())
+                    .quizId(quiz.getId())
+                    .title(quiz.getTitle())
+                    .statisticResponseDtos(new ArrayList<>())
+                    .build();
+
+            List<Enrollment> enrollments = enrollmentRepository.findByQuizScoreOfQuizId(quizId);
+            if (enrollments.isEmpty()) {
+                results.add(statistic);
+                continue;
+            }
+
+            // Collect user IDs for batch query
+            Set<ObjectId> userIds = enrollments.stream()
+                    .map(Enrollment::getUserId)
+                    .collect(Collectors.toSet());
+            Map<ObjectId, User> userMap = userRepository.findAllById(userIds).stream()
+                    .collect(Collectors.toMap(User::getId, user -> user));
+
+            for (Enrollment enrollment : enrollments) {
+                List<Enrollment.QuizScore> quizScores = enrollment.getQuizScores();
+                if (quizScores == null || quizScores.isEmpty()) {
+                    continue;
+                }
+
+                for (Enrollment.QuizScore quizScore : quizScores) {
+                    if (!quizScore.getQuizId().equals(quizId)) {
+                        continue;
+                    }
+
+                    User user = userMap.get(enrollment.getUserId());
+                    if (user == null) {
+                        continue;
+                    }
+
+                    Statistic.StatisticResponseDto responseDto = Statistic.StatisticResponseDto.builder()
+                            .userId(enrollment.getUserId())
+                            .score(quizScore.getScore())
+                            .fullName(user.getFirstName() + " " + user.getLastName())
+                            .email(user.getEmail())
+                            .build();
+                    statistic.getStatisticResponseDtos().add(responseDto);
+                }
+            }
+
+            results.add(statistic);
+        }
+
+        return ResponseEntity.ok(results);
+    }
 //    public ResponseEntity<?> getCoursesByPage(int page) {
 //        int pageSize = 6;
 //        Pageable pageable = PageRequest.of(page, pageSize);
