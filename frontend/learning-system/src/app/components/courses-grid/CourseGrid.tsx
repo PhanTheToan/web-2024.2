@@ -117,7 +117,8 @@ function CourseCard({ course }: { course: Course }) {
                     color="text.secondary"
                     sx={{ fontSize: "20px", fontWeight: "bold" }}
                   >
-                    {formatCurrency(course.price)}
+                    {/* {formatCurrency(course.price)} */} 
+                    {/* Thành comment lại  */}
                   </Typography>
                   {/* <Typography 
                     variant="h6" 
