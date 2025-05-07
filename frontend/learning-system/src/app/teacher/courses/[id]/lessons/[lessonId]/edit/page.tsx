@@ -130,10 +130,37 @@ export default function EditLessonPage() {
   
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData({
-      ...formData,
-      [name]: name === 'orderLesson' || name === 'timeLimit' ? parseInt(value) || 0 : value,
-    });
+    
+    if (name === 'timeLimit') {
+      // Xử lý đặc biệt cho timeLimit
+      // Chỉ cho phép số nguyên dương
+      const rawValue = value.replace(/[^0-9]/g, '');
+      
+      // Nếu input rỗng, giữ nguyên giá trị cũ
+      if (rawValue === '') {
+        return;
+      }
+      
+      // Chuyển thành số và đảm bảo tối thiểu là 1
+      const numericValue = Math.max(1, Number(rawValue));
+      console.log('TimeLimit raw input:', value);
+      console.log('TimeLimit after processing:', numericValue);
+      
+      setFormData(prev => ({
+        ...prev,
+        timeLimit: numericValue
+      }));
+    } else if (name === 'orderLesson') {
+      setFormData(prev => ({
+        ...prev,
+        orderLesson: Number(value)
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }
   };
   
   const handleVideoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -498,19 +525,27 @@ export default function EditLessonPage() {
           
           <div className="mb-6">
             <label className="block text-gray-700 font-medium mb-2" htmlFor="timeLimit">
-              Thời gian học (phút) <span className="text-red-500">*</span>
+              Thời gian hoàn thành (phút) <span className="text-red-500">*</span>
             </label>
             <input
               id="timeLimit"
               name="timeLimit"
-              type="number"
-              min="1"
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
               required
+              placeholder="Nhập thời gian hoàn thành bài học (phút)"
               className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
               value={formData.timeLimit}
               onChange={handleChange}
-              placeholder="Nhập thời gian học (phút)"
+              onKeyPress={(e) => {
+                // Chỉ cho phép nhập số
+                if (!/[0-9]/.test(e.key)) {
+                  e.preventDefault();
+                }
+              }}
             />
+            <p className="text-gray-500 text-sm mt-1">Thời gian ước tính để hoàn thành bài học</p>
           </div>
           
           <div className="mb-6">

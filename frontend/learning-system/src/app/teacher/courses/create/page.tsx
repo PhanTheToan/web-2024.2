@@ -84,7 +84,7 @@ export default function CreateCoursePage() {
         setUserData(userData);
         setFormData(prev => ({
           ...prev,
-          teacherId: userData._id
+          teacherId: userData._id || userData.id
         }));
         
         // Fetch categories after authentication

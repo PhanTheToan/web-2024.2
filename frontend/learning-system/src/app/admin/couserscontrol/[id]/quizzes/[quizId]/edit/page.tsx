@@ -48,6 +48,7 @@ interface Quiz {
   createdAt?: DateOrArray;
   updateAt?: DateOrArray;
   type?: string | null;
+  material?: string | null;
 }
 
 export default function EditQuizPage() {
@@ -56,6 +57,7 @@ export default function EditQuizPage() {
   const courseId = params.id as string;
   const quizId = params.quizId as string;
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const pdfFileInputRef = useRef<HTMLInputElement>(null);
   
   const [course, setCourse] = useState<Course | null>(null);
   const [loading, setLoading] = useState(true);
@@ -63,6 +65,7 @@ export default function EditQuizPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadingPdf, setUploadingPdf] = useState(false);
 
   // Quiz information state
   const [quizInfo, setQuizInfo] = useState({
@@ -73,6 +76,7 @@ export default function EditQuizPage() {
     order: 1,
     status: QuizStatus.INACTIVE, // Default to inactive
     type: QuizType.QUIZ_FORM_FULL, // Default quiz type
+    material: null as string | null, // Material PDF
   });
 
   // Questions state
@@ -191,6 +195,7 @@ export default function EditQuizPage() {
         order: quizData.order || 1,
         status: quizData.status || QuizStatus.INACTIVE,
         type: (quizData.type as QuizType) || QuizType.QUIZ_FORM_FULL,
+        material: quizData.material || null,
       });
       
       // Set questions
@@ -234,12 +239,38 @@ export default function EditQuizPage() {
   // Handler for quiz info changes
   const handleQuizInfoChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setQuizInfo({
-      ...quizInfo,
-      [name]: name === 'passingScore' || name === 'timeLimit' 
-        ? parseInt(value) || 0 
-        : value,
-    });
+    
+    if (name === 'timeLimit') {
+      // Xử lý đặc biệt cho timeLimit
+      // Chỉ cho phép số nguyên dương
+      const rawValue = value.replace(/[^0-9]/g, '');
+      
+      // Nếu input rỗng, giữ nguyên giá trị cũ
+      if (rawValue === '') {
+        return;
+      }
+      
+      // Chuyển thành số và đảm bảo tối thiểu là 1
+      const numericValue = Math.max(1, Number(rawValue));
+      console.log('TimeLimit raw input:', value);
+      console.log('TimeLimit after processing:', numericValue);
+      
+      setQuizInfo(prev => ({
+        ...prev,
+        timeLimit: numericValue
+      }));
+    } else if (name === 'passingScore') {
+      const parsedValue = parseInt(value);
+      setQuizInfo(prev => ({
+        ...prev,
+        passingScore: !isNaN(parsedValue) ? parsedValue : 70
+      }));
+    } else {
+      setQuizInfo(prev => ({
+        ...prev,
+        [name]: value,
+      }));
+    }
   };
 
   // Handler for current question changes
@@ -368,16 +399,16 @@ export default function EditQuizPage() {
 
   // Handle short answer input
   const handleShortAnswerChange = (value: string) => {
-    // For short answer, we store an array of acceptable answers
-    // Split by new lines and filter out empty lines
-    const answers = value.split('\n').filter(a => a.trim());
+    // For short answer, we only store a single answer
+    // Remove any newlines and use only the first non-empty answer
+    const answer = value.split('\n').find(a => a.trim()) || '';
     
-    console.log(`Đáp án ngắn được cập nhật:`, answers);
+    console.log(`Đáp án ngắn được cập nhật:`, answer);
     
-    // Set new array of answers
+    // Set single answer in array format
     setCurrentQuestion({
       ...currentQuestion,
-      correctAnswer: [...answers] 
+      correctAnswer: answer.trim() ? [answer.trim()] : []
     });
   };
 
@@ -449,6 +480,77 @@ export default function EditQuizPage() {
       material: null
     });
     toast.success('Đã xóa hình ảnh');
+  };
+
+  // Handler for PDF material upload
+  const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    
+    const file = files[0];
+    
+    // Check file size (10MB max)
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('Kích thước tệp PDF quá lớn. Tối đa 10MB');
+      return;
+    }
+    
+    // Check file type (PDF only)
+    if (file.type !== 'application/pdf') {
+      toast.error('Chỉ chấp nhận tệp PDF');
+      return;
+    }
+    
+    setUploadingPdf(true);
+    
+    try {
+      // Use the PDF upload API
+      const formData = new FormData();
+      formData.append('files', file);
+      
+      console.log('Uploading PDF...');
+      
+      const response = await fetch(`${API_BASE_URL}/upload/pdf`, {
+        method: 'POST',
+        credentials: 'include',
+        body: formData
+      });
+      
+      if (!response.ok) {
+        throw new Error('Không thể tải lên tệp PDF');
+      }
+      
+      // API returns URL directly as text
+      const pdfUrl = await response.text();
+      console.log('PDF URL:', pdfUrl);
+      const urlArray = JSON.parse(pdfUrl);
+      const url = urlArray[0];
+      setQuizInfo({
+        ...quizInfo,
+        material: url
+      });
+      
+      toast.success('Tải lên tệp PDF thành công');
+      
+      // Reset file input
+      if (pdfFileInputRef.current) {
+        pdfFileInputRef.current.value = '';
+      }
+    } catch (err) {
+      console.error('Error uploading PDF:', err);
+      toast.error('Không thể tải lên tệp PDF. Vui lòng thử lại sau.');
+    } finally {
+      setUploadingPdf(false);
+    }
+  };
+
+  // Remove PDF material
+  const removePdf = () => {
+    setQuizInfo({
+      ...quizInfo,
+      material: null
+    });
+    toast.success('Đã xóa tệp PDF');
   };
 
   const loadQuestion = (question: QuizQuestion) => {
@@ -598,9 +700,16 @@ export default function EditQuizPage() {
     setSuccess(null);
 
     try {
+      console.log('TimeLimit at form submission start:', quizInfo.timeLimit, 'type:', typeof quizInfo.timeLimit);
+      
       // Validate form data
       if (!quizInfo.title.trim()) {
         throw new Error('Vui lòng nhập tiêu đề bài kiểm tra');
+      }
+
+      // Validate timeLimit
+      if (!quizInfo.timeLimit || quizInfo.timeLimit < 1) {
+        throw new Error('Thời gian làm bài phải lớn hơn hoặc bằng 1 phút');
       }
 
       // Kiểm tra nếu đang có câu hỏi đang soạn chưa thêm vào danh sách
@@ -649,13 +758,16 @@ export default function EditQuizPage() {
 
       // Prepare request data for API
       const requestData = {
+        
         title: quizInfo.title,
         description: quizInfo.description || '',
         order: quizInfo.order,
         passingScore: quizInfo.passingScore,
-        timeLimit: quizInfo.timeLimit,
+        // Đảm bảo timeLimit là số nguyên dương chính xác
+        timeLimit: Math.max(1, Math.floor(Number(quizInfo.timeLimit))),
         status: quizInfo.status,
         type: quizInfo.type,
+        material: quizInfo.material,
         questions: finalQuestions.map((q, index) => {
           console.log(`Đang map câu hỏi ${index + 1}, correctAnswer:`, q.correctAnswer);
           
@@ -677,6 +789,7 @@ export default function EditQuizPage() {
         })
       };
 
+      console.log('TimeLimit in requestData before API call:', requestData.timeLimit, 'type:', typeof requestData.timeLimit);
       console.log("Dữ liệu gửi đi:", JSON.stringify(requestData, null, 2));
       
       // Use the update-quiz API from screenshot
@@ -908,13 +1021,20 @@ export default function EditQuizPage() {
                   Thời gian làm bài (phút)
                 </label>
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   id="timeLimit"
                   name="timeLimit"
                   value={quizInfo.timeLimit}
                   onChange={handleQuizInfoChange}
-                  min="1"
+                  onKeyPress={(e) => {
+                    if (!/[0-9]/.test(e.key)) {
+                      e.preventDefault();
+                    }
+                  }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                  placeholder="Nhập thời gian làm bài (phút)"
                 />
               </div>
               
@@ -990,6 +1110,71 @@ export default function EditQuizPage() {
                     : "Học viên sẽ không thấy hoặc không thể làm bài kiểm tra này khi đang học khóa học."}
                 </p>
               </div>
+            </div>
+
+            <div className="mb-4">
+              <label htmlFor="material" className="block text-sm font-medium text-gray-700 mb-1">
+                Tài liệu bài kiểm tra (PDF)
+                {quizInfo.type === QuizType.QUIZ_FILL && <span className="text-red-500 ml-1">*</span>}
+              </label>
+              
+              {quizInfo.material ? (
+                <div className="mt-2 relative border border-gray-300 rounded-md p-4">
+                  <div className="flex items-center">
+                    <svg className="w-8 h-8 text-red-600 mr-2" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12.819 14.427c.064.267.077.679-.021.948-.128.351-.381.528-.754.528h-.637v-2.12h.496c.474 0 .803.173.916.644zm3.091-8.65c2.047-.479 4.805.279 6.09 1.179-1.494-1.997-5.23-5.708-7.432-6.882 1.157 1.168 1.563 4.235 1.342 5.703zm-7.457 7.955h-.546v.943h.546c.235 0 .467-.027.576-.227.067-.123.067-.366 0-.489-.121-.218-.326-.227-.576-.227zm13.547-2.732v13h-20v-24h8.409c4.858 0 3.334 8 3.334 8 3.011-.745 8.257-.42 8.257 3zm-12.108 2.761c-.16-.484-.606-.761-1.224-.761h-1.668v3.686h.907v-1.277h.761c.619 0 1.064-.277 1.224-.763.094-.292.094-.597 0-.885zm3.407-.303c-.297-.299-.711-.458-1.199-.458h-1.599v3.686h1.599c.537 0 .961-.181 1.262-.535.554-.659.586-2.035-.063-2.693zm3.701-.458h-2.628v3.686h.907v-1.472h1.49v-.732h-1.49v-.698h1.721v-.784z" />
+                    </svg>
+                    <div>
+                      <a href={quizInfo.material} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                        Xem tài liệu PDF
+                      </a>
+                      <p className="text-sm text-gray-500">Đã tải lên thành công</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={removePdf}
+                    className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full hover:bg-red-600 transition"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : (
+                <div className="mt-1 flex items-center">
+                  <input
+                    type="file"
+                    id="pdfMaterial"
+                    ref={pdfFileInputRef}
+                    accept="application/pdf"
+                    className="sr-only"
+                    onChange={handlePdfUpload}
+                  />
+                  <label
+                    htmlFor="pdfMaterial"
+                    className="cursor-pointer bg-white py-2 px-3 border border-gray-300 rounded-md shadow-sm text-sm leading-4 font-medium text-gray-700 hover:bg-gray-50 focus:outline-none"
+                  >
+                    {uploadingPdf ? (
+                      <span className="flex items-center">
+                        <Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-700" />
+                        Đang tải lên...
+                      </span>
+                    ) : (
+                      <span className="flex items-center">
+                        <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M12.819 14.427c.064.267.077.679-.021.948-.128.351-.381.528-.754.528h-.637v-2.12h.496c.474 0 .803.173.916.644zm3.091-8.65c2.047-.479 4.805.279 6.09 1.179-1.494-1.997-5.23-5.708-7.432-6.882 1.157 1.168 1.563 4.235 1.342 5.703zm-7.457 7.955h-.546v.943h.546c.235 0 .467-.027.576-.227.067-.123.067-.366 0-.489-.121-.218-.326-.227-.576-.227zm13.547-2.732v13h-20v-24h8.409c4.858 0 3.334 8 3.334 8 3.011-.745 8.257-.42 8.257 3zm-12.108 2.761c-.16-.484-.606-.761-1.224-.761h-1.668v3.686h.907v-1.277h.761c.619 0 1.064-.277 1.224-.763.094-.292.094-.597 0-.885zm3.407-.303c-.297-.299-.711-.458-1.199-.458h-1.599v3.686h1.599c.537 0 .961-.181 1.262-.535.554-.659.586-2.035-.063-2.693zm3.701-.458h-2.628v3.686h.907v-1.472h1.49v-.732h-1.49v-.698h1.721v-.784z" />
+                        </svg>
+                        Tải lên PDF
+                      </span>
+                    )}
+                  </label>
+                  <p className="ml-2 text-xs text-gray-500">PDF tối đa 10MB</p>
+                </div>
+              )}
+              {quizInfo.type === QuizType.QUIZ_FILL && !quizInfo.material && (
+                <p className="text-xs text-red-500 mt-1">
+                  Bài kiểm tra dạng phiếu trả lời cần có tài liệu PDF kèm theo
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -1104,14 +1289,14 @@ export default function EditQuizPage() {
               {currentQuestion.equestion === EQuestion.SHORT_ANSWER ? (
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Các đáp án đúng (mỗi đáp án trên một dòng)
+                    Đáp án đúng (nhập 1 đáp án duy nhất)
                   </label>
                   <textarea
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-                    rows={4}
-                    value={currentQuestion.correctAnswer.join('\n')}
+                    rows={2}
+                    value={currentQuestion.correctAnswer[0] || ''}
                     onChange={(e) => handleShortAnswerChange(e.target.value)}
-                    placeholder="Nhập các đáp án được chấp nhận, mỗi đáp án trên một dòng"
+                    placeholder="Nhập đáp án được chấp nhận"
                   />
                 </div>
               ) : (

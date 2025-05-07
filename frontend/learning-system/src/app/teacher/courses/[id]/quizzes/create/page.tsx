@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, PlusCircle, MinusCircle, Save, HelpCircle } from "lucide-react";
+import { ArrowLeft, PlusCircle, MinusCircle, Save, HelpCircle, X, Loader2 } from "lucide-react";
 import { Course, EQuestion, QuizStatus } from "@/app/types";
 import { toast } from "react-hot-toast";
 import dotenv from 'dotenv';
@@ -31,6 +31,9 @@ export default function CreateQuizPage() {
   const router = useRouter();
   const courseId = params.id as string;
 
+  // const fileInputRef = useRef<HTMLInputElement>(null);
+  const pdfFileInputRef = useRef<HTMLInputElement>(null);
+  
   const [course, setCourse] = useState<Course | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -38,6 +41,7 @@ export default function CreateQuizPage() {
   const [submitting, setSubmitting] = useState(false);
   const [questionErrors, setQuestionErrors] = useState<Record<number, string>>({});
   const [uploadingImage, setUploadingImage] = useState<Record<number, boolean>>({});
+  const [uploadingPdf, setUploadingPdf] = useState(false);
   
   // Replace individual state variables with an object for all quiz info
   const [quizInfo, setQuizInfo] = useState({
@@ -513,6 +517,77 @@ export default function CreateQuizPage() {
     toast.success('Đã xóa hình ảnh');
   };
 
+  // Handler for PDF material upload
+  const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    
+    const file = files[0];
+    
+    // Check file size (10MB max)
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('Kích thước tệp PDF quá lớn. Tối đa 10MB');
+      return;
+    }
+    
+    // Check file type (PDF only)
+    if (file.type !== 'application/pdf') {
+      toast.error('Chỉ chấp nhận tệp PDF');
+      return;
+    }
+    
+    setUploadingPdf(true);
+    
+    try {
+      // Use the PDF upload API
+      const formData = new FormData();
+      formData.append('files', file);
+      
+      console.log('Uploading PDF...');
+      
+      const response = await fetch(`${API_BASE_URL}/upload/pdf`, {
+        method: 'POST',
+        credentials: 'include',
+        body: formData
+      });
+      
+      if (!response.ok) {
+        throw new Error('Không thể tải lên tệp PDF');
+      }
+      
+      // API returns URL directly as text
+      const pdfUrl = await response.text();
+      console.log('PDF URL:', pdfUrl);
+      const urlArray = JSON.parse(pdfUrl);
+      const url = urlArray[0];
+      setQuizInfo({
+        ...quizInfo,
+        material: url
+      });
+      
+      toast.success('Tải lên tệp PDF thành công');
+      
+      // Reset file input
+      if (pdfFileInputRef.current) {
+        pdfFileInputRef.current.value = '';
+      }
+    } catch (err) {
+      console.error('Error uploading PDF:', err);
+      toast.error('Không thể tải lên tệp PDF. Vui lòng thử lại sau.');
+    } finally {
+      setUploadingPdf(false);
+    }
+  };
+
+  // Remove PDF material
+  const removePdf = () => {
+    setQuizInfo({
+      ...quizInfo,
+      material: null
+    });
+    toast.success('Đã xóa tệp PDF');
+  };
+
   if (loading) {
     return (
       <div className="p-6 max-w-4xl mx-auto">
@@ -640,44 +715,67 @@ export default function CreateQuizPage() {
 
           <div className="mb-4">
             <label htmlFor="material" className="block text-sm font-medium text-gray-700 mb-1">
-              Tài liệu bài kiểm tra (PDF, tùy chọn)
+              Tài liệu bài kiểm tra (PDF)
+              {quizInfo.type === QuizType.QUIZ_FILL && <span className="text-red-500 ml-1">*</span>}
             </label>
-            <div className="mt-1 flex items-center">
-              {quizInfo.material ? (
+            
+            {quizInfo.material ? (
+              <div className="mt-2 relative border border-gray-300 rounded-md p-4">
                 <div className="flex items-center">
-                  <a 
-                    href={quizInfo.material as string} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-blue-600 hover:text-blue-800 underline mr-2"
-                  >
-                    Xem tài liệu
-                  </a>
-                  <button
-                    type="button"
-                    onClick={() => setQuizInfo({...quizInfo, material: null})}
-                    className="text-red-500 hover:text-red-700"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
+                  <svg className="w-8 h-8 text-red-600 mr-2" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12.819 14.427c.064.267.077.679-.021.948-.128.351-.381.528-.754.528h-.637v-2.12h.496c.474 0 .803.173.916.644zm3.091-8.65c2.047-.479 4.805.279 6.09 1.179-1.494-1.997-5.23-5.708-7.432-6.882 1.157 1.168 1.563 4.235 1.342 5.703zm-7.457 7.955h-.546v.943h.546c.235 0 .467-.027.576-.227.067-.123.067-.366 0-.489-.121-.218-.326-.227-.576-.227zm13.547-2.732v13h-20v-24h8.409c4.858 0 3.334 8 3.334 8 3.011-.745 8.257-.42 8.257 3zm-12.108 2.761c-.16-.484-.606-.761-1.224-.761h-1.668v3.686h.907v-1.277h.761c.619 0 1.064-.277 1.224-.763.094-.292.094-.597 0-.885zm3.407-.303c-.297-.299-.711-.458-1.199-.458h-1.599v3.686h1.599c.537 0 .961-.181 1.262-.535.554-.659.586-2.035-.063-2.693zm3.701-.458h-2.628v3.686h.907v-1.472h1.49v-.732h-1.49v-.698h1.721v-.784z" />
+                  </svg>
+                  <div>
+                    <a href={quizInfo.material} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                      Xem tài liệu PDF
+                    </a>
+                    <p className="text-sm text-gray-500">Đã tải lên thành công</p>
+                  </div>
                 </div>
-              ) : (
-                <div className="flex items-center">
-                  <input
-                    type="text"
-                    id="material"
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-teal-500 focus:border-teal-500"
-                    placeholder="Nhập URL tài liệu PDF (https://example.com/quiz.pdf)"
-                    onChange={(e) => setQuizInfo({...quizInfo, material: e.target.value})}
-                  />
-                </div>
-              )}
-            </div>
-            <p className="mt-1 text-xs text-gray-500">
-              Nhập URL của tài liệu PDF nếu bạn muốn sử dụng cho bài kiểm tra dạng phiếu trả lời.
-            </p>
+                <button
+                  type="button"
+                  onClick={removePdf}
+                  className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full hover:bg-red-600 transition"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            ) : (
+              <div className="mt-1 flex items-center">
+                <input
+                  type="file"
+                  id="pdfMaterial"
+                  ref={pdfFileInputRef}
+                  accept="application/pdf"
+                  className="sr-only"
+                  onChange={handlePdfUpload}
+                />
+                <label
+                  htmlFor="pdfMaterial"
+                  className="cursor-pointer bg-white py-2 px-3 border border-gray-300 rounded-md shadow-sm text-sm leading-4 font-medium text-gray-700 hover:bg-gray-50 focus:outline-none"
+                >
+                  {uploadingPdf ? (
+                    <span className="flex items-center">
+                      <Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-700" />
+                      Đang tải lên...
+                    </span>
+                  ) : (
+                    <span className="flex items-center">
+                      <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12.819 14.427c.064.267.077.679-.021.948-.128.351-.381.528-.754.528h-.637v-2.12h.496c.474 0 .803.173.916.644zm3.091-8.65c2.047-.479 4.805.279 6.09 1.179-1.494-1.997-5.23-5.708-7.432-6.882 1.157 1.168 1.563 4.235 1.342 5.703zm-7.457 7.955h-.546v.943h.546c.235 0 .467-.027.576-.227.067-.123.067-.366 0-.489-.121-.218-.326-.227-.576-.227zm13.547-2.732v13h-20v-24h8.409c4.858 0 3.334 8 3.334 8 3.011-.745 8.257-.42 8.257 3zm-12.108 2.761c-.16-.484-.606-.761-1.224-.761h-1.668v3.686h.907v-1.277h.761c.619 0 1.064-.277 1.224-.763.094-.292.094-.597 0-.885zm3.407-.303c-.297-.299-.711-.458-1.199-.458h-1.599v3.686h1.599c.537 0 .961-.181 1.262-.535.554-.659.586-2.035-.063-2.693zm3.701-.458h-2.628v3.686h.907v-1.472h1.49v-.732h-1.49v-.698h1.721v-.784z" />
+                      </svg>
+                      Tải lên PDF
+                    </span>
+                  )}
+                </label>
+                <p className="ml-2 text-xs text-gray-500">PDF tối đa 10MB</p>
+              </div>
+            )}
+            {quizInfo.type === QuizType.QUIZ_FILL && !quizInfo.material && (
+              <p className="text-xs text-red-500 mt-1">
+                Bài kiểm tra dạng phiếu trả lời cần có tài liệu PDF kèm theo
+              </p>
+            )}
           </div>
 
           <div className="mb-4">
@@ -990,17 +1088,17 @@ export default function CreateQuizPage() {
                   ) : (
                     <div className="mb-4">
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Đáp án đúng (nhập các đáp án có thể chấp nhận, mỗi đáp án trên một dòng)
+                        Đáp án đúng (nhập 1 đáp án duy nhất)
                       </label>
                       <textarea
                         placeholder="Nhập câu trả lời đúng"
-                        value={question.correctAnswer.join('\n')}
+                        value={question.correctAnswer[0] || ''}
                         onChange={(e) => {
-                          const answers = e.target.value.split('\n').filter(answer => answer.trim() !== '');
-                          handleQuestionChange(questionIndex, 'correctAnswer', answers.length ? answers : ['']);
+                          const answer = e.target.value.trim();
+                          handleQuestionChange(questionIndex, 'correctAnswer', answer ? [answer] : []);
                         }}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-teal-500 focus:border-teal-500"
-                        rows={3}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                        rows={2}
                       />
                     </div>
                   )}

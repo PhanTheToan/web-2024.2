@@ -239,12 +239,37 @@ export default function EditQuizPage() {
   // Handler for quiz info changes
   const handleQuizInfoChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setQuizInfo({
-      ...quizInfo,
-      [name]: name === 'passingScore' || name === 'timeLimit' || name === 'order'
-        ? parseInt(value) || 0 
-        : value,
-    });
+    
+    if (name === 'timeLimit') {
+      // Xử lý đặc biệt cho timeLimit
+      // Chỉ cho phép số nguyên dương
+      const rawValue = value.replace(/[^0-9]/g, '');
+      
+      // Nếu input rỗng, giữ nguyên giá trị cũ
+      if (rawValue === '') {
+        return;
+      }
+      
+      // Chuyển thành số và đảm bảo tối thiểu là 1
+      const numericValue = Math.max(1, Number(rawValue));
+      console.log('TimeLimit raw input:', value);
+      console.log('TimeLimit after processing:', numericValue);
+      
+      setQuizInfo(prev => ({
+        ...prev,
+        timeLimit: numericValue
+      }));
+    } else if (name === 'passingScore' || name === 'order') {
+      setQuizInfo(prev => ({
+        ...prev,
+        [name]: parseInt(value) || 0
+      }));
+    } else {
+      setQuizInfo(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }
   };
 
   // Handler for current question changes
@@ -373,16 +398,16 @@ export default function EditQuizPage() {
 
   // Handle short answer input
   const handleShortAnswerChange = (value: string) => {
-    // For short answer, we store an array of acceptable answers
-    // Split by new lines and filter out empty lines
-    const answers = value.split('\n').filter(a => a.trim());
+    // For short answer, we only store a single answer
+    // Remove any newlines and use only the first non-empty answer
+    const answer = value.split('\n').find(a => a.trim()) || '';
     
-    console.log(`Đáp án ngắn được cập nhật:`, answers);
+    console.log(`Đáp án ngắn được cập nhật:`, answer);
     
-    // Set new array of answers
+    // Set single answer in array format
     setCurrentQuestion({
       ...currentQuestion,
-      correctAnswer: [...answers] 
+      correctAnswer: answer.trim() ? [answer.trim()] : []
     });
   };
 
@@ -984,17 +1009,28 @@ export default function EditQuizPage() {
               
               <div>
                 <label htmlFor="timeLimit" className="block text-sm font-medium text-gray-700 mb-1">
-                  Thời gian làm bài (phút)
+                  Thời gian làm bài (phút) <span className="text-red-500">*</span>
                 </label>
                 <input
-                  type="number"
+                  type="text"
                   id="timeLimit"
                   name="timeLimit"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   value={quizInfo.timeLimit}
                   onChange={handleQuizInfoChange}
-                  min="1"
+                  onKeyPress={(e) => {
+                    // Chỉ cho phép nhập số
+                    if (!/[0-9]/.test(e.key)) {
+                      e.preventDefault();
+                    }
+                  }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                  placeholder="Nhập thời gian làm bài (phút)"
                 />
+                <p className="text-xs text-gray-500 mt-1">
+                  Thời gian tối đa cho phép để hoàn thành bài kiểm tra
+                </p>
               </div>
               
               <div>
@@ -1248,14 +1284,14 @@ export default function EditQuizPage() {
               {currentQuestion.equestion === EQuestion.SHORT_ANSWER ? (
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Các đáp án đúng (mỗi đáp án trên một dòng)
+                    Đáp án đúng (nhập 1 đáp án duy nhất)
                   </label>
                   <textarea
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-                    rows={4}
-                    value={currentQuestion.correctAnswer.join('\n')}
+                    rows={2}
+                    value={currentQuestion.correctAnswer[0] || ''}
                     onChange={(e) => handleShortAnswerChange(e.target.value)}
-                    placeholder="Nhập các đáp án được chấp nhận, mỗi đáp án trên một dòng"
+                    placeholder="Nhập đáp án được chấp nhận"
                   />
                 </div>
               ) : (
