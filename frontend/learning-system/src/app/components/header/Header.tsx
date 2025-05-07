@@ -126,7 +126,6 @@ export const Header = () => {
       return [
         { href: "/", label: "Trang chủ" },
         { href: "/courses", label: "Các khóa học" },
-        { href: "/dashboard", label: "Dashboard" },
         { href: "/blog", label: "Blog" },
         { href: "/contact", label: "Liên hệ" },
       ]
