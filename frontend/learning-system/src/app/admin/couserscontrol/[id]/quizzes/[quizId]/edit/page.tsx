@@ -758,6 +758,7 @@ export default function EditQuizPage() {
 
       // Prepare request data for API
       const requestData = {
+        
         title: quizInfo.title,
         description: quizInfo.description || '',
         order: quizInfo.order,
@@ -766,6 +767,7 @@ export default function EditQuizPage() {
         timeLimit: Math.max(1, Math.floor(Number(quizInfo.timeLimit))),
         status: quizInfo.status,
         type: quizInfo.type,
+        material: quizInfo.material,
         questions: finalQuestions.map((q, index) => {
           console.log(`Đang map câu hỏi ${index + 1}, correctAnswer:`, q.correctAnswer);
           
