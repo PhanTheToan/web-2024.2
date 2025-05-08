@@ -174,7 +174,9 @@ const CourseAnalytics = ({ students, course }: { students: User[], course: Cours
         </div>
         <div className="p-4 bg-gray-50 rounded-lg">
           <div className="text-sm text-gray-500">Doanh thu</div>
-          <div className="text-2xl font-bold mt-1">{(analytics.registrations * analytics.revenue).toLocaleString()} VNĐ</div>
+          {/* <div className="text-2xl font-bold mt-1">{(analytics.registrations * analytics.revenue).toLocaleString()} VNĐ</div> */}
+          <div className="text-2xl font-bold mt-1">Sắp ra mắt</div>
+          {/* Thành comment lại  */}
         </div>
       </div>
     </div>
@@ -1015,7 +1017,9 @@ export default function TeacherCourseDetailPage() {
                     <DollarSign className="w-5 h-5 mr-2 text-gray-400" />
                     Giá
                   </div>
-                  <div className="font-medium">{course.price.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ".")} VNĐ</div>
+                  {/* <div className="font-medium">{course.price.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ".")} VNĐ</div> */}
+                  {/* Thành comment lại  */}
+                  <div className="font-medium">Sắp ra mắt</div>
                 </div>
                 <div className="flex justify-between items-center pb-2 border-b">
                   <div className="flex items-center text-gray-600">

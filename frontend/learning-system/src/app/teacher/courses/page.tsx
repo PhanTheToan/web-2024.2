@@ -290,13 +290,14 @@ export default function TeacherCoursesPage() {
                     <Clock className="w-4 h-4 mr-2 flex-shrink-0 text-indigo-500" />
                     <span>{course.totalTimeLimit || 0} phút</span>
                   </div>
-                  <div className="flex items-center font-medium text-indigo-700">
+                  {/* <div className="flex items-center font-medium text-indigo-700">
                     {course.price === 0 ? (
                       <span className="text-green-600">Miễn phí</span>
                     ) : (
                       <span>{course.price.toLocaleString()} đ</span>
                     )}
-                  </div>
+                  </div> */}
+            {/* Thành comment lại  */}
                 </div>
               </div>
               

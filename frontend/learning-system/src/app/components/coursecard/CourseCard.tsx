@@ -106,7 +106,7 @@ const CourseCard: React.FC<CourseCardProps> = ({
               </div>
             </div>
             <div className="mt-auto pt-4 border-t border-gray-200 flex items-center justify-between">
-              <div className="flex items-center gap-2">
+              {/* <div className="flex items-center gap-2">
                 {course.price === 0 ? (
                   <span className="text-green-600 font-semibold">Miễn phí</span>
                 ) : (
@@ -114,7 +114,7 @@ const CourseCard: React.FC<CourseCardProps> = ({
                     {course.price} VNĐ
                   </span>
                 )}
-              </div>
+              </div> */}
               <button className="px-6 py-2 text-sm font-medium text-primary-600 hover:text-primary-700 border border-primary-600 rounded-full hover:bg-primary-50 transition-colors">
                 Chi tiết
               </button>
@@ -155,7 +155,7 @@ const CourseCard: React.FC<CourseCardProps> = ({
             </div>
           </div>
           <div className="mt-auto pt-3 border-t border-gray-200 flex items-center justify-between">
-            <div className="flex items-center gap-2">
+            {/* <div className="flex items-center gap-2">
               {course.price === 0 ? (
                 <span className="text-green-600 font-semibold">Miễn phí</span>
               ) : (
@@ -163,7 +163,7 @@ const CourseCard: React.FC<CourseCardProps> = ({
                   {course.price} VNĐ
                 </span>
               )}
-            </div>
+            </div> */}
             <button className="px-4 py-2 text-sm font-medium text-primary-600 hover:text-primary-700 border border-primary-600 rounded-full hover:bg-primary-50 transition-colors">
               Chi tiết
             </button>

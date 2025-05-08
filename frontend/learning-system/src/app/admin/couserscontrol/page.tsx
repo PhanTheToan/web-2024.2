@@ -437,8 +437,10 @@ export default function AdminCoursesPage() {
                     </div>
                   </td>
                   <td className="px-4 sm:px-6 py-4 sm:py-5 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{course.price.toFixed(0)} VNĐ</div>
-                    {course.price === 0 && <div className="text-xs text-green-600">Miễn phí</div>}
+                    {/* <div className="text-sm font-medium text-gray-900">{course.price.toFixed(0)} VNĐ</div> */}
+                    {/* {course.price === 0 && <div className="text-xs text-green-600">Miễn phí</div>} */}
+                    {/* Thành comment lại  */}
+                    <div className="text-sm font-medium text-gray-900">Sắp ra mắt</div>
                   </td>
                   <td className="px-4 sm:px-6 py-4 sm:py-5 whitespace-nowrap">
                     {course.courseStatus === 'ACTIVE' ? (

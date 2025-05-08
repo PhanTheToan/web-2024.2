@@ -112,7 +112,7 @@ export default function CourseItem({ course }: CourseItemProps) {
           </div>
           <div>
             <h3 className="font-semibold">Giá</h3>
-            <p className="text-gray-600 text-sm">{course.price || 0}VNĐ</p>
+            {/* <p className="text-gray-600 text-sm">{course.price || 0}VNĐ</p> */}
           </div>
           <div className="flex items-center justify-center md:justify-start space-x-2">
             <CheckCircle className="text-orange-500" />
