@@ -5,11 +5,37 @@ import Link from 'next/link';
 import { 
   ArrowLeft, Edit, Trash, Clock, Calendar, 
   AlertCircle, Loader2, CheckCircle, X, 
-  List, Award, HelpCircle, FileText
+  List, Award, HelpCircle, FileText,
+  BarChart, Download
 } from 'lucide-react';
 import { Course, EQuestion, QuizStatus } from '@/app/types';
 import { toast } from 'react-hot-toast';
 import dotenv from 'dotenv';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+  ArcElement,
+} from 'chart.js';
+import { Bar, Pie } from 'react-chartjs-2';
+import * as XLSX from 'xlsx';
+import type { ChartData, ChartOptions } from 'chart.js';
+
+// Register ChartJS components
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend
+);
+
 dotenv.config();
 // API Base URL
 const API_BASE_URL = process.env.BASE_URL || 'http://localhost:8082/api';
@@ -96,6 +122,454 @@ const formatApiDate = (apiDate: DateOrArray | undefined): string => {
     return 'Invalid date';
   }
 };
+
+interface StatisticResponseDto {
+  userId: string;
+  score: number;
+  fullName: string;
+  email: string;
+}
+
+interface QuizStatistics {
+  quizId: string;
+  courseId: string;
+  title: string;
+  statisticResponseDtos: StatisticResponseDto[];
+}
+
+function StatisticsSection({ quizId }: { quizId: string }) {
+  const params = useParams();
+  const courseId = params.id as string;
+  const [statistics, setStatistics] = useState<StatisticResponseDto[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [quizTitle, setQuizTitle] = useState<string>('');
+
+  useEffect(() => {
+    const fetchStatistics = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch(`${API_BASE_URL}/course/statistics/${courseId}`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!response.ok) {
+          console.log("Failed to fetch statistics");
+          throw new Error("Failed to fetch statistics");
+        }
+
+        const data = await response.json();
+        console.log("Statistics data:", data);
+        
+        // Extract statistics from the response
+        // Find the entry for current quiz and extract its statistics
+        const quizDataArray = data.body || [];
+        const quizData = quizDataArray.find((item: QuizStatistics) => item.quizId === quizId);
+        const statsData = quizData?.statisticResponseDtos || [];
+        setStatistics(statsData);
+        setQuizTitle(quizData?.title || 'Bài kiểm tra');
+      } catch (err) {
+        console.error('Error fetching statistics:', err);
+        setError('Không thể tải thống kê. Vui lòng thử lại sau.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStatistics();
+  }, [quizId, courseId]);
+
+  const handleExportExcel = () => {
+    if (!statistics || statistics.length === 0) {
+      toast.error('Không có dữ liệu để xuất');
+      return;
+    }
+
+    try {
+      // Create data for Excel
+      const data = statistics.map((stat, index) => ({
+        'STT': index + 1,
+        'Họ và tên': stat.fullName,
+        'Email': stat.email,
+        'Điểm số': stat.score,
+        'Kết quả': stat.score >= 80 ? 'Đạt' : 'Chưa đạt'
+      }));
+
+      // Create workbook and worksheet
+      const workbook = XLSX.utils.book_new();
+      const worksheet = XLSX.utils.json_to_sheet(data);
+
+      // Add worksheet to workbook
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Kết quả');
+
+      // Generate file name
+      const fileName = `Kết_quả_${quizTitle.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+
+      // Write and download
+      XLSX.writeFile(workbook, fileName);
+      toast.success('Đã xuất file thành công');
+    } catch (err) {
+      console.error('Error exporting Excel:', err);
+      toast.error('Không thể xuất file. Vui lòng thử lại sau.');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="p-3 flex justify-center items-center">
+        <Loader2 className="w-5 h-5 animate-spin text-primary-600 mr-2" />
+        <span className="text-gray-500 text-sm">Đang tải thống kê...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-3">
+        <div className="text-red-500 text-sm flex items-center">
+          <AlertCircle className="w-4 h-4 mr-1" />
+          {error}
+        </div>
+      </div>
+    );
+  }
+
+  if (!statistics || statistics.length === 0) {
+    return (
+      <div className="p-4 text-center">
+        <div className="bg-gray-50 rounded-lg p-6">
+          <HelpCircle className="mx-auto w-12 h-12 text-gray-400 mb-3" />
+          <p className="text-gray-600">Chưa có học viên nào hoàn thành bài kiểm tra này.</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Calculate average score
+  const totalScore = statistics.reduce((sum, stat) => sum + stat.score, 0);
+  const averageScore = totalScore / statistics.length;
+
+  // Count passing students (assuming a passing score of 80)
+  const passingScore = 80; // This should be adjusted based on the quiz passingScore
+  const passingStudents = statistics.filter(stat => stat.score >= passingScore).length;
+  const passingRate = (passingStudents / statistics.length) * 100;
+
+  // Create score distribution data for chart with more detailed ranges
+  const scoreRanges = ['0-9', '10-19', '20-29', '30-39', '40-49', '50-59', '60-69', '70-79', '80-89', '90-100'];
+  const scoreDistribution = Array(10).fill(0); // Initialize all counters to 0
+
+  // Count scores in each range
+  statistics.forEach(stat => {
+    if (stat.score < 10) scoreDistribution[0]++;
+    else if (stat.score < 20) scoreDistribution[1]++;
+    else if (stat.score < 30) scoreDistribution[2]++;
+    else if (stat.score < 40) scoreDistribution[3]++;
+    else if (stat.score < 50) scoreDistribution[4]++;
+    else if (stat.score < 60) scoreDistribution[5]++;
+    else if (stat.score < 70) scoreDistribution[6]++;
+    else if (stat.score < 80) scoreDistribution[7]++;
+    else if (stat.score < 90) scoreDistribution[8]++;
+    else scoreDistribution[9]++;
+  });
+
+  // Generate colors from red to green for the score ranges
+  const getBackgroundColors = () => {
+    return scoreRanges.map((_, index) => {
+      const redComponent = Math.max(0, 255 - (index * 25)); 
+      const greenComponent = Math.min(255, index * 25);
+      return `rgba(${redComponent}, ${greenComponent}, 100, 0.7)`;
+    });
+  };
+
+  const getBorderColors = () => {
+    return scoreRanges.map((_, index) => {
+      const redComponent = Math.max(0, 255 - (index * 25)); 
+      const greenComponent = Math.min(255, index * 25);
+      return `rgba(${redComponent}, ${greenComponent}, 100, 1)`;
+    });
+  };
+
+  // Chart data with prettier styling
+  const chartData: ChartData<'bar'> = {
+    labels: scoreRanges,
+    datasets: [
+      {
+        label: 'Số học viên',
+        data: scoreDistribution,
+        backgroundColor: getBackgroundColors(),
+        borderColor: getBorderColors(),
+        borderWidth: 1,
+        borderRadius: 6,
+        maxBarThickness: 35,
+      },
+    ],
+  };
+
+  // Chart options with improved styling
+  const chartOptions: ChartOptions<'bar'> = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'top',
+        labels: {
+          font: {
+            size: 12,
+            family: "'Helvetica Neue', 'Helvetica', 'Arial', sans-serif"
+          }
+        }
+      },
+      title: {
+        display: true,
+        text: 'Phân bố điểm số theo dải 10 điểm',
+        font: {
+          size: 16,
+          weight: 'bold',
+          family: "'Helvetica Neue', 'Helvetica', 'Arial', sans-serif"
+        },
+        padding: {top: 10, bottom: 20}
+      },
+      tooltip: {
+        callbacks: {
+          label: function(context) {
+            const label = context.dataset.label || '';
+            const value = context.raw as number;
+            const percentage = (value / statistics.length * 100).toFixed(1);
+            return `${label}: ${value} (${percentage}%)`;
+          }
+        },
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        titleFont: {
+          size: 13
+        },
+        bodyFont: {
+          size: 13
+        },
+        padding: 10,
+        cornerRadius: 6
+      }
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        ticks: {
+          precision: 0,
+          font: {
+            size: 12
+          }
+        },
+        grid: {
+          display: true,
+          color: 'rgba(0, 0, 0, 0.05)'
+        },
+        title: {
+          display: true,
+          text: 'Số học viên',
+          font: {
+            size: 14,
+            weight: 'bold'
+          }
+        }
+      },
+      x: {
+        grid: {
+          display: false
+        },
+        ticks: {
+          font: {
+            size: 12
+          }
+        },
+        title: {
+          display: true,
+          text: 'Phổ điểm',
+          font: {
+            size: 14,
+            weight: 'bold'
+          },
+          padding: {top: 10}
+        }
+      }
+    },
+    animation: {
+      duration: 1000
+    }
+  };
+  
+  // Create a second chart for score distribution by percentage (pie chart)
+  const pieChartData: ChartData<'pie'> = {
+    labels: ['< 50 (Chưa đạt)', '50-79 (Đạt)', '80-100 (Xuất sắc)'],
+    datasets: [
+      {
+        data: [
+          scoreDistribution.slice(0, 5).reduce((sum, val) => sum + val, 0),
+          scoreDistribution.slice(5, 8).reduce((sum, val) => sum + val, 0),
+          scoreDistribution.slice(8, 10).reduce((sum, val) => sum + val, 0)
+        ],
+        backgroundColor: [
+          'rgba(255, 99, 132, 0.8)',
+          'rgba(255, 205, 86, 0.8)',
+          'rgba(75, 192, 192, 0.8)'
+        ],
+        borderColor: [
+          'rgb(255, 99, 132)',
+          'rgb(255, 205, 86)',
+          'rgb(75, 192, 192)'
+        ],
+        borderWidth: 1,
+        hoverOffset: 8
+      },
+    ],
+  };
+
+  const pieChartOptions: ChartOptions<'pie'> = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'right',
+        labels: {
+          font: {
+            size: 12
+          },
+          padding: 15
+        }
+      },
+      title: {
+        display: true,
+        text: 'Tỷ lệ phân loại kết quả',
+        font: {
+          size: 16,
+          weight: 'bold'
+        },
+        padding: {top: 10, bottom: 20}
+      },
+      tooltip: {
+        callbacks: {
+          label: function(context) {
+            const label = context.label || '';
+            const value = context.raw as number;
+            const percentage = (value / statistics.length * 100).toFixed(1);
+            return `${label}: ${value} học viên (${percentage}%)`;
+          }
+        },
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        padding: 10,
+        cornerRadius: 6
+      }
+    },
+    animation: {
+      animateRotate: true,
+      animateScale: true,
+      duration: 1000
+    }
+  };
+
+  return (
+    <div>
+      {/* Header with export button */}
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-xl font-bold flex items-center">
+          <BarChart className="w-5 h-5 mr-2 text-primary-600" />
+          Thống kê kết quả bài kiểm tra
+        </h2>
+        <button
+          onClick={handleExportExcel}
+          className="bg-green-600 text-white px-4 py-2 rounded-md flex items-center hover:bg-green-700"
+        >
+          <Download className="w-4 h-4 mr-2" />
+          Xuất Excel
+        </button>
+      </div>
+
+      {/* Summary stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
+        <div className="bg-white rounded-lg shadow p-4">
+          <p className="text-sm text-gray-500 mb-1">Điểm trung bình</p>
+          <p className="text-2xl font-bold text-blue-600">{averageScore.toFixed(1)}</p>
+        </div>
+        <div className="bg-white rounded-lg shadow p-4">
+          <p className="text-sm text-gray-500 mb-1">Tỷ lệ đạt</p>
+          <p className="text-2xl font-bold text-green-600">{passingRate.toFixed(0)}%</p>
+        </div>
+        <div className="bg-white rounded-lg shadow p-4">
+          <p className="text-sm text-gray-500 mb-1">Số học viên tham gia</p>
+          <p className="text-2xl font-bold text-purple-600">{statistics.length}</p>
+        </div>
+        <div className="bg-white rounded-lg shadow p-4">
+          <p className="text-sm text-gray-500 mb-1">Số học viên đạt</p>
+          <p className="text-2xl font-bold text-amber-600">{passingStudents}/{statistics.length}</p>
+        </div>
+      </div>
+
+      {/* Charts and Results */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        {/* Score Distribution Chart */}
+        <div className="lg:col-span-2 bg-white rounded-lg shadow p-6">
+          <h3 className="text-lg font-medium mb-4">Phân bố điểm số chi tiết</h3>
+          <div className="h-96">
+            <Bar data={chartData} options={chartOptions} />
+          </div>
+        </div>
+        
+        {/* Pie Chart for Score Categories */}
+        <div className="lg:col-span-1 bg-white rounded-lg shadow p-6">
+          <h3 className="text-lg font-medium mb-4">Phân loại kết quả</h3>
+          <div className="h-96">
+            <Pie data={pieChartData} options={pieChartOptions} />
+          </div>
+        </div>
+      </div>
+
+      {/* Student scores */}
+      <div className="bg-white rounded-lg shadow mb-8">
+        <div className="p-4 border-b flex justify-between items-center">
+          <h3 className="text-lg font-medium">Kết quả từng học viên</h3>
+          <span className="text-sm text-gray-500">Tổng: {statistics.length} học viên</span>
+        </div>
+        <div className="p-4">
+          <div className="max-h-96 overflow-y-auto pr-2">
+            <table className="w-full text-sm">
+              <thead className="text-xs text-gray-700 bg-gray-50 sticky top-0">
+                <tr>
+                  <th className="px-3 py-2 text-left">STT</th>
+                  <th className="px-3 py-2 text-left">Học viên</th>
+                  <th className="px-3 py-2 text-right">Điểm</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {statistics.map((stat, index) => (
+                  <tr key={stat.userId} className="hover:bg-gray-50">
+                    <td className="px-3 py-2">{index + 1}</td>
+                    <td className="px-3 py-2">
+                      <div>
+                        <p className="font-medium text-gray-800">{stat.fullName}</p>
+                        <p className="text-gray-500 text-xs">{stat.email}</p>
+                      </div>
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      <span className={`font-bold px-2 py-1 rounded-full ${
+                        stat.score >= passingScore 
+                          ? 'bg-green-100 text-green-800' 
+                          : 'bg-red-100 text-red-800'
+                      }`}>
+                        {stat.score}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function QuizDetailPage() {
   const params = useParams();
@@ -735,22 +1209,6 @@ export default function QuizDetailPage() {
               </p> */}
             </div>
           </div>
-          
-          {/* Quiz statistics (placeholder for future development) */}
-          <div className="bg-white rounded-lg shadow">
-            <div className="p-3 border-b">
-              <h3 className="text-base font-bold">Thống kê bài kiểm tra</h3>
-            </div>
-            <div className="p-3">
-              <p className="text-gray-500 mb-2 text-sm">Tính năng thống kê sẽ được phát triển trong tương lai, bao gồm:</p>
-              <ul className="list-disc pl-5 text-gray-500 space-y-1 text-sm">
-                <li>Số lượng học viên đã tham gia</li>
-                <li>Tỷ lệ học viên vượt qua bài kiểm tra</li>
-                <li>Câu hỏi khó nhất/dễ nhất</li>
-                <li>Điểm trung bình</li>
-              </ul>
-            </div>
-          </div>
         </div>
       </div>
       
@@ -792,6 +1250,14 @@ export default function QuizDetailPage() {
           </div>
         </div>
       )}
+      
+      {/* Statistics Section */}
+      <div className="mt-10">
+        <div className="border-t pt-8 mb-4">
+          <h2 className="text-2xl font-bold mb-6">Thống kê kết quả</h2>
+          <StatisticsSection quizId={quizId} />
+        </div>
+      </div>
     </div>
   );
-} 
+}

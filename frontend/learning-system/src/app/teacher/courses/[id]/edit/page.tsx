@@ -525,7 +525,7 @@ export default function EditCoursePage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <div>
               <label className="block text-gray-700 font-medium mb-2" htmlFor="price">
-                Giá khóa học (USD) <span className="text-red-500">*</span>
+                Giá khóa học (VNĐ) <span className="text-red-500">*</span>
               </label>
               <input
                 type="number"
