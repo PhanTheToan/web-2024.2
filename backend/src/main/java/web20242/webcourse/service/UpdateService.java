@@ -4,15 +4,12 @@ import org.bson.types.ObjectId;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import web20242.webcourse.model.Enrollment;
-import web20242.webcourse.model.Quizzes;
-import web20242.webcourse.model.User;
+import org.springframework.transaction.annotation.Transactional;
+import web20242.webcourse.model.*;
 import web20242.webcourse.model.constant.EQuestion;
+import web20242.webcourse.model.constant.EStatus;
 import web20242.webcourse.model.createRequest.Question;
-import web20242.webcourse.repository.EnrollmentRepository;
-import web20242.webcourse.repository.PopularCategoryRepository;
-import web20242.webcourse.repository.QuizzesRepository;
-import web20242.webcourse.repository.UserRepository;
+import web20242.webcourse.repository.*;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -25,6 +22,18 @@ public class UpdateService {
     private final QuizzesRepository quizRepository;
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private CourseRepository courseRepository;
+
+    @Autowired
+    private LessonRepository lessonRepository;
+
+    @Autowired
+    private QuizzesRepository quizzesRepository;
+
+    @Autowired
+    private ReviewRepository reviewRepository;
 
     @Autowired
     private EnrollmentRepository enrollmentRepository;
@@ -91,5 +100,91 @@ public class UpdateService {
             userRepository.save(user);
         });
         return ResponseEntity.ok("Done !");
+    }
+
+    @Transactional
+    public void update_time() {
+        List<Course> courses = courseRepository.findAll();
+
+        for (Course course : courses) {
+            int timelimit = 0;
+
+            // Handle lessons
+            List<ObjectId> lessonIds = course.getLessons() != null ? new ArrayList<>(course.getLessons()) : new ArrayList<>();
+            if (!lessonIds.isEmpty()) {
+                List<Lesson> lessons = lessonRepository.findAllById(lessonIds);
+                List<ObjectId> validLessonIds = new ArrayList<>();
+
+                for (Lesson lesson : lessons) {
+                    validLessonIds.add(lesson.getId());
+                    if (lesson.getTimeLimit() != null && lesson.getTimeLimit() >= 0) {
+                        timelimit += lesson.getTimeLimit();
+                    }
+                }
+                // Update lesson IDs to remove invalid ones
+                course.setLessons((ArrayList<ObjectId>) validLessonIds);
+            }
+
+            // Handle quizzes
+            List<ObjectId> quizIds = course.getQuizzes() != null ? new ArrayList<>(course.getQuizzes()) : new ArrayList<>();
+            if (!quizIds.isEmpty()) {
+                List<Quizzes> quizzes = quizzesRepository.findAllById(quizIds);
+                List<ObjectId> validQuizIds = new ArrayList<>();
+
+                for (Quizzes quiz : quizzes) {
+                    validQuizIds.add(quiz.getId());
+                    if (quiz.getTimeLimit() != null && quiz.getTimeLimit() >= 0) {
+                        timelimit += quiz.getTimeLimit();
+                    }
+                }
+                // Update quiz IDs to remove invalid ones
+                course.setQuizzes((ArrayList<ObjectId>) validQuizIds);
+            }
+
+            // Update course
+            course.setTotalTimeLimit(timelimit);
+            course.setUpdatedAt(LocalDateTime.now());
+            courseRepository.save(course);
+        }
+    }
+    public void updateEnrollment(){
+        List<Enrollment> enrollments = enrollmentRepository.findAll();
+        for (Enrollment enrollment : enrollments) {
+            Course course = courseRepository.findById(enrollment.getCourseId()).orElse(null);
+            if(course == null) {
+                enrollmentRepository.delete(enrollment);
+                continue;
+            }
+            ArrayList<ObjectId> lessonAndQuiz = enrollment.getLessonAndQuizId();
+            Integer timelimit = course.getTotalTimeLimit();
+            Integer timeCurrent = 0;
+            if(lessonAndQuiz != null) {
+                for (ObjectId id : lessonAndQuiz) {
+                    Lesson lesson = lessonRepository.findById(id).orElse(null);
+                    if (lesson != null) {
+                        timeCurrent += lesson.getTimeLimit();
+                    } else {
+                        Quizzes quizzes = quizzesRepository.findById(id).orElse(null);
+                        if (quizzes != null) {
+                            timeCurrent += quizzes.getTimeLimit();
+                        } else {
+                            lessonAndQuiz.remove(id);
+                        }
+                    }
+                }
+            }
+            Double percent = (double) timeCurrent / timelimit * 100;
+            enrollment.setTimeCurrent(timeCurrent);
+            enrollment.setProgress(percent);
+            if (percent >=99.90) {
+                enrollment.setStatus(EStatus.DONE);
+                enrollment.setCompletedAt(LocalDateTime.now());
+            } else if (percent > 0.0) {
+                enrollment.setStatus(EStatus.INPROGRESS);
+            } else {
+                enrollment.setStatus(EStatus.NOTSTARTED);
+            }
+            enrollmentRepository.save(enrollment);
+        }
     }
 }

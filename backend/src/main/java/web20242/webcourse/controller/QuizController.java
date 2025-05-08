@@ -8,6 +8,8 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import web20242.webcourse.model.Course;
 import web20242.webcourse.model.Quizzes;
+import web20242.webcourse.model.constant.EQuestion;
+import web20242.webcourse.model.constant.EStatus;
 import web20242.webcourse.repository.CourseRepository;
 import web20242.webcourse.repository.QuizzesRepository;
 import web20242.webcourse.service.FileService;
@@ -15,6 +17,7 @@ import web20242.webcourse.service.QuizGenerationService;
 
 import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -39,7 +42,8 @@ public class QuizController {
     @PostMapping("/generate-from-pdf")
     public ResponseEntity<List<Quizzes>> generateQuizFromPdf(
             @RequestParam("files") List<MultipartFile> files,
-            @RequestParam("courseId") String courseId // Thêm courseId
+            @RequestParam("courseId") String courseId, // Thêm courseId
+            @RequestParam("type") EQuestion type
     ) throws IOException, NoSuchAlgorithmException {
         List<Quizzes> quizzes = new ArrayList<>();
         ObjectId courseObjectId = new ObjectId(courseId); // Chuyển String thành ObjectId
@@ -56,6 +60,9 @@ public class QuizController {
             quiz.setCourseId(courseObjectId); // Gán courseId cho quiz
 
             // Lưu quiz vào MongoDB
+            quiz.setCreatedAt(LocalDateTime.now());
+            quiz.setStatus(EStatus.INACTIVE);
+            quiz.setType(type);
             quizRepository.save(quiz);
 
             // Cập nhật course với quiz mới
@@ -65,6 +72,16 @@ public class QuizController {
         }
 
         return ResponseEntity.ok(quizzes);
+    }
+    @PreAuthorize("hasRole('ROLE_ADMIN') || hasRole('ROLE_TEACHER')")
+    @PutMapping("/fill-full")
+    public void updateType(){
+        List<Quizzes> quizzes = quizRepository.findAll();
+        quizzes.forEach(quizzes1 -> {
+            quizzes1.setType(EQuestion.QUIZ_FORM_FULL);
+            quizzes1.setMaterial("nothing");
+            quizRepository.save(quizzes1);
+        });
     }
     @PreAuthorize("hasRole('ROLE_ADMIN') || hasRole('ROLE_TEACHER')")
     @PostMapping("/generate-from-pdf-thpt")

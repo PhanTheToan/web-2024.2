@@ -31,6 +31,15 @@ public class BlogController {
         return ResponseEntity.ok(blogs);
     }
 
+    @GetMapping("/search/{title}")
+    public ResponseEntity<?> getTitle(@PathVariable String title){
+        List<Blog> blogs = blogRepository.findByTitleContainingIgnoreCase(title);
+        if (blogs.isEmpty()) {
+            return ResponseEntity.status(404).body("No blogs found with title: " + title);
+        }
+        return ResponseEntity.ok(blogs);
+    }
+
     @PreAuthorize("hasRole('ROLE_ADMIN')")
     @GetMapping("/all")
     public ResponseEntity<?> getAllBlogForAdmin(){

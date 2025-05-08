@@ -1,9 +1,11 @@
 package web20242.webcourse.model.createRequest;
 
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import web20242.webcourse.model.constant.EQuestion;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -16,6 +18,8 @@ public class QuizResponseDto {
     private String id;
     private String courseId;
     private String title;
+    private String material;
+    private EQuestion type;
     private String description;
     private Integer order;
     private Double passingScore;
@@ -30,6 +34,8 @@ public class QuizResponseDto {
     public static class QuestionResponseDto {
         private String question;
         private String material;
+        @JsonProperty("eQuestion")
+        private EQuestion eQuestion;
         private List<String> options;
         // Không có trường correctAnswer
     }

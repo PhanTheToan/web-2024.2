@@ -11,6 +11,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.parameters.P;
 import org.springframework.web.bind.annotation.*;
 import web20242.webcourse.model.*;
+import web20242.webcourse.model.constant.EQuestion;
 import web20242.webcourse.model.constant.ERole;
 import web20242.webcourse.model.createRequest.CourseCreateRequest;
 import web20242.webcourse.model.createRequest.QuizSubmissionRequestDto;
@@ -185,8 +186,9 @@ public class CourseController {
     }
     @PreAuthorize("hasRole('ROLE_TEACHER') || hasRole('ROLE_ADMIN')")
     @PostMapping("/create-quiz")
-    public ResponseEntity<?> createLesson(@RequestBody Quizzes quizzes, @RequestParam String courseId) {
+    public ResponseEntity<?> createLesson(@RequestBody Quizzes quizzes, @RequestParam String courseId, @RequestParam EQuestion type) {
         Optional<Course> courseOptional = courseRepository.findById(new ObjectId(courseId));
+        quizzes.setType(type);
         if (courseOptional.isEmpty()) {
             return ResponseEntity.status(404).body("Course not found");
         }
@@ -318,7 +320,7 @@ public class CourseController {
             }else {
                 Course course1 = courseRepository.findById(course.getId()).orElse(null);
                 assert course1 != null;
-                if(course1.getTeacherId() == user.getId()){
+                if(course1.getTeacherId().equals(user.getId())){
                     return ResponseEntity.ok(courseService.updateCourseInfo(course));
                 }else {
                     return ResponseEntity.status(401).body("Not Authenticated");
@@ -450,6 +452,11 @@ public class CourseController {
     public ResponseEntity<?> getInformationCourse(@PathVariable String id) {
         return ResponseEntity.ok(courseService.getInformationCourse(id));
     }
+    @PreAuthorize("hasRole('ROLE_ADMIN') || hasRole('ROLE_TEACHER')")
+    @GetMapping("/info-course/{id}")
+    public ResponseEntity<?> getInformationCourseForAdminTeacher(@PathVariable String id, Principal principal) {
+        return ResponseEntity.ok(courseService.getInformationCourseForAdminTeacher(id,principal));
+    }
     @GetMapping("/info/check/{id}")
     public ResponseEntity<?> checkInfo(@PathVariable String id,Principal principal){
         Optional<User> userOptional = userRepository.findByUsername(principal.getName());
@@ -495,6 +502,22 @@ public class CourseController {
 
         return courseService.gradeQuiz(id, submission, userOptional.get());
     }
+
+    @PreAuthorize("hasRole('ROLE_ADMIN') || hasRole('ROLE_TEACHER')")
+    @GetMapping("/statistics/{id}")
+    public ResponseEntity<?> getStatistics(@PathVariable String id, Principal principal) {
+        Course course = courseRepository.findById(new ObjectId(id)).orElse(null);
+        User user = userRepository.findByUsername(principal.getName()).orElse(null);
+        if(course == null || user == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Course or User not found");
+        }
+        if (course.getTeacherId().equals(user.getId()) || user.getRole() == ERole.ROLE_ADMIN) {
+            return ResponseEntity.ok(courseService.getStatistics(course));
+        } else {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("You are not the teacher of this course");
+        }
+    }
+
 
 
 

@@ -9,6 +9,7 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
 import org.springframework.data.mongodb.core.mapping.FieldType;
+import web20242.webcourse.model.constant.EQuestion;
 import web20242.webcourse.model.constant.EStatus;
 import web20242.webcourse.model.createRequest.Question;
 
@@ -26,6 +27,12 @@ public class Quizzes {
 
     @Field(name = "courseId")
     private ObjectId courseId; // ID của khóa học trong collection "courses"
+
+    @Field(name = "material")
+    private String material;
+
+    @Field(name= "type")
+    private EQuestion type; // QUIZ_FORM_FULL, QUIZ_FILL
 
     @Field(name = "title")
     private String title;

@@ -109,11 +109,15 @@ public class EnrollmentService {
                     existingEnrollment.setProgress(progress.doubleValue());
                     existingEnrollment.setTimeCurrent(timeCurrent);
 
-                    if ((int) progress.doubleValue() == 100) {
+                    if (progress.doubleValue() >=99.90) {
                         existingEnrollment.setStatus(EStatus.DONE);
                         existingEnrollment.setCompletedAt(LocalDateTime.now());
-                    } else if ((int) progress.doubleValue() > 0 && (int) progress.doubleValue() < 100) {
+                    } else if (progress.doubleValue() > 0.0) {
                         existingEnrollment.setStatus(EStatus.INPROGRESS);
+
+                    } else {
+                        existingEnrollment.setStatus(EStatus.NOTSTARTED);
+
                     }
 
                     lessonAndQuizId.add(objectItemId);
@@ -164,13 +168,13 @@ public class EnrollmentService {
                     }
                 }
 
-                if (!scoreUpdated && newScore != null) {
-                    Enrollment.QuizScore newQuizScore = Enrollment.QuizScore.builder()
-                            .quizId(quizId)
-                            .score(newScore)
-                            .build();
-                    quizScores.add(newQuizScore);
-                }
+//                if (!scoreUpdated && newScore != null) {
+//                    Enrollment.QuizScore newQuizScore = Enrollment.QuizScore.builder()
+//                            .quizId(quizId)
+//                            .score(newScore)
+//                            .build();
+//                    quizScores.add(newQuizScore);
+//                }
 
                 if (!lessonAndQuizId.contains(quizId)) {
                     Integer timeCurrent = existingEnrollment.getTimeCurrent() != null ? existingEnrollment.getTimeCurrent() : 0;
@@ -182,9 +186,15 @@ public class EnrollmentService {
                     existingEnrollment.setProgress(progress.doubleValue());
                     existingEnrollment.setTimeCurrent(timeCurrent);
 
-                    if ((int) progress.doubleValue() == 100) {
+                    if (progress.doubleValue() >=99.90) {
                         existingEnrollment.setStatus(EStatus.DONE);
                         existingEnrollment.setCompletedAt(LocalDateTime.now());
+                    } else if (progress.doubleValue() > 0.0) {
+                        existingEnrollment.setStatus(EStatus.INPROGRESS);
+
+                    } else {
+                        existingEnrollment.setStatus(EStatus.NOTSTARTED);
+
                     }
 
                     lessonAndQuizId.add(quizId);

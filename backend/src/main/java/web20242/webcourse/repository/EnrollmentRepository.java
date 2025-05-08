@@ -2,6 +2,7 @@ package web20242.webcourse.repository;
 
 import org.bson.types.ObjectId;
 import org.springframework.data.mongodb.repository.MongoRepository;
+import org.springframework.data.mongodb.repository.Query;
 import org.springframework.stereotype.Repository;
 import web20242.webcourse.model.Enrollment;
 
@@ -14,4 +15,7 @@ public interface EnrollmentRepository extends MongoRepository<Enrollment, Object
     List<Enrollment> findByCourseId(ObjectId courseId);
     List<Enrollment> findByStatus(String status);
     Optional<Enrollment> findByUserIdAndCourseId(ObjectId userId, ObjectId courseId);
+
+    @Query("{ 'quizScores.quizId' : ?0 }")
+    List<Enrollment> findByQuizScoreOfQuizId(ObjectId quizId);
 }

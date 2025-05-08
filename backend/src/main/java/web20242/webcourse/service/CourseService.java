@@ -9,7 +9,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import web20242.webcourse.model.*;
-import web20242.webcourse.model.constant.EQuestion;
 import web20242.webcourse.model.constant.ERole;
 import web20242.webcourse.model.constant.EStatus;
 import web20242.webcourse.model.createRequest.*;
@@ -20,6 +19,7 @@ import org.springframework.data.mongodb.core.MongoTemplate;
 import java.security.Principal;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 
@@ -864,16 +864,88 @@ public class CourseService {
             overview.put("contentCount",
                     (course.getLessons() != null ? course.getLessons().size() : 0) +
                             (course.getQuizzes() != null ? course.getQuizzes().size() : 0));
-            overview.put("averageRating", course.getAverageRating());
+            overview.put("averageRating", avgRating(course.getId()));
             String getTeacherName;
             Optional<User> userTeacher = userService.findById(String.valueOf(course.getTeacherId()));
             getTeacherName = userTeacher.map(value -> value.getFirstName() + " " + value.getLastName())
                     .orElse("Unknown Teacher");
             overview.put("teacherName", getTeacherName);
+            overview.put("teacherId", course.getTeacherId());
             overview.put("totalTimeLimit", course.getTotalTimeLimit());
             return ResponseEntity.ok(overview);
         } else {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Course not found");
+        }
+
+    }
+    public Double avgRating(ObjectId id){
+        AtomicReference<Double> avg= new AtomicReference<Double>(0.0);
+        List<Review> reviews = reviewRepository.findByCourseId(id);
+        if(reviews.isEmpty()){
+            return 0.0;
+        }
+        reviews.forEach(review -> {
+            avg.updateAndGet(v -> v + review.getRating());
+        });
+
+        return avg.get()/reviews.size();
+    }
+    public ResponseEntity<?> getInformationCourseForAdminTeacher(String id, Principal principal) {
+        Optional<Course> courseOptional = courseRepository.findById(new ObjectId(id));
+        User user = userRepository.findByUsername(principal.getName()).orElse(null);
+        if (courseOptional.isPresent() && Objects.requireNonNull(user).getRole() == ERole.ROLE_ADMIN) {
+            Course course = courseOptional.get();
+
+            Map<String, Object> overview = new HashMap<>();
+            overview.put("id", String.valueOf(course.getId()));
+            overview.put("title", course.getTitle());
+            overview.put("description", course.getDescription());
+            overview.put("thumbnail", course.getThumbnail());
+            overview.put("categories", course.getCategories());
+            overview.put("price", course.getPrice());
+            overview.put("studentsCount", course.getStudentsEnrolled() != null ?
+                    course.getStudentsEnrolled().size() : 0);
+            overview.put("contentCount",
+                    (course.getLessons() != null ? course.getLessons().size() : 0) +
+                            (course.getQuizzes() != null ? course.getQuizzes().size() : 0));
+            overview.put("averageRating", avgRating(course.getId()));
+            String getTeacherName;
+            Optional<User> userTeacher = userService.findById(String.valueOf(course.getTeacherId()));
+            getTeacherName = userTeacher.map(value -> value.getFirstName() + " " + value.getLastName())
+                    .orElse("Unknown Teacher");
+            overview.put("teacherName", getTeacherName);
+            overview.put("teacherId", course.getTeacherId());
+            overview.put("totalTimeLimit", course.getTotalTimeLimit());
+            return ResponseEntity.ok(overview);
+        } else if(courseOptional.isPresent()){
+
+            Course course = courseOptional.get();
+            if(!course.getTeacherId().equals(user.getId())){
+                return ResponseEntity.status(401).body("User not authenticated");
+            }
+            Map<String, Object> overview = new HashMap<>();
+            overview.put("id", String.valueOf(course.getId()));
+            overview.put("title", course.getTitle());
+            overview.put("description", course.getDescription());
+            overview.put("thumbnail", course.getThumbnail());
+            overview.put("categories", course.getCategories());
+            overview.put("price", course.getPrice());
+            overview.put("studentsCount", course.getStudentsEnrolled() != null ?
+                    course.getStudentsEnrolled().size() : 0);
+            overview.put("contentCount",
+                    (course.getLessons() != null ? course.getLessons().size() : 0) +
+                            (course.getQuizzes() != null ? course.getQuizzes().size() : 0));
+            overview.put("averageRating", avgRating(course.getId()));
+            String getTeacherName;
+            Optional<User> userTeacher = userService.findById(String.valueOf(course.getTeacherId()));
+            getTeacherName = userTeacher.map(value -> value.getFirstName() + " " + value.getLastName())
+                    .orElse("Unknown Teacher");
+            overview.put("teacherName", getTeacherName);
+            overview.put("teacherId", course.getTeacherId());
+            overview.put("totalTimeLimit", course.getTotalTimeLimit());
+            return ResponseEntity.ok(overview);
+        }else {
+            return ResponseEntity.status(401).body("Course not found!");
         }
 
     }
@@ -1100,12 +1172,16 @@ public class CourseService {
         int courseTimeLimit = course.getTotalTimeLimit() != null ? course.getTotalTimeLimit() : 0;
         courseTimeLimit = courseTimeLimit - oldTimeLimit + newTimeLimit;
         course.setTotalTimeLimit(courseTimeLimit);
-
+        existingQuiz.setTitle(updatedQuiz.getTitle());
         existingQuiz.setDescription(updatedQuiz.getDescription());
+        existingQuiz.setQuestions(updatedQuiz.getQuestions());
         existingQuiz.setOrder(updatedQuiz.getOrder());
         existingQuiz.setPassingScore(updatedQuiz.getPassingScore());
+        existingQuiz.setMaterial(updatedQuiz.getMaterial());
+        existingQuiz.setType(updatedQuiz.getType());
         existingQuiz.setStatus(updatedQuiz.getStatus());
         existingQuiz.setTimeLimit(updatedQuiz.getTimeLimit());
+        existingQuiz.setUpdateAt(LocalDateTime.now());
 
         if (updatedQuiz.getQuestions() != null) {
             existingQuiz.setQuestions(updatedQuiz.getQuestions());
@@ -1156,11 +1232,23 @@ public class CourseService {
         List<Enrollment> enrollmentOptional = enrollmentRepository.findByCourseId(course.getId());
         enrollmentOptional.forEach(enrollment -> {
             ArrayList<ObjectId> lessonAndQuizIds = enrollment.getLessonAndQuizId();
+            ArrayList<Enrollment.QuizScore> quizScores = enrollment.getQuizScores();
             if (lessonAndQuizIds != null && lessonAndQuizIds.contains(quiz.getId())) {
                 lessonAndQuizIds.remove(quiz.getId());
+                Integer timeCurrent = enrollment.getTimeCurrent();
+                Quizzes quizzes = quizzesRepository.findById(quiz.getId()).orElse(null);
+                if (quizzes != null && quizzes.getTimeLimit() != null) {
+                    timeCurrent -= quizzes.getTimeLimit();
+                }
+                enrollment.setTimeCurrent(Math.max(timeCurrent, 0)); // Đảm bảo không âm
+                enrollment.setProgress(((double) enrollment.getTimeCurrent() / course.getTotalTimeLimit() * 100));
                 enrollment.setLessonAndQuizId(lessonAndQuizIds);
-                enrollmentRepository.save(enrollment);
             }
+            if (quizScores != null) {
+                quizScores.removeIf(quizScore -> quizScore.getQuizId().equals(quiz.getId()));
+                enrollment.setQuizScores(quizScores);
+            }
+            enrollmentRepository.save(enrollment);
         });
         course.getQuizzes().remove(quiz.getId());
 
@@ -1183,6 +1271,13 @@ public class CourseService {
             ArrayList<ObjectId> lessonAndQuizIds = enrollment.getLessonAndQuizId();
             if (lessonAndQuizIds != null && lessonAndQuizIds.contains(lesson.getId())) {
                 lessonAndQuizIds.remove(lesson.getId());
+                Integer timeCurrent = enrollment.getTimeCurrent();
+                Lesson lesson1 = lessonRepository.findById(lesson.getId()).orElse(null);
+                if (lesson1 != null && lesson1.getTimeLimit() != null) {
+                    timeCurrent -= lesson1.getTimeLimit();
+                }
+                enrollment.setTimeCurrent(Math.max(timeCurrent, 0)); // Đảm bảo không âm
+                enrollment.setProgress(((double) enrollment.getTimeCurrent() / course.getTotalTimeLimit() * 100));
                 enrollment.setLessonAndQuizId(lessonAndQuizIds);
                 enrollmentRepository.save(enrollment);
             }
@@ -1223,6 +1318,8 @@ public class CourseService {
         quizDto.setDescription(quizzes.getDescription());
         quizDto.setOrder(quizzes.getOrder());
         quizDto.setPassingScore(quizzes.getPassingScore());
+        quizDto.setType(quizzes.getType());
+        quizDto.setMaterial(quizzes.getMaterial());
         quizDto.setTimeLimit(quizzes.getTimeLimit());
         quizDto.setCreatedAt(quizzes.getCreatedAt());
         quizDto.setUpdateAt(quizzes.getUpdateAt());
@@ -1231,6 +1328,7 @@ public class CourseService {
         for (Question question : quizzes.getQuestions()) {
             QuizResponseDto.QuestionResponseDto questionDto = new QuizResponseDto.QuestionResponseDto();
             questionDto.setQuestion(question.getQuestion());
+            questionDto.setEQuestion(question.getEQuestion());
             questionDto.setMaterial(question.getMaterial());
             questionDto.setOptions(question.getOptions());
             questionDtos.add(questionDto);
@@ -1551,11 +1649,94 @@ public class CourseService {
         course1.setDescription(course.getDescription());
         course1.setTeacherId(course.getTeacherId());
         course1.setPrice(course.getPrice());
-        course1.setCategories(course.getCategories());
+        List<?> categoriesInput = course.getCategories();
+        ArrayList<String> categories = new ArrayList<>();
+        if (categoriesInput != null) {
+            for (Object category : categoriesInput) {
+                if (category instanceof String categoryId && ObjectId.isValid(categoryId)) {
+                    Category categoryOptional = popularCategoryRepository.findById(new ObjectId(categoryId)).orElse(null);
+                    if (categoryOptional != null) {
+                        categories.add(categoryOptional.category);
+                    }
+                }
+            }
+        }
+        course1.setCategories(categories);
         course1.setStatus(course.getStatus());
         course1.setThumbnail(course.getThumbnail());
+        course1.setUpdatedAt(LocalDateTime.now());
         courseRepository.save(course1);
         return ResponseEntity.ok("Update succesfully");
+    }
+    public ResponseEntity<List<Statistic>> getStatistics(Course course) {
+        if (course == null) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Collections.emptyList());
+        }
+
+        List<ObjectId> quizIds = course.getQuizzes();
+        List<Statistic> results = new ArrayList<>();
+
+        // Fetch all quizzes in one query
+        List<Quizzes> quizzes = quizzesRepository.findAllById(quizIds);
+        Map<ObjectId, Quizzes> quizMap = quizzes.stream()
+                .collect(Collectors.toMap(Quizzes::getId, quiz -> quiz));
+
+        for (ObjectId quizId : quizIds) {
+            Quizzes quiz = quizMap.get(quizId);
+            if (quiz == null) {
+                continue;
+            }
+
+            Statistic statistic = Statistic.builder()
+                    .courseId(course.getId())
+                    .quizId(quiz.getId())
+                    .title(quiz.getTitle())
+                    .statisticResponseDtos(new ArrayList<>())
+                    .build();
+
+            List<Enrollment> enrollments = enrollmentRepository.findByQuizScoreOfQuizId(quizId);
+            if (enrollments.isEmpty()) {
+                results.add(statistic);
+                continue;
+            }
+
+            // Collect user IDs for batch query
+            Set<ObjectId> userIds = enrollments.stream()
+                    .map(Enrollment::getUserId)
+                    .collect(Collectors.toSet());
+            Map<ObjectId, User> userMap = userRepository.findAllById(userIds).stream()
+                    .collect(Collectors.toMap(User::getId, user -> user));
+
+            for (Enrollment enrollment : enrollments) {
+                List<Enrollment.QuizScore> quizScores = enrollment.getQuizScores();
+                if (quizScores == null || quizScores.isEmpty()) {
+                    continue;
+                }
+
+                for (Enrollment.QuizScore quizScore : quizScores) {
+                    if (!quizScore.getQuizId().equals(quizId)) {
+                        continue;
+                    }
+
+                    User user = userMap.get(enrollment.getUserId());
+                    if (user == null) {
+                        continue;
+                    }
+
+                    Statistic.StatisticResponseDto responseDto = Statistic.StatisticResponseDto.builder()
+                            .userId(enrollment.getUserId())
+                            .score(quizScore.getScore())
+                            .fullName(user.getFirstName() + " " + user.getLastName())
+                            .email(user.getEmail())
+                            .build();
+                    statistic.getStatisticResponseDtos().add(responseDto);
+                }
+            }
+
+            results.add(statistic);
+        }
+
+        return ResponseEntity.ok(results);
     }
 //    public ResponseEntity<?> getCoursesByPage(int page) {
 //        int pageSize = 6;

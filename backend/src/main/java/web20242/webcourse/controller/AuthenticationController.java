@@ -118,8 +118,8 @@ public class AuthenticationController {
         cookie.setPath("/");
         cookie.setSecure(true);
         cookie.setMaxAge(24 * 60 * 60);
-        //cookie.setAttribute("SameSite", "None");
-        //cookie.setDomain("alphaeducation.io.vn");
+        cookie.setAttribute("SameSite", "None");
+        cookie.setDomain("alphaeducation.io.vn");
         response.addCookie(cookie);
         return ResponseEntity.ok(authResponse);
     }
@@ -213,6 +213,8 @@ public class AuthenticationController {
                 .maxAge(0)
                 .httpOnly(true)
                 .secure(true)
+                .sameSite("None")
+                .domain("alphaeducation.io.vn")
                 .build();
 
         response.addHeader("Set-Cookie", deleteCookie.toString());

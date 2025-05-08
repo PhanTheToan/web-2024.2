@@ -11,4 +11,6 @@ import java.util.List;
 @Repository
 public interface BlogRepository extends MongoRepository<Blog, ObjectId> {
     List<Blog> findByStatus(EStatus eStatus);
+
+    List<Blog> findByTitleContainingIgnoreCase(String title);
 }

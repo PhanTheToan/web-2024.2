@@ -53,21 +53,29 @@ public class QuizGenerationService {
         String prompt = "Dựa trên nội dung PDF sau đây, hãy tạo một bài quiz dạng JSON với định dạng như sau:\n" +
                 "{\n" +
                 "  \"title\": \"Một đoạn mã bất kì (bạn tự sinh)\",\n" +
-                "  \"description\": \"Kiểm tra kiến thức cơ bản về lập trình\",\n" +
+                "  \"description\": \"Kiểm tra kiến thức từ tài liệu PDF\",\n" +
+                "  \"material\": \""+pdfUrl+"\",\n" +
                 "  \"order\": 1,\n" +
                 "  \"passingScore\": 70.0,\n" +
                 "  \"timeLimit\": 30,\n" +
                 "  \"questions\": [\n" +
                 "    {\n" +
-                "      \"question\": \"Câu hỏi mẫu\",\n" +
-                "      \"material\": \"" + pdfUrl + "\",\n" +
-                "      \"options\": [\"A\", \"B\", \"C\", \"D\"],\n" +
-                "      \"correctAnswer\": \"Đáp án đúng\"\n" +
+                "      \"question\": \"Nội dung câu hỏi trích xuất từ PDF\",\n" +
+                "      \"material\": \"" + null + "\",\n" +
+                "      \"eQuestion\": \"LOẠI_CÂU_HỎI\", /* Phải là một trong các giá trị: SINGLE_CHOICE, MULTIPLE_CHOICE, SHORT_ANSWER */\n" +
+                "      \"options\": [\"Đáp án A\", \"Đáp án B\", \"Đáp án C\", \"Đáp án D\"], /* Có thể là danh sách rỗng [] nếu là SHORT_ANSWER */\n" +
+                "      \"correctAnswer\": [\"Đáp án đúng\"] /* Là một danh sách chứa một hoặc nhiều đáp án đúng */\n" +
                 "    }\n" +
+                "    /* ... các câu hỏi khác */\n" +
                 "  ]\n" +
                 "}\n" +
-                "Hãy trích xuất tất cả câu hỏi, đáp án và đáp án đúng từ nội dung PDF (Các đáp án đúng có thể được lưu ở bảng cuối của file hoặc ngay bên cạnh đáp án có (KEY) dấu hiệu đây là đáp án ) và trả về dưới dạng JSON đúng định dạng trên. " +
-                "Trả về JSON thuần túy, không bao bọc trong markdown code block (```json ... ```) hoặc bất kỳ nội dung nào khác ngoài JSON.\n" +
+                "QUAN TRỌNG:\n" +
+                "1.  **Xác định loại câu hỏi (eQuestion):**\n" +
+                "    * Nếu câu hỏi có nhiều lựa chọn (A, B, C, D...) và chỉ có MỘT đáp án đúng duy nhất: đặt `eQuestion` là \"SINGLE_CHOICE\", `options` là danh sách các lựa chọn, `correctAnswer` là danh sách chứa MỘT đáp án đúng.\n" +
+                "    * Nếu câu hỏi có nhiều lựa chọn và có thể có NHIỀU đáp án đúng: đặt `eQuestion` là \"MULTIPLE_CHOICE\", `options` là danh sách các lựa chọn, `correctAnswer` là danh sách chứa TẤT CẢ các đáp án đúng.\n" +
+                "    * Nếu câu hỏi yêu cầu điền câu trả lời ngắn, không có lựa chọn sẵn: đặt `eQuestion` là \"SHORT_ANSWER\", `options` là danh sách rỗng [], `correctAnswer` là danh sách chứa MỘT câu trả lời ngắn đúng.\n" +
+                "2.  **Trích xuất:** Trích xuất chính xác nội dung câu hỏi, các lựa chọn (nếu có), và (các) đáp án đúng từ nội dung PDF. Các đáp án đúng có thể được đánh dấu (KEY) hoặc nằm trong bảng đáp án ở cuối tài liệu.\n" +
+                "3.  **Định dạng JSON:** Trả về JSON thuần túy, không bao bọc trong markdown code block (```json ... ```) hoặc bất kỳ nội dung nào khác ngoài JSON. Đảm bảo cấu trúc JSON hoàn toàn khớp với mẫu trên.\n" +
                 "Nội dung PDF:\n" + pdfContent;
 
         String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + geminiApiKey;

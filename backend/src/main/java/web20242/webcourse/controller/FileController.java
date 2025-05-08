@@ -68,7 +68,7 @@ public class FileController {
 //        fileService.deleteAllImage();
 //    }
 
-    @PreAuthorize("hasRole('ROLE_ADMIN') || hasRole('ROLE_TEACHER')")
+    @PreAuthorize("hasRole('ROLE_ADMIN') || hasRole('ROLE_TEACHER') || hasRole('ROLE_USER') ")
     @PostMapping("/image/r2")
     public String uploadFileR2(
             @RequestParam("image") MultipartFile file
