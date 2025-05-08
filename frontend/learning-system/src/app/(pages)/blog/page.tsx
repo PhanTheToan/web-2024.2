@@ -123,7 +123,7 @@ export default function BlogPage() {
       <div className="bg-gray-100 py-3">
         <div className="container mx-auto px-4">
           <div className="flex items-center text-sm">
-            <Link href="/" className="text-gray-500 hover:text-orange-500">Homepage</Link>
+            <Link href="/" className="text-gray-500 hover:text-orange-500">Trang chủ</Link>
             <span className="mx-2 text-gray-400">/</span>
             <span className="text-gray-700">Blog</span>
           </div>
@@ -133,7 +133,7 @@ export default function BlogPage() {
       <main className="flex-grow container mx-auto px-4 py-8">
         <div className="w-full">
           <div className="flex justify-between items-center mb-6">
-            <h1 className="text-2xl font-bold">All Articles</h1>
+            <h1 className="text-2xl font-bold">Kho bài viết</h1>
           </div>
 
           <div className="mb-6">
@@ -154,7 +154,7 @@ export default function BlogPage() {
               <span>Loading...</span>
             ) : (
               <span>
-                Showing page {currentPage} of {totalPages} ({totalItems} total posts)
+                Đang hiển thị trang {currentPage} / {totalPages} (tổng cộng {totalItems} bài viết)
               </span>
             )}
           </div>
@@ -193,7 +193,7 @@ export default function BlogPage() {
                         </p>
                         {post.refer && (
                           <span className="mt-3 text-orange-500 group-hover:text-orange-600 text-sm font-medium">
-                            Read More
+                            Chi tiết
                           </span>
                         )}
                       </div>
@@ -205,7 +205,7 @@ export default function BlogPage() {
                 null
               ) : (
                 <div className="text-center py-10">
-                  <p className="text-gray-500">No blog posts available.</p>
+                  <p className="text-gray-500">Loading</p>
                 </div>
               )}
 
