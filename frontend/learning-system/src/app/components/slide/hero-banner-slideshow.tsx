@@ -23,8 +23,8 @@ export default function HeroBanner() {
         } else {
           throw new Error("Image URL not found in the response.")
         }
-      } catch  {
-        
+      } catch {
+
         console.error("Error fetching image:")
       } finally {
         setLoading(false)
@@ -118,20 +118,20 @@ export default function HeroBanner() {
       ))}
 
       {/* Content - remains the same */}
-      <Box sx={{ maxWidth: { xs: "90%", md: "50%" }, textAlign: "left", zIndex: 1 }}>
+      <Box sx={{ maxWidth: { xs: "90%", md: "60%" }, textAlign: "left", zIndex: 1 }}>
         <Typography variant="h3" fontWeight="bold" sx={{ lineHeight: 1.2 }}>
-          Build Skills With <br /> Online Course
+          Phát triển kỹ năng với<br />AlphaEducation
         </Typography>
         <Typography variant="body1" color="text.secondary" sx={{ mt: 2 }}>
-          Get started with modern education and skills that help you get ahead and stay ahead. Thousands of courses to
-          help you grow.
+          Bắt đầu hành trình học tập hiện đại với những kỹ năng giúp bạn dẫn đầu và duy trì lợi thế. Hàng ngàn khóa học giúp bạn phát triển.
         </Typography>
         <Link href="/courses">
           <Button variant="contained" color="warning" sx={{ borderRadius: "50px", px: 4, mt: 3 }}>
-            Get Started
+            Bắt đầu ngay
           </Button>
         </Link>
       </Box>
+
     </Box>
   )
 }

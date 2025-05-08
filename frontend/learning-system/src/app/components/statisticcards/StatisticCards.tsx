@@ -44,25 +44,25 @@ export const StatisticCards = () => {
         <div className="text-[#FF782D] text-4xl font-bold">
           <span data-count="103000">0</span>
         </div>
-        <div className="text-[#333333] text-lg font-semibold mt-2">Active Students</div>
+        <div className="text-[#333333] text-lg font-semibold mt-2">Học Viên</div>
       </div>
       <div className="bg-[#F7F7F7] rounded-xl shadow-md p-16 w-[250px] text-center">
         <div className="text-[#FF782D] text-4xl font-bold">
           <span data-count="33000">0</span>
         </div>
-        <div className="text-[#333333] text-lg font-semibold mt-2">Total Courses</div>
+        <div className="text-[#333333] text-lg font-semibold mt-2">Khóa Học</div>
       </div>
       <div className="bg-[#F7F7F7] rounded-xl shadow-md p-16 w-[250px] text-center">
         <div className="text-[#FF782D] text-4xl font-bold">
           <span data-count="11000">0</span>
         </div>
-        <div className="text-[#333333] text-lg font-semibold mt-2">Instructors</div>
+        <div className="text-[#333333] text-lg font-semibold mt-2">Giảng Viên</div>
       </div>
       <div className="bg-[#F7F7F7] rounded-xl shadow-md p-16 w-[250px] text-center">
         <div className="text-[#FF782D] text-4xl font-bold">
           <span data-count="100">0</span>
         </div>
-        <div className="text-[#333333] text-lg font-semibold mt-2">Satisfaction Rate</div>
+        <div className="text-[#333333] text-lg font-semibold mt-2">Hài Lòng</div>
       </div>
     </div>
   );

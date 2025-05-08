@@ -74,7 +74,7 @@ function CourseCard({ course }: { course: Course }) {
         </Box>
         <CardContent sx={{ flexGrow: 1, display: "flex", flexDirection: "column", padding: 3 }}>
           <Typography variant="body2" color="text.secondary" mb={1} fontWeight={600}>
-            by {course.teacherFullName}
+            bởi {course.teacherFullName}
           </Typography>
           <Typography variant="h6" fontWeight="bold" mb={2}>{course.title}</Typography>
           <Box display="flex" alignItems="center" gap={2} mt="auto">
@@ -87,7 +87,7 @@ function CourseCard({ course }: { course: Course }) {
             <Box display="flex" alignItems="center" gap={1}>
               <Users className="h-5 w-5 text-orange-500" />
               <Typography variant="body2" fontWeight={600} fontSize={18}>
-                {course.studentsCount} Students
+                {course.studentsCount} Học viên
               </Typography>
             </Box>
           </Box>
@@ -131,7 +131,7 @@ function CourseCard({ course }: { course: Course }) {
             </Box>
 
             <Button variant="contained" size="medium" sx={{ borderRadius: 3 }}>
-              View More
+              Chi tiết
             </Button>
           </Box>
         </CardContent>

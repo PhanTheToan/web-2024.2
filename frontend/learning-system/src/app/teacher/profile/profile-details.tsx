@@ -178,7 +178,7 @@ export function ProfileDetails() {
         <>
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
+              <Label htmlFor="username">Học viên</Label>
               <input
                 id="username"
                 className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-orange-500"
@@ -197,7 +197,7 @@ export function ProfileDetails() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="firstName">First Name</Label>
+              <Label htmlFor="firstName">Họ</Label>
               <input
                 id="firstName"
                 className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-orange-500"
@@ -206,7 +206,7 @@ export function ProfileDetails() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="lastName">Last Name</Label>
+              <Label htmlFor="lastName">Tên</Label>
               <input
                 id="lastName"
                 className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-orange-500"
@@ -215,7 +215,7 @@ export function ProfileDetails() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="phone">Phone Number</Label>
+              <Label htmlFor="phone">Số điện thoại</Label>
               <input
                 id="phone"
                 className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-orange-500"
@@ -224,7 +224,7 @@ export function ProfileDetails() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="dob">Date of Birth</Label>
+              <Label htmlFor="dob">Ngày sinh</Label>
               <input
                 id="dob"
                 type="date"
@@ -234,7 +234,7 @@ export function ProfileDetails() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="gender">Gender</Label>
+              <Label htmlFor="gender">Giới tính</Label>
               <Select
                 value={profile.gender || ""}
                 onValueChange={(value) => handleChange("gender", value)}
@@ -246,14 +246,14 @@ export function ProfileDetails() {
                   <SelectValue placeholder="Select gender" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Male">Male</SelectItem>
-                  <SelectItem value="Female">Female</SelectItem>
-                  <SelectItem value="Other">Other</SelectItem>
+                  <SelectItem value="Male">Nam</SelectItem>
+                  <SelectItem value="Female">Nữ</SelectItem>
+                  <SelectItem value="Other">Khác</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="profileImage">Profile Image</Label>
+              <Label htmlFor="profileImage">Ảnh đại diện</Label>
               <input
                 id="profileImage"
                 type="file"
@@ -271,9 +271,9 @@ export function ProfileDetails() {
             </div>
           </div>
           <div className="flex gap-2">
-            <Button onClick={handleSave}>Save Changes</Button>
+            <Button onClick={handleSave}>Lưu thay đổi</Button>
             <Button variant="outline" onClick={handleCancel}>
-              Cancel
+              Hủy bỏ
             </Button>
           </div>
         </>
@@ -281,7 +281,7 @@ export function ProfileDetails() {
         <>
           <div className="grid gap-4 md:grid-cols-2">
             <div>
-              <h3 className="font-medium text-muted-foreground">Username</h3>
+              <h3 className="font-medium text-muted-foreground">Học viên</h3>
               <p>{profile.username || "N/A"}</p>
             </div>
             <div>
@@ -289,35 +289,35 @@ export function ProfileDetails() {
               <p>{profile.email || "N/A"}</p>
             </div>
             <div>
-              <h3 className="font-medium text-muted-foreground">First Name</h3>
+              <h3 className="font-medium text-muted-foreground">Họ</h3>
               <p>{profile.firstName || "N/A"}</p>
             </div>
             <div>
-              <h3 className="font-medium text-muted-foreground">Last Name</h3>
+              <h3 className="font-medium text-muted-foreground">Tên</h3>
               <p>{profile.lastName || "N/A"}</p>
             </div>
             <div>
-              <h3 className="font-medium text-muted-foreground">Phone Number</h3>
+              <h3 className="font-medium text-muted-foreground">Số điện thoại</h3>
               <p>{profile.phone || "N/A"}</p>
             </div>
             <div>
-              <h3 className="font-medium text-muted-foreground">Date of Birth</h3>
+              <h3 className="font-medium text-muted-foreground">Ngày sinh</h3>
               <p>{profile.dateOfBirth || "N/A"}</p>
             </div>
             <div>
-              <h3 className="font-medium text-muted-foreground">Gender</h3>
+              <h3 className="font-medium text-muted-foreground">Giới tính</h3>
               <p>
                 {profile.gender === "Male"
-                  ? "Male"
+                  ? "Nam"
                   : profile.gender === "Female"
-                    ? "Female"
+                    ? "Nữ"
                     : profile.gender === "Other"
-                      ? "Other"
+                      ? "Khác"
                       : "N/A"}
               </p>
             </div>
             <div>
-              <h3 className="font-medium text-muted-foreground">Profile Image</h3>
+              <h3 className="font-medium text-muted-foreground">Ảnh đại diện</h3>
               <img
                 src={
                   profile.profileImage || "https://via.placeholder.com/150"
@@ -327,7 +327,7 @@ export function ProfileDetails() {
               />
             </div>
           </div>
-          <Button onClick={() => setIsEditing(true)}>Edit Profile</Button>
+          <Button onClick={() => setIsEditing(true)}>Chỉnh sửa</Button>
         </>
       )}
     </div>
