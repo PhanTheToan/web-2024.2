@@ -137,6 +137,14 @@ interface QuizStatistics {
   statisticResponseDtos: StatisticResponseDto[];
 }
 
+// Add this interface
+interface UserAllScores {
+  userId: string;
+  fullName: string;
+  email: string;
+  scores: number[];
+}
+
 function StatisticsSection({ quizId }: { quizId: string }) {
   const params = useParams();
   const courseId = params.id as string;
@@ -144,11 +152,33 @@ function StatisticsSection({ quizId }: { quizId: string }) {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [quizTitle, setQuizTitle] = useState<string>('');
+  const [viewMode, setViewMode] = useState<'all' | 'highest' | 'user'>('highest');
+  const [selectedUser, setSelectedUser] = useState<UserAllScores | null>(null);
+  const [userAllScores, setUserAllScores] = useState<UserAllScores[]>([]);
+  const [passingScore, setPassingScore] = useState<number>(80); // Default to 80%, will be updated with quiz data
 
   useEffect(() => {
     const fetchStatistics = async () => {
       try {
         setLoading(true);
+        
+        // First, fetch the quiz to get the passing score
+        const quizResponse = await fetch(`${API_BASE_URL}/course/get-quiz/${quizId}`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!quizResponse.ok) {
+          throw new Error("Failed to fetch quiz");
+        }
+
+        const quizDataResponse = await quizResponse.json();
+        setPassingScore(quizDataResponse.passingScore || 80);
+        
+        // Then fetch statistics
         const response = await fetch(`${API_BASE_URL}/course/statistics/${courseId}`, {
           method: 'GET',
           credentials: 'include',
@@ -168,10 +198,36 @@ function StatisticsSection({ quizId }: { quizId: string }) {
         // Extract statistics from the response
         // Find the entry for current quiz and extract its statistics
         const quizDataArray = data.body || [];
-        const quizData = quizDataArray.find((item: QuizStatistics) => item.quizId === quizId);
-        const statsData = quizData?.statisticResponseDtos || [];
-        setStatistics(statsData);
-        setQuizTitle(quizData?.title || 'Bài kiểm tra');
+        const quizStatsData = quizDataArray.find((item: QuizStatistics) => item.quizId === quizId);
+        const statsData = quizStatsData?.statisticResponseDtos || [];
+        
+        // Process to get highest scores per user
+        const userIds = statsData.map((stat: StatisticResponseDto) => stat.userId);
+        const uniqueUserIds: string[] = Array.from(new Set(userIds));
+        
+        const highestScores = uniqueUserIds.map(userId => {
+          const userStats = statsData.filter((stat: StatisticResponseDto) => stat.userId === userId);
+          const highestStat = userStats.reduce((prev: StatisticResponseDto, current: StatisticResponseDto) => 
+            prev.score > current.score ? prev : current
+          );
+          return highestStat;
+        });
+        
+        // Process to get all scores per user
+        const allUserScores = uniqueUserIds.map(userId => {
+          const userStats = statsData.filter((stat: StatisticResponseDto) => stat.userId === userId);
+          const scores = userStats.map((stat: StatisticResponseDto) => stat.score);
+          return {
+            userId,
+            fullName: userStats[0]?.fullName || '',
+            email: userStats[0]?.email || '',
+            scores
+          } as UserAllScores;
+        });
+        
+        setStatistics(highestScores);
+        setUserAllScores(allUserScores);
+        setQuizTitle(quizStatsData?.title || 'Bài kiểm tra');
       } catch (err) {
         console.error('Error fetching statistics:', err);
         setError('Không thể tải thống kê. Vui lòng thử lại sau.');
@@ -196,7 +252,7 @@ function StatisticsSection({ quizId }: { quizId: string }) {
         'Họ và tên': stat.fullName,
         'Email': stat.email,
         'Điểm số': stat.score,
-        'Kết quả': stat.score >= 80 ? 'Đạt' : 'Chưa đạt'
+        'Kết quả': stat.score >= passingScore ? 'Đạt' : 'Chưa đạt'
       }));
 
       // Create workbook and worksheet
@@ -216,6 +272,149 @@ function StatisticsSection({ quizId }: { quizId: string }) {
       console.error('Error exporting Excel:', err);
       toast.error('Không thể xuất file. Vui lòng thử lại sau.');
     }
+  };
+
+  const handleViewAllScores = (user: UserAllScores) => {
+    setSelectedUser(user);
+    setViewMode('user');
+  };
+
+  const renderStatistics = () => {
+    if (viewMode === 'user' && selectedUser) {
+      // Show single user's all attempts
+      return (
+        <div className="bg-white rounded-lg shadow mb-8">
+          <div className="p-4 border-b flex justify-between items-center">
+            <div>
+              <h3 className="text-lg font-medium">Tất cả điểm của học viên: {selectedUser.fullName}</h3>
+              <p className="text-sm text-gray-500">{selectedUser.email}</p>
+            </div>
+            <button 
+              onClick={() => setViewMode('highest')}
+              className="text-primary-600 hover:text-primary-800 text-sm flex items-center"
+            >
+              <ArrowLeft className="w-3 h-3 mr-1" />
+              Quay lại
+            </button>
+          </div>
+          <div className="p-4">
+            <div className="max-h-96 overflow-y-auto pr-2">
+              <table className="w-full text-sm">
+                <thead className="text-xs text-gray-700 bg-gray-50 sticky top-0">
+                  <tr>
+                    <th className="px-3 py-2 text-left">Lần thử</th>
+                    <th className="px-3 py-2 text-right">Điểm</th>
+                    <th className="px-3 py-2 text-center">Kết quả</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {selectedUser.scores.map((score, index) => (
+                    <tr key={index} className="hover:bg-gray-50">
+                      <td className="px-3 py-2">{index + 1}</td>
+                      <td className="px-3 py-2 text-right font-medium">{score}</td>
+                      <td className="px-3 py-2 text-center">
+                        <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
+                          score >= passingScore 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-red-100 text-red-800'
+                        }`}>
+                          {score >= passingScore ? 'Đạt' : 'Chưa đạt'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Default view showing all students or highest scores
+    return (
+      <div className="bg-white rounded-lg shadow mb-8">
+        <div className="p-4 border-b flex justify-between items-center">
+          <h3 className="text-lg font-medium">
+            {viewMode === 'highest' ? 'Điểm cao nhất mỗi học viên' : 'Tất cả lần thử của học viên'}
+          </h3>
+          {/* <div className="flex items-center">
+            <button
+              onClick={() => setViewMode('highest')}
+              className={`px-3 py-1 rounded-md text-sm mr-2 ${
+                viewMode === 'highest' 
+                  ? 'bg-primary-100 text-primary-800 font-medium' 
+                  : 'bg-gray-100 hover:bg-gray-200'
+              }`}
+            >
+              Điểm cao nhất
+            </button>
+            <button
+              onClick={() => setViewMode('all')}
+              className={`px-3 py-1 rounded-md text-sm ${
+                viewMode === 'all' 
+                  ? 'bg-primary-100 text-primary-800 font-medium' 
+                  : 'bg-gray-100 hover:bg-gray-200'
+              }`}
+            >
+              Tất cả điểm
+            </button>
+            <span className="ml-3 text-sm text-gray-500">Tổng: {statistics.length} học viên</span>
+          </div> */}
+        </div>
+        <div className="p-4">
+          <div className="max-h-96 overflow-y-auto pr-2">
+            <table className="w-full text-sm">
+              <thead className="text-xs text-gray-700 bg-gray-50 sticky top-0">
+                <tr>
+                  <th className="px-3 py-2 text-left">STT</th>
+                  <th className="px-3 py-2 text-left">Học viên</th>
+                  <th className="px-3 py-2 text-right">Điểm</th>
+                  <th className="px-3 py-2 text-right">Hành động</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {statistics.map((stat, index) => {
+                  const userScores = userAllScores.find(u => u.userId === stat.userId);
+                  const hasMultipleScores = userScores && userScores.scores.length > 1;
+                  
+                  return (
+                    <tr key={stat.userId} className="hover:bg-gray-50">
+                      <td className="px-3 py-2">{index + 1}</td>
+                      <td className="px-3 py-2">
+                        <div>
+                          <p className="font-medium text-gray-800">{stat.fullName}</p>
+                          <p className="text-gray-500 text-xs">{stat.email}</p>
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        <span className={`font-bold px-2 py-1 rounded-full ${
+                          stat.score >= passingScore 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-red-100 text-red-800'
+                        }`}>
+                          {stat.score}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        {hasMultipleScores && userScores && (
+                          <button
+                            onClick={() => handleViewAllScores(userScores)}
+                            className="text-primary-600 hover:text-primary-800 text-xs underline"
+                          >
+                            Xem tất cả điểm
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   if (loading) {
@@ -253,8 +452,7 @@ function StatisticsSection({ quizId }: { quizId: string }) {
   const totalScore = statistics.reduce((sum, stat) => sum + stat.score, 0);
   const averageScore = totalScore / statistics.length;
 
-  // Count passing students (assuming a passing score of 80)
-  const passingScore = 80; // This should be adjusted based on the quiz passingScore
+  // Count passing students (using the actual quiz passing score) 
   const passingStudents = statistics.filter(stat => stat.score >= passingScore).length;
   const passingRate = (passingStudents / statistics.length) * 100;
 
@@ -506,67 +704,29 @@ function StatisticsSection({ quizId }: { quizId: string }) {
         </div>
       </div>
 
-      {/* Charts and Results */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        {/* Score Distribution Chart */}
-        <div className="lg:col-span-2 bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-medium mb-4">Phân bố điểm số chi tiết</h3>
-          <div className="h-96">
-            <Bar data={chartData} options={chartOptions} />
+      {/* Charts and Results - Only show in highest score view */}
+      {viewMode === 'highest' && !selectedUser && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+          {/* Score Distribution Chart */}
+          <div className="lg:col-span-2 bg-white rounded-lg shadow p-6">
+            <h3 className="text-lg font-medium mb-4">Phân bố điểm số chi tiết</h3>
+            <div className="h-96">
+              <Bar data={chartData} options={chartOptions} />
+            </div>
+          </div>
+          
+          {/* Pie Chart for Score Categories */}
+          <div className="lg:col-span-1 bg-white rounded-lg shadow p-6">
+            <h3 className="text-lg font-medium mb-4">Phân loại kết quả</h3>
+            <div className="h-96">
+              <Pie data={pieChartData} options={pieChartOptions} />
+            </div>
           </div>
         </div>
-        
-        {/* Pie Chart for Score Categories */}
-        <div className="lg:col-span-1 bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-medium mb-4">Phân loại kết quả</h3>
-          <div className="h-96">
-            <Pie data={pieChartData} options={pieChartOptions} />
-          </div>
-        </div>
-      </div>
+      )}
 
-      {/* Student scores */}
-      <div className="bg-white rounded-lg shadow mb-8">
-        <div className="p-4 border-b flex justify-between items-center">
-          <h3 className="text-lg font-medium">Kết quả từng học viên</h3>
-          <span className="text-sm text-gray-500">Tổng: {statistics.length} học viên</span>
-        </div>
-        <div className="p-4">
-          <div className="max-h-96 overflow-y-auto pr-2">
-            <table className="w-full text-sm">
-              <thead className="text-xs text-gray-700 bg-gray-50 sticky top-0">
-                <tr>
-                  <th className="px-3 py-2 text-left">STT</th>
-                  <th className="px-3 py-2 text-left">Học viên</th>
-                  <th className="px-3 py-2 text-right">Điểm</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {statistics.map((stat, index) => (
-                  <tr key={stat.userId} className="hover:bg-gray-50">
-                    <td className="px-3 py-2">{index + 1}</td>
-                    <td className="px-3 py-2">
-                      <div>
-                        <p className="font-medium text-gray-800">{stat.fullName}</p>
-                        <p className="text-gray-500 text-xs">{stat.email}</p>
-                      </div>
-                    </td>
-                    <td className="px-3 py-2 text-right">
-                      <span className={`font-bold px-2 py-1 rounded-full ${
-                        stat.score >= passingScore 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-red-100 text-red-800'
-                      }`}>
-                        {stat.score}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
+      {/* Student scores table with view mode options */}
+      {renderStatistics()}
     </div>
   );
 }

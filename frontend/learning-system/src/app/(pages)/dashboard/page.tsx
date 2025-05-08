@@ -12,7 +12,7 @@ export default function DashboardPage() {
         <div className="container mx-auto px-4">
           <div className="flex items-center text-sm">
             <Link href="/" className="text-gray-500 hover:text-orange-500">
-              Homepage
+              Trang chủ
             </Link>
             <span className="mx-2 text-gray-400">/</span>
             <span className="text-gray-700">Dashboard</span>
