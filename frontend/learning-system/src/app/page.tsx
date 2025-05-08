@@ -240,23 +240,25 @@ export default function Home() {
             {/* Right side - Content */}
             <div className="space-y-6">
               <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-gray-900 leading-tight">
-                Grow Us Your Skill With LearnPress LMS
+                Phát triển kỹ năng của bạn với LearnPress LMS
               </h1>
 
               <p className="text-lg text-gray-600">
-                We denounce with righteous indignation and dislike men who are so beguiled and demoralized that cannot
-                trouble.
+                Nền tảng học trực tuyến hiện đại giúp bạn nâng cao kiến thức, phát triển nghề nghiệp và đạt được mục tiêu học tập một cách hiệu quả.
               </p>
 
               <div className="space-y-3 py-2">
-                {["Certification", "Certification", "Certification", "Certification"].map((item, index) => (
-                  <div key={index} className="flex items-center gap-2">
-                    <div className="flex-shrink-0 h-6 w-6 bg-green-100 rounded-full flex items-center justify-center">
-                      <Check className="h-4 w-4 text-green-600" />
+                {["Chứng chỉ hoàn thành khóa học",
+                  "Xác nhận kỹ năng đạt được",
+                  "Giấy chứng nhận học tập",
+                  "Hỗ trợ nâng cao hồ sơ cá nhân"].map((item, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <div className="flex-shrink-0 h-6 w-6 bg-green-100 rounded-full flex items-center justify-center">
+                        <Check className="h-4 w-4 text-green-600" />
+                      </div>
+                      <span className="text-gray-800">{item}</span>
                     </div>
-                    <span className="text-gray-800">{item}</span>
-                  </div>
-                ))}
+                  ))}
               </div>
 
               <Link href="/courses">
@@ -265,7 +267,7 @@ export default function Home() {
                   color="warning"
                   sx={{ borderRadius: '50px', px: 4, mt: 3 }}
                 >
-                  Explorer Course
+                  Khám phá khóa học
                 </Button>
               </Link>
             </div>
