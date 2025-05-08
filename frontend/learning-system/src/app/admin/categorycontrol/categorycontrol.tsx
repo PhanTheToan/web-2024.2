@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { FaEdit, FaTrashAlt, FaSyncAlt } from "react-icons/fa";
+import { Edit, Trash2, RefreshCw } from "lucide-react";
 import Image from 'next/image';
 import AddCategoryPopup from "./AddCategoryPopup";
 import EditCategoryPopup from "./EditCategoryPopup";
@@ -199,10 +199,10 @@ const CategoryControl = () => {
                   </td>
                   <td className="px-6 py-4">
                     {category.categoryStatus === "true" ? "Popular" : "Normal"}
-                    <FaSyncAlt
+                    <RefreshCw
                       onClick={() => handleToggleStatus(category.categoryName)}
                       className="ml-4 text-blue-500 cursor-pointer hover:text-blue-700"
-                      title="Toggle Status"
+                      // title="Toggle Status"
                     />
                   </td>
                   <td className="px-6 py-4 text-center">
@@ -212,14 +212,14 @@ const CategoryControl = () => {
                         className="text-gray-500 hover:text-gray-700 transition-colors duration-200 text-2xl"
                         title="Edit Category"
                       >
-                        <FaEdit />
+                        <Edit />
                       </button>
                       <button
                         onClick={() => handleDeleteCategory(category.categoryId)}
                         className="text-red-500 hover:text-red-700 transition-colors duration-200 text-2xl"
                         title="Delete Category"
                       >
-                        <FaTrashAlt />
+                        <Trash2 />
                       </button>
                     </div>
                   </td>

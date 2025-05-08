@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import * as dotenv from "dotenv"
-import { FaTrashAlt, FaEdit, FaUndo } from "react-icons/fa"
+import { Trash2, Edit, Undo } from "lucide-react"
 dotenv.config()
 
 interface User {
@@ -302,10 +302,7 @@ export const UserControl = () => {
         {!showInactive && (
           <div className="flex gap-3">
             <div onClick={handleAdd} className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 flex items-center transition-colors duration-200">
-              <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                <span className="mr-2">+</span>
                 Tạo tài khoản
-              </motion.button>
             </div>
           </div>
         )}
@@ -359,23 +356,26 @@ export const UserControl = () => {
                       <td className="px-6 py-4">
                         <div className="flex justify-center gap-2">
                           {user.Status === "ACTIVE" && (
-                            <div onClick={() => handleEdit(user)} className="hover:text-yellow-600 transition-colors duration-200 flex items-center text-lg">
-                              <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                                <FaEdit />
-                              </motion.button>
-                            </div>
+                            <button
+                              onClick={() => handleEdit(user)}
+                              className="text-gray-500 hover:text-gray-700 transition-colors duration-200 text-2xl"
+                            >
+                              <Edit />
+                            </button>
                           )}
-                          <div onClick={() => handleDelete(user.UserId)} className="hover:text-red-600 transition-colors duration-200 flex items-center text-lg">
-                            <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                              {user.Status === "ACTIVE" ? <FaTrashAlt /> : <FaUndo />}
-                            </motion.button>
-                          </div>
+                          <button
+                            onClick={() => handleDelete(user.UserId)}
+                            className="text-red-500 hover:text-red-700 transition-colors duration-200 text-2xl"
+                          >
+                            {user.Status === "ACTIVE" ? <Trash2 /> : <Undo />}
+                          </button>
                           {user.Status === "INACTIVE" && (
-                            <div onClick={() => openPermanentDeleteModal(user.UserId, user.Username)} className="hover:text-red-700 transition-colors duration-200 flex items-center text-lg">
-                              <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                                <FaTrashAlt />
-                              </motion.button>
-                            </div>
+                            <button
+                              onClick={() => openPermanentDeleteModal(user.UserId, user.Username)}
+                              className="text-red-700 hover:text-red-900 transition-colors duration-200 text-2xl"
+                            >
+                              <Trash2 />
+                            </button>
                           )}
                         </div>
                       </td>

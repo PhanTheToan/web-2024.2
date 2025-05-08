@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import Image from 'next/image';
-import { FaEye, FaEdit, FaTrashAlt } from 'react-icons/fa';
+import { Eye, Edit, Trash2 } from 'lucide-react';
 
 interface ImageData {
   id: string;
@@ -230,7 +230,7 @@ export const Imagecontrol = () => {
           </div>
           <button
             onClick={() => setIsAddImageModalOpen(true)}
-            className="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 transition-colors duration-200"
+            className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 flex items-center transition-colors duration-200"
           >
             Add New Image
           </button>
@@ -275,19 +275,19 @@ export const Imagecontrol = () => {
                         onClick={() => window.open(image.url, "_blank")}
                         className="text-blue-500 hover:text-blue-700 transition-colors duration-200 text-2xl"
                       >
-                        <FaEye />
+                        <Eye />
                       </button>
                       <button
                         onClick={() => handleButtonClick(image.id)}
                         className="text-gray-500 hover:text-gray-700 transition-colors duration-200 text-2xl"
                       >
-                        <FaEdit />
+                        <Edit />
                       </button>
                       <button
                         onClick={() => handleDeleteImage(image.id)}
                         className="text-red-500 hover:text-red-700 transition-colors duration-200 text-2xl"
                       >
-                        <FaTrashAlt />
+                        <Trash2 />
                       </button>
                     </div>
                   </td>

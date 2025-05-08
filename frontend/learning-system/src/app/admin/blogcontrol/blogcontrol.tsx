@@ -3,8 +3,8 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import Image from "next/image";
-import { FaSyncAlt, FaEye, FaTrash } from "react-icons/fa";
 import AddBlogPopup from "./AddBlogPopup";
+import { Trash2, Eye, RefreshCw } from 'lucide-react';
 
 const BASE_URL = process.env.BASE_URL;
 
@@ -106,7 +106,7 @@ const BlogControl = () => {
         </div>
         <button
           onClick={() => setIsAddBlogPopupOpen(true)}
-          className="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 transition-colors duration-200"
+          className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 flex items-center transition-colors duration-200"
         >
           Add Blog
         </button>
@@ -147,10 +147,9 @@ const BlogControl = () => {
                   <td className="px-6 py-4">{blog.author}</td>
                   <td className="px-6 py-4">
                     {blog.status}
-                    <FaSyncAlt
+                    <RefreshCw
                       onClick={() => handleToggleStatus(blog.id)}
                       className="ml-4 text-blue-500 cursor-pointer hover:text-blue-700"
-                      title="Toggle Status"
                     />
                   </td>
                   <td className="px-6 py-4">{formatDate(blog.createdAt)}</td>
@@ -165,12 +164,13 @@ const BlogControl = () => {
                   </td>
                   <td className="px-6 py-4 text-center">
                     <div className="flex justify-center gap-4">
-                      <FaEye
+                      <button
                         onClick={() => window.open(blog.refer, "_blank")}
-                        className="text-blue-500 cursor-pointer hover:text-blue-700"
-                        title="View Blog"
-                      />
-                      <FaTrash
+                        className="text-blue-500 hover:text-blue-700 transition-colors duration-200 text-2xl"
+                      >
+                        <Eye />
+                      </button>
+                      <button
                         onClick={async () => {
                           const confirmDelete = window.confirm("Are you sure you want to delete this blog?");
                           if (!confirmDelete) return;
@@ -191,9 +191,10 @@ const BlogControl = () => {
                             alert((err as Error).message);
                           }
                         }}
-                        className="text-red-500 cursor-pointer hover:text-red-700"
-                        title="Delete Blog"
-                      />
+                        className="text-red-500 hover:text-red-700 transition-colors duration-200 text-2xl"
+                      >
+                        <Trash2 />
+                      </button>
                     </div>
                   </td>
                 </motion.tr>
