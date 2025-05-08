@@ -664,7 +664,7 @@ const DetailCoursePage: React.FC = () => {
     if (!isAuthenticated) {
       // Redirect to login page if user is not authenticated
       toast.error('Bạn cần đăng nhập để đăng ký khóa học');
-      router.push('/auth/login?redirect=' + encodeURIComponent(`/courses/${safeCourseId}`));
+      router.push('/login?redirect=' + encodeURIComponent(`/courses/${safeCourseId}`));
       return;
     }
     
@@ -1234,7 +1234,7 @@ const DetailCoursePage: React.FC = () => {
                 ? 'Đang đăng ký...' 
                 : isAuthenticated 
                   ? 'Đăng ký khóa học' 
-                  : 'Đăng nhập để đăng ký'}
+                  : 'Đăng nhập để ghi danh'}
             </button>
           ) : isPendingApproval ? (
             <div className="mt-4 md:mt-0">

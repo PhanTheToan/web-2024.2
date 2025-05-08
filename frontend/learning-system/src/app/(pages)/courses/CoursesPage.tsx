@@ -83,7 +83,7 @@ interface ReviewItem {
 interface FilterState {
   categories: string[]; // Lưu categoryName
   instructors: string[]; // Lưu User.id của giảng viên (ObjectId)
-  reviews: string; // Lưu range được chọn (ví dụ: "4 -> 5")
+  reviews: string[]; // Lưu mảng các range được chọn (ví dụ: ["4 -> 5", "3 -> 4"])
 }
 
 const CoursesPage: React.FC = () => {
@@ -101,9 +101,9 @@ const CoursesPage: React.FC = () => {
   const [filters, setFilters] = useState<FilterState>({
     categories: [],
     instructors: [],
-    reviews: "",
+    reviews: [],
   });
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
 
   // Mock data cho reviews
   const reviews: ReviewItem[] = [
@@ -194,12 +194,24 @@ const CoursesPage: React.FC = () => {
         if (filters.instructors.length > 0) {
           params.set("teacherIds", filters.instructors.join(","));
         }
-        if (filters.reviews) {
-          const selectedReview = reviews.find((r) => r.range === filters.reviews);
-          if (selectedReview) {
-            params.set("ratingMin", selectedReview.min.toString());
-            params.set("ratingMax", selectedReview.max.toString());
-          }
+        if (filters.reviews.length > 0) {
+          // Handle multiple review selections
+          const minRating = Math.min(
+            ...filters.reviews.map(range => {
+              const selectedReview = reviews.find(r => r.range === range);
+              return selectedReview ? selectedReview.min : 0;
+            })
+          );
+          
+          const maxRating = Math.max(
+            ...filters.reviews.map(range => {
+              const selectedReview = reviews.find(r => r.range === range);
+              return selectedReview ? selectedReview.max : 5;
+            })
+          );
+          
+          params.set("ratingMin", minRating.toString());
+          params.set("ratingMax", maxRating.toString());
         }
 
         const endpoint = searchQuery
@@ -250,6 +262,11 @@ const CoursesPage: React.FC = () => {
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768);
+      if (window.innerWidth >= 768) {
+        setIsSidebarCollapsed(false); // Always show sidebar on desktop
+      } else {
+        setIsSidebarCollapsed(true); // Hide sidebar on mobile by default
+      }
     };
     checkMobile();
     window.addEventListener("resize", checkMobile);
