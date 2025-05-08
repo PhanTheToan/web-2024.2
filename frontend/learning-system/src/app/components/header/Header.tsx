@@ -143,10 +143,10 @@ export const Header = () => {
       case "ROLE_TEACHER":
         return [
           { href: "/teacher/courses", label: "Khóa học" },
-          { href: "/teacher/students", label: "Học viên" },
+          { href: "/contact", label: "Liên hệ" },
           { href: "/blog", label: "Blog" },
-          { href: "/teacher/assignments", label: "Bài tập" },
-          { href: "/teacher/reports", label: "Thống kê" },
+          // { href: "/teacher/assignments", label: "Bài tập" },
+          // { href: "/teacher/reports", label: "Thống kê" },
           
         ]
       default:

@@ -32,7 +32,7 @@ export default function ContactPage() {
                             </div>
                             <div>
                                 <p className="text-gray-500 text-sm">Số điện thoại</p>
-                                <p className="font-medium">(123) 456 7890</p>
+                                <p className="font-medium">+84 967998722</p>
                             </div>
                         </div>
 
@@ -42,7 +42,7 @@ export default function ContactPage() {
                             </div>
                             <div>
                                 <p className="text-gray-500 text-sm">Email</p>
-                                <p className="font-medium">contact@khoahoconline.com</p>
+                                <p className="font-medium">ptt.hust.dev@gmail.com</p>
                             </div>
                         </div>
                     </div>
