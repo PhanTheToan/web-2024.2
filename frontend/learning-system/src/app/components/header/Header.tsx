@@ -137,16 +137,16 @@ export const Header = () => {
           { href: "/admin/couserscontrol", label: "Khóa học" },
           { href: "/admin/usercontrol", label: "Học viên" },
           { href: "/admin/blogcontrol", label: "Quản lý Blog" },
-          { href: "/admin/registercontrol", label: "Cài đặt" },
+          { href: "/admin/categorycontrol", label: "Quản lý Category" },
           { href: "/admin/imagecontrol", label: "Hình ảnh" },
         ]
       case "ROLE_TEACHER":
         return [
           { href: "/teacher/courses", label: "Khóa học" },
-          { href: "/teacher/students", label: "Học viên" },
+          { href: "/contact", label: "Liên hệ" },
           { href: "/blog", label: "Blog" },
-          { href: "/teacher/assignments", label: "Bài tập" },
-          { href: "/teacher/reports", label: "Thống kê" },
+          // { href: "/teacher/assignments", label: "Bài tập" },
+          // { href: "/teacher/reports", label: "Thống kê" },
           
         ]
       default:

@@ -206,11 +206,14 @@ export default function Home() {
           <div>
             <h2 className="font-bold text-[24px] text-black  mb-1 capitalize m-0 sx:text-[20px]">Khóa học nổi bật</h2>
             <div className="font-medium text-[18px] text-[#555555] sx:text-[14px]">Khám phá </div>
-          </div>
-          <button className="inline-flex items-center h-[44px] px-7 text-black font-medium text-[16px] bg-transparent rounded-full transition border border-[1.5px] border-[#FF782D] hover:bg-[#FF782D] hover:text-white">
-            Tất cả khóa học
+          </div >
+          <Link href="/courses">
+           <button className="inline-flex items-center h-[44px] px-7 text-black font-medium text-[16px] bg-transparent rounded-full transition border border-[1.5px] border-[#FF782D] hover:bg-[#FF782D] hover:text-white">
+              Tất cả khóa học
             <i className="fa-solid fa-angle-right text-[18px] text-[#555555] ml-[11px] transition group-hover:text-white"></i>
-          </button>
+           </button>
+          </Link>
+          
         </div>
 
         <CourseGrid courses={courses} />
@@ -240,7 +243,7 @@ export default function Home() {
             {/* Right side - Content */}
             <div className="space-y-6">
               <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-gray-900 leading-tight">
-                Phát triển kỹ năng của bạn với LearnPress LMS
+                Phát triển kỹ năng của bạn với AlphaEducation
               </h1>
 
               <p className="text-lg text-gray-600">

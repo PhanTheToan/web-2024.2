@@ -209,7 +209,7 @@ export const FormLogin = () => {
             <form onSubmit={handleLoginSubmit}>
               <div className="mb-[15px]">
                 <label className="block mb-[5px] font-[600] text-[14px]" htmlFor="username">
-                  <span className="text-[#333333]">Username</span>
+                  <span className="text-[#333333]">Tên đăng nhập</span>
                   <span className="text-[#FF782D] ml-[5px]">*</span>
                 </label>
                 <input
@@ -267,7 +267,7 @@ export const FormLogin = () => {
             <form onSubmit={handleRegisterSubmit}>
               <div className="grid grid-cols-2 gap-4 mb-4">
                 <div>
-                  <label className="block mb-2">Username *</label>
+                  <label className="block mb-2">Tên đăng nhập *</label>
                   <input
                     id="register-username"
                     type="text"
@@ -293,7 +293,7 @@ export const FormLogin = () => {
               </div>
               <div className="grid grid-cols-2 gap-4 mb-4">
                 <div>
-                  <label className="block mb-2">First Name *</label>
+                  <label className="block mb-2">Họ *</label>
                   <input
                     id="first-name"
                     type="text"
@@ -305,7 +305,7 @@ export const FormLogin = () => {
                   />
                 </div>
                 <div>
-                  <label className="block mb-2">Last Name *</label>
+                  <label className="block mb-2">Tên *</label>
                   <input
                     id="last-name"
                     type="text"
@@ -319,7 +319,7 @@ export const FormLogin = () => {
               </div>
               <div className="grid grid-cols-2 gap-4 mb-4">
                 <div>
-                  <label className="block mb-2">Phone *</label>
+                  <label className="block mb-2">Số điện thoại *</label>
                   <input
                     id="phone"
                     type="text"
@@ -331,7 +331,7 @@ export const FormLogin = () => {
                   />
                 </div>
                 <div>
-                  <label className="block mb-2">Date of Birth *</label>
+                  <label className="block mb-2">Ngày sinh *</label>
                   <input
                     id="date-of-birth"
                     type="date"
@@ -345,7 +345,7 @@ export const FormLogin = () => {
               </div>
               <div className="grid grid-cols-2 gap-4 mb-4">
                 <div>
-                  <label className="block mb-2">Password *</label>
+                  <label className="block mb-2">Mật khẩu *</label>
                   <input
                     id="register-password"
                     type="password"
@@ -357,7 +357,7 @@ export const FormLogin = () => {
                   />
                 </div>
                 <div>
-                  <label className="block mb-2">Confirm Password *</label>
+                  <label className="block mb-2">Nhập lại mật khẩu *</label>
                   <input
                     id="confirm-password"
                     type="password"
@@ -383,8 +383,8 @@ export const FormLogin = () => {
                   className="h-[50px] w-full bg-white rounded-[6px] px-[16px] font-[600] text-[14px] border border-solid border-gray-400"
                   required
                 >
-                  <option value="ROLE_USER">USER</option>
-                  <option value="ROLE_TEACHER">TEACHER</option>
+                  <option value="ROLE_USER">Học viên</option>
+                  <option value="ROLE_TEACHER">Giáo viên</option>
                 </select>
               </div>
 
