@@ -1134,7 +1134,14 @@ public class CourseService {
         if (lesson.getMaterials() == null) {
             lesson.setMaterials(new ArrayList<>());
         }
-        course.getLessons().add(lesson.getId());
+        ArrayList<ObjectId> lessons = course.getLessons();
+        if (lessons == null) {
+            lessons = new ArrayList<>();
+            lessons.add(lesson.getId());
+        }else{
+            lessons.add(lesson.getId());
+        }
+        course.setLessons(lessons);
         Integer timeLimit = course.getTotalTimeLimit();
         timeLimit += lesson.getTimeLimit();
         lesson.setCourseId(course.getId());
@@ -1153,7 +1160,14 @@ public class CourseService {
         if (quizzes.getQuestions() == null || quizzes.getQuestions().isEmpty()) {
             return ResponseEntity.badRequest().body("Quiz must have at least one question");
         }
-        course.getQuizzes().add(quizzes.getId());
+        ArrayList<ObjectId> quizs = course.getQuizzes();
+        if( quizs == null) {
+            quizs = new ArrayList<>();
+            quizs.add(quizzes.getId());
+        }else {
+            quizs.add(quizzes.getId());
+        }
+        course.setQuizzes(quizs);
         Integer timeLimit = course.getTotalTimeLimit();
         timeLimit += quizzes.getTimeLimit();
         quizzes.setCourseId(course.getId());
