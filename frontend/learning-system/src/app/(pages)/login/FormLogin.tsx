@@ -36,12 +36,19 @@ export const FormLogin = () => {
         credentials: "include",
       })
 
-      // const data = await response.json()
+      const data = await response.json()
 
       if (response.ok) {
         window.location.href = "/"
       } else {
-        setError("Sai username hoặc mật khẩu!")
+        if (data.message = "User is not active!")
+        {
+          setError("Tài khoản đã bị khóa!")
+        }
+        else
+        {
+          setError("Sai username hoặc mật khẩu!")
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Đã xảy ra lỗi không xác định!")
