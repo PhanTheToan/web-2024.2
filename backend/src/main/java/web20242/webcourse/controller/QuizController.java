@@ -121,6 +121,9 @@ public class QuizController {
         if (course.getQuizzes() == null) {
             course.setQuizzes(new ArrayList<>());
         }
+        Integer timeLimit = course.getTotalTimeLimit();
+        timeLimit += quizRepository.findById(quizId).orElseThrow(() -> new IllegalArgumentException("Quiz not found")).getTimeLimit();
+        course.setTotalTimeLimit(timeLimit);
         course.getQuizzes().add(quizId);
         courseRepository.save(course);
     }
