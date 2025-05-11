@@ -41,7 +41,7 @@ export const FormLogin = () => {
       if (response.ok) {
         window.location.href = "/"
       } else {
-        if (data.message = "User is not active!")
+        if (data.message == "User is not active!")
         {
           setError("Tài khoản đã bị khóa!")
         }
