@@ -46,10 +46,6 @@ public class UpdateController {
         quizMigrationService.updateEnrollment();
     }
 
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
-    @PutMapping("/update-lesson-quiz")
-    public void updateLessonQuiz(){
-        quizMigrationService.updateLessonQuiz();
-    }
+
 
 }
