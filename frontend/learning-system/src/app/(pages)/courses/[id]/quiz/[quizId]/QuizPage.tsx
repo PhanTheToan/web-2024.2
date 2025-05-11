@@ -207,6 +207,22 @@ const QuizQuestion: React.FC<QuizQuestionProps> = ({
   const isCorrectAnswer = (option: string): boolean => {
     if (!correctAnswer || !isSubmitted) return false;
     
+    // First check if the feedback indicates whether the answer is correct
+    if (feedback !== undefined && feedback !== null) {
+      // If this question is marked as incorrect, check if this option is the correct one
+      if (!feedback.isCorrect) {
+        if (Array.isArray(correctAnswer)) {
+          return correctAnswer.includes(option);
+        } else {
+          return option === correctAnswer;
+        }
+      } else {
+        // If the question is correct, then the selected option is correct if it's selected
+        return isOptionSelected(option);
+      }
+    }
+    
+    // Fallback to direct comparison if no feedback
     if (Array.isArray(correctAnswer)) {
       return correctAnswer.includes(option);
     } else {
@@ -868,15 +884,29 @@ const QuizPage: React.FC = () => {
       const passed = data.passed === true;
       const message = data.message || '';
       
-      // Get the incorrectQuestions array from the response
-      const incorrectQuestions = data.incorrectQuestions || [];
+      // Get the incorrectQuestions array from the response - handle both index-based and string-based formats
+      let incorrectQuestions: (number | string)[] = [];
+      
+      if (data.incorrectQuestions) {
+        // Handle various response formats
+        if (Array.isArray(data.incorrectQuestions)) {
+          incorrectQuestions = data.incorrectQuestions;
+        } else if (typeof data.incorrectQuestions === 'string') {
+          // Handle comma-separated string format if that's what the API returns
+          incorrectQuestions = data.incorrectQuestions.split(',').map((q: string) => {
+            const num = parseInt(q.trim());
+            return isNaN(num) ? q.trim() : num;
+          });
+        }
+      }
+      
       console.log("Incorrect questions:", incorrectQuestions);
       
       // Create a list of feedback items from the incorrectQuestions array
       const feedback = quiz.questions.map((question, index) => {
         // Check if this question is in the incorrectQuestions array
         const isIncorrect = incorrectQuestions.includes(index) || 
-                            incorrectQuestions.includes(question.question);
+                          (typeof question.question === 'string' && incorrectQuestions.includes(question.question));
         
         return {
           questionIndex: index,
