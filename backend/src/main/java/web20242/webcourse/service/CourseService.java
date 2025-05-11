@@ -1128,56 +1128,67 @@ public class CourseService {
         if (lesson.getTitle() == null || lesson.getTitle().isEmpty()) {
             return ResponseEntity.badRequest().body("Title is required");
         }
+
         if (lesson.getTimeLimit() == null || lesson.getTimeLimit() < 0) {
             return ResponseEntity.badRequest().body("Invalid time limit");
         }
+
         if (lesson.getMaterials() == null) {
             lesson.setMaterials(new ArrayList<>());
         }
+
+        lesson.setCourseId(course.getId());
+        lesson.setCreatedAt(LocalDateTime.now());
+        lesson.setUpdateAt(LocalDateTime.now());
+
+        lesson = lessonRepository.save(lesson);
+
         ArrayList<ObjectId> lessons = course.getLessons();
         if (lessons == null) {
             lessons = new ArrayList<>();
-            lessons.add(lesson.getId());
-        }else{
-            lessons.add(lesson.getId());
         }
+        lessons.add(lesson.getId());
         course.setLessons(lessons);
-        Integer timeLimit = course.getTotalTimeLimit();
+
+        Integer timeLimit = course.getTotalTimeLimit() != null ? course.getTotalTimeLimit() : 0;
         timeLimit += lesson.getTimeLimit();
-        lesson.setCourseId(course.getId());
         course.setTotalTimeLimit(timeLimit);
+
         course.setUpdatedAt(LocalDateTime.now());
-        lesson.setUpdateAt(LocalDateTime.now());
-        lesson.setCreatedAt(LocalDateTime.now());
-        lessonRepository.save(lesson);
         courseRepository.save(course);
+
         return ResponseEntity.ok("Lesson created successfully");
     }
     public ResponseEntity<?> createQuiz(Course course, Quizzes quizzes) {
         if (quizzes.getTimeLimit() == null || quizzes.getTimeLimit() < 0) {
             return ResponseEntity.badRequest().body("Invalid time limit");
         }
+
         if (quizzes.getQuestions() == null || quizzes.getQuestions().isEmpty()) {
             return ResponseEntity.badRequest().body("Quiz must have at least one question");
         }
-        ArrayList<ObjectId> quizs = course.getQuizzes();
-        if( quizs == null) {
-            quizs = new ArrayList<>();
-            quizs.add(quizzes.getId());
-        }else {
-            quizs.add(quizzes.getId());
-        }
-        course.setQuizzes(quizs);
-        Integer timeLimit = course.getTotalTimeLimit();
-        timeLimit += quizzes.getTimeLimit();
+
         quizzes.setCourseId(course.getId());
-        course.setTotalTimeLimit(timeLimit);
-        course.setUpdatedAt(LocalDateTime.now());
-        quizzes.setUpdateAt(LocalDateTime.now());
         quizzes.setCreatedAt(LocalDateTime.now());
-        quizzesRepository.save(quizzes);
+        quizzes.setUpdateAt(LocalDateTime.now());
+
+        quizzes = quizzesRepository.save(quizzes);
+
+        ArrayList<ObjectId> quizs = course.getQuizzes();
+        if (quizs == null) {
+            quizs = new ArrayList<>();
+        }
+        quizs.add(quizzes.getId());
+        course.setQuizzes(quizs);
+
+        Integer timeLimit = course.getTotalTimeLimit() != null ? course.getTotalTimeLimit() : 0;
+        timeLimit += quizzes.getTimeLimit();
+        course.setTotalTimeLimit(timeLimit);
+
+        course.setUpdatedAt(LocalDateTime.now());
         courseRepository.save(course);
-        return ResponseEntity.ok("Lesson created successfully");
+
+        return ResponseEntity.ok("Quiz created successfully");
     }
 
     public ResponseEntity<?> updateQuiz(Course course, Quizzes existingQuiz, Quizzes updatedQuiz) {
