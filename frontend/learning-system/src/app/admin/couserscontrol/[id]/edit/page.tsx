@@ -15,8 +15,8 @@ interface CourseData {
   thumbnail: string;
   totalDuration: number; // in minutes, calculated from lessons and quizzes timeLimit
   totalTimeLimit: number; // Total time limit in minutes
-  categories: string[]; // Regular categories
-  specialCategory: string; // For PRIVATE or PUBLIC
+  categories: string[]; // Regular category IDs
+  specialCategory: string; // For PRIVATE or PUBLIC category ID
   teacherId: string;
   teacherName: string; // To display teacher name
   isPopular: boolean; 
@@ -137,7 +137,16 @@ export default function EditCoursePage() {
                 return catName !== 'PRIVATE' && catName !== 'PUBLIC';
               }
             }).map((cat: string | CategoryOrString) => {
-              return typeof cat === 'string' ? cat : (cat?.name || cat?.categoryName || '');
+              const catName = typeof cat === 'string' ? cat : (cat?.name || cat?.categoryName || '');
+              // Find the corresponding category ID
+              const categoryObj = categoriesArray.find((c: {
+                categoryId?: string;
+                categoryName?: string;
+                name?: string;
+              }) => 
+                c.categoryName === catName || c.name === catName
+              );
+              return categoryObj?.categoryId || '';
             })
           : [];
           
@@ -154,9 +163,19 @@ export default function EditCoursePage() {
           });
           
           if (foundSpecialCategory) {
-            specialCategory = typeof foundSpecialCategory === 'string' 
+            const specialCatName = typeof foundSpecialCategory === 'string' 
               ? foundSpecialCategory 
               : (foundSpecialCategory?.name || foundSpecialCategory?.categoryName || '');
+              
+            // Find the corresponding category ID
+            const specialCategoryObj = categoriesArray.find((c: {
+              categoryId?: string;
+              categoryName?: string;
+              name?: string;
+            }) => 
+              c.categoryName === specialCatName || c.name === specialCatName
+            );
+            specialCategory = specialCategoryObj?.categoryId || '';
           }
         }
         
@@ -298,8 +317,11 @@ export default function EditCoursePage() {
       }
       
       // Add POPULAR if isPopular is checked
-      if (courseData.isPopular && !allCategories.includes('POPULAR')) {
-        allCategories.push('POPULAR');
+      if (courseData.isPopular) {
+        const popularCategoryObj = categories.find(cat => cat.name === 'POPULAR');
+        if (popularCategoryObj && popularCategoryObj.id && !allCategories.includes(popularCategoryObj.id)) {
+          allCategories.push(popularCategoryObj.id);
+        }
       }
       
       // Prepare the updated course data
@@ -310,7 +332,7 @@ export default function EditCoursePage() {
         status: courseData.isPublished ? 'ACTIVE' : 'INACTIVE',
         teacherId: courseData.teacherId,
         thumbnail: courseData.thumbnail,
-        categories: allCategories
+        categories: allCategories // Send as categoryIds
       };
       
       // Handle file upload if there's a new thumbnail
@@ -516,7 +538,7 @@ export default function EditCoursePage() {
                                 return null;
                               }
                               
-                              const isSelected = courseData.specialCategory === cat.name;
+                              const isSelected = courseData.specialCategory === cat.id;
                               return (
                                 <div 
                                   key={cat.id || cat.name} 
@@ -525,7 +547,7 @@ export default function EditCoursePage() {
                                   onClick={() => {
                                     setCourseData({
                                       ...courseData,
-                                      specialCategory: isSelected ? '' : cat.name
+                                      specialCategory: isSelected ? '' : cat.id
                                     });
                                   }}
                                 >
@@ -558,7 +580,7 @@ export default function EditCoursePage() {
                                 return null;
                               }
                               
-                              const isSelected = selectedCategories.includes(cat.name);
+                              const isSelected = selectedCategories.includes(cat.id);
                               return (
                                 <div 
                                   key={cat.id || cat.name} 
@@ -566,9 +588,9 @@ export default function EditCoursePage() {
                                     ${isSelected ? 'border-indigo-200 bg-indigo-50' : 'border-gray-200 hover:border-indigo-200 hover:bg-gray-50'}`}
                                   onClick={() => {
                                     if (isSelected) {
-                                      setSelectedCategories(prev => prev.filter(name => name !== cat.name));
+                                      setSelectedCategories(prev => prev.filter(id => id !== cat.id));
                                     } else {
-                                      setSelectedCategories(prev => [...prev, cat.name]);
+                                      setSelectedCategories(prev => [...prev, cat.id]);
                                     }
                                   }}
                                 >
@@ -614,7 +636,8 @@ export default function EditCoursePage() {
                     <div>
                       <div className="text-sm font-medium text-gray-700 mb-2">Loại khóa học:</div>
                       <div className="flex items-center bg-purple-50 text-purple-700 px-3 py-1.5 rounded-full text-sm inline-block mb-2">
-                        {courseData.specialCategory}
+                        {categories.find(cat => cat.id === courseData.specialCategory)?.displayName || 
+                         categories.find(cat => cat.id === courseData.specialCategory)?.name}
                         <button
                           type="button"
                           className="ml-1.5 text-purple-500 hover:text-purple-700"
@@ -638,23 +661,26 @@ export default function EditCoursePage() {
                     <div>
                       <div className="text-sm font-medium text-gray-700 mb-2">Danh mục đã chọn:</div>
                       <div className="flex flex-wrap gap-2">
-                        {selectedCategories.map(categoryName => (
-                          <div 
-                            key={categoryName}
-                            className="flex items-center bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded-full text-sm"
-                          >
-                            {categoryName}
-                            <button
-                              type="button"
-                              className="ml-1.5 text-indigo-500 hover:text-indigo-700"
-                              onClick={() => setSelectedCategories(prev => prev.filter(name => name !== categoryName))}
+                        {selectedCategories.map(categoryId => {
+                          const category = categories.find(cat => cat.id === categoryId);
+                          return (
+                            <div 
+                              key={categoryId}
+                              className="flex items-center bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded-full text-sm"
                             >
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                              </svg>
-                            </button>
-                          </div>
-                        ))}
+                              {category?.displayName || category?.name}
+                              <button
+                                type="button"
+                                className="ml-1.5 text-indigo-500 hover:text-indigo-700"
+                                onClick={() => setSelectedCategories(prev => prev.filter(id => id !== categoryId))}
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                                </svg>
+                              </button>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
