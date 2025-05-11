@@ -43,7 +43,7 @@ export const Footer = () => {
                                     Trần Thị Minh Thu
                                 </Link>
                                 <Link href="#" className="font-[400] text-[16px] text-black hover:text-[#FF782D]">
-                                    Nguyễn Trí Trai
+                                    Nguyễn Chí Trai
                                 </Link>
                             </div>
                         </div>
