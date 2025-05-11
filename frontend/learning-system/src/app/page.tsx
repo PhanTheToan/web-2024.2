@@ -117,6 +117,7 @@ export default function Home() {
             console.log("Dữ liệu từ API");
           }
         })
+        // thu
         .catch((err) => {
           console.error("Lỗi API:", err);
           // setError("Dữ liệu phản hồi hiển thị là tạm thời.");
